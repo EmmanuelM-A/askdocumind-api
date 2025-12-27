@@ -3,7 +3,7 @@
   <component name="Black">
     <option name="enabledOnSave" value="true" />
     <option name="pathToExecutable" value="C:\Users\maduk\AppData\Local\Programs\Python\Python312\Scripts\black.exe" />
-    <option name="sdkName" value="Python 3.13 (backend)" />
+    <option name="sdkName" value="Python 3.13 virtualenv at C:\Users\maduk\Documents\Programming\Personal Projects\DocuChat\docuchat-backend\.venv" />
   </component>
   <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.13 virtualenv at C:\Users\maduk\Documents\Programming\Personal Projects\DocuChat\docuchat-backend\.venv" project-jdk-type="Python SDK" />
 </project>

@@ -76,6 +76,11 @@ class RAGChatbot:
 
         self.vector_store.delete_vector_indexes(index_chat_ids)
 
+    def chat_exists(self, index_chat_id: str) -> bool:
+        """Checks if a chat exists by its index ID."""
+
+        return self.vector_store.vector_index_exists(index_chat_id)
+
     # ========================== VECTOR METHODS ==========================
 
     def process_and_save_vectors(self, files: List[UploadFile], index_id: str) -> None:

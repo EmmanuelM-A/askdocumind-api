@@ -39,8 +39,12 @@ class CoreAppSettings(BaseSettings):
     SUPPORTED_VERSIONS: List[str] = Field(default=["1"])
     DEFAULT_VERSION: str = Field(default="1")
 
+
+    MIN_QUERY_LENGTH: int = Field(
+        default=100, json_schema_extra={"env": "MIN_QUERY_LENGTH"}
+    )
     MAX_QUERY_LENGTH: int = Field(
-        default=1000, json_schema_extra={"env": "MAX_QUERY_LENGTH"}
+        default=2000, json_schema_extra={"env": "MAX_QUERY_LENGTH"}
     )  # TODO: ADD TO ENV
     IS_TRUNCATION_ENABLED: bool = Field(
         default=False, json_schema_extra={"env": "IS_QUERY_TRUNCATION_ENABLED"}

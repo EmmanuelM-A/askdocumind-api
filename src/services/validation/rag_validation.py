@@ -8,6 +8,9 @@ import html
 from typing import Optional, Tuple, List
 from urllib.parse import urlparse
 
+from pydantic import BaseModel, Field, validator, field_validator
+from sqlalchemy import UUID
+
 from src.components.ingestion.document import FileDocument
 from src.config.configs import settings
 from src.errors.custom_exceptions import throw_unprocessable_entity_error
@@ -128,3 +131,30 @@ def validate_document_content(
             return False, None
 
     return True, content
+
+
+class ChatRequest(BaseModel):
+    """
+    Request model for chat interactions.
+    """
+
+    user_query: str = Field(
+        ...,
+        min_length=settings.app.MIN_QUERY_LENGTH,
+        max_length=settings.app.MAX_QUERY_LENGTH,
+        description="The user's chat query",
+    )
+    chat_id: UUID = Field(..., description="The chat session identifier")
+    web_search_enabled: bool = Field(
+        False, description="Flag to enable web search for the query"
+    )
+
+    @field_validator("user_query")
+    @classmethod
+    def validate_query(cls, v: str) -> str:
+        """Ensure query is not just whitespace."""
+
+        if not v.strip():
+            raise ValueError("user_query cannot be empty or whitespace")
+
+        return v.strip()
