@@ -60,7 +60,7 @@ class DocumentRepository(DatabaseRepository[Document]):
 
     async def update(
         self, entity_id: str, new_entity_data: Document
-    ) -> Optional[Document]:
+    ) -> Optional[Document]:  # TODO: COMEBACK TO THIS
         """
         Update an existing document.
 

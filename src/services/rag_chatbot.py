@@ -14,23 +14,23 @@ from src.utils.api_responses import SuccessResponseModel
 
 
 class ChatbotService:
+    """Service class for RAG chatbot interactions."""
+
     def __init__(self):
         self.chat_session_repo = get_database_repository(ChatSession)
         self.chat_message_repo = get_database_repository(ChatMessage)
         self.chatbot = get_chatbot()
 
-    def handle_chat(self, request: ChatRequest) -> SuccessResponseModel:
+    async def handle_chat(self, request: ChatRequest) -> SuccessResponseModel:
         """Handles a chat request."""
 
-        if not self.chat_session_repo.exists(
-            str(request.chat_id)
-        ):  # TODO CHANGE str ids to UUID
+        if not await self.chat_session_repo.exists(str(request.chat_id)):
             throw_not_found_error(
                 message=f"Chat session with ID {request.chat_id} not found.",
                 error_code="CHAT_SESSION_NOT_FOUND",
             )
 
-        if not self.chatbot.chat_exists(index_chat_id=request.chat_id):
+        if not self.chatbot.chat_exists(index_chat_id=str(request.chat_id)):
             throw_not_found_error(
                 message=f"Chat with ID {request.chat_id} not found in vector store.",
                 error_code="CHAT_NOT_FOUND_IN_VECTOR_STORE",
@@ -38,7 +38,7 @@ class ChatbotService:
 
         response = self.chatbot.process_query(
             query=request.user_query,
-            index_id=request.chat_id,
+            index_id=str(request.chat_id),
             web_search_enabled=request.web_search_enabled,
         )
 
@@ -54,15 +54,12 @@ class ChatbotService:
             content=response["answer"],
         )
 
-        try:  # TODO: TRANSACTION MANAGEMENT + ASYNC + BULK INSERT
-            self.chat_message_repo.create(user_query_chat_message)
-            self.chat_message_repo.create(assistant_response_chat_message)
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
-            throw_server_error(
-                message="Failed to store chat messages in the database.",
-                error_code="CHAT_MESSAGE_STORAGE_FAILED",
-                stack_trace=str(e),
-            )
+        await self.chat_message_repo.create_many(
+            [
+                user_query_chat_message,
+                assistant_response_chat_message,
+            ]
+        )
 
         return SuccessResponseModel(
             message="The chat query was processed successfully.",

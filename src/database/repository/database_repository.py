@@ -12,6 +12,10 @@ abstract methods to interact with the underlying persistence layer.
 
 from abc import ABC, abstractmethod
 from typing import TypeVar, Generic, Optional
+from uuid import UUID
+
+from sqlalchemy import delete
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.database.connection import get_database_connection
 
@@ -45,11 +49,11 @@ class DatabaseRepository(ABC, Generic[T]):
         return self._db
 
     @abstractmethod
-    async def create(self, entity_data: T) -> str:
+    async def create(self, entity: T) -> str:
         """
         Persist `entity_data` and return a dictionary representing the created entity.
 
-        :param entity_data: The entity payload to create.
+        :param entity: The entity payload to create.
         :return: Dictionary representation of the created entity (may include generated id).
         """
         raise NotImplementedError
@@ -104,3 +108,28 @@ class DatabaseRepository(ABC, Generic[T]):
         :return: The count of entities matching the filter.
         """
         raise NotImplementedError
+
+    async def create_many(self, entities: list[T]) -> list[T]:
+        """
+        Persist multiple entities in a batch operation.
+
+        :param entities: List of entity payloads to create.
+        :return: List of identifiers for the created entities.
+        """
+
+        async with self._db.get_session() as session:
+            session.add_all(entities)
+            await session.flush()
+            return entities
+
+    async def delete_many(self, entity_ids: list[UUID]) -> int:
+        """
+        Delete multiple entities and return the number of deleted entities.
+
+        :param entity_ids: List of unique identifiers of entities to delete.
+        :return: The number of entities deleted.
+        """
+
+        async with self._db.get_session() as session:
+            result = await session.execute(delete(T).where(T.id.in_(entity_ids)))
+            return result.rowcount
