@@ -1,5 +1,5 @@
 """
-Main entry point to start the ASGI server using Uvicorn.
+Main entry point to start the API server using Uvicorn.
 """
 
 import uvicorn

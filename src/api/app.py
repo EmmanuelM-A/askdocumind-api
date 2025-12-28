@@ -7,6 +7,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from src.api.routes.chat_session_routes import chat_session_router
+from src.api.routes.document_uploads_routes import document_upload_router
+from src.api.routes.rag_chatbot_routes import rag_chatbot_router
 from src.database.connection import get_database_connection
 from src.api.routes.health_check_routes import health_check_router
 from src.api.middleware.exception_handler import setup_exception_handlers
@@ -33,7 +36,10 @@ def create_app():
     app = FastAPI(title="DocuChatAPI", version="1.0.0", lifespan=lifespan)
 
     # --- Routers ---
-    app.include_router(prefix="/api", router=health_check_router)
+    app.include_router(prefix="/api/v1", router=health_check_router)
+    app.include_router(prefix="/api/v1", router=document_upload_router)
+    app.include_router(prefix="/api/v1", router=chat_session_router)
+    app.include_router(prefix="/api/v1", router=rag_chatbot_router)
 
     # --- Exception Handlers ---
     setup_exception_handlers(app)
