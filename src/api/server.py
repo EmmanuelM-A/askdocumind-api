@@ -5,7 +5,7 @@ Main entry point to start the ASGI server using Uvicorn.
 import uvicorn
 
 from src.config.configs import settings
-from src.app import create_app
+from src.api.app import create_app
 
 app = create_app()
 

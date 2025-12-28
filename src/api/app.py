@@ -9,8 +9,7 @@ from fastapi import FastAPI
 
 from src.database.connection import get_database_connection
 from src.api.routes.health_check_routes import health_check_router
-from src.config.configs import settings
-from src.middleware.exception_handler import setup_exception_handlers
+from src.api.middleware.exception_handler import setup_exception_handlers
 
 
 @asynccontextmanager
