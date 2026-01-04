@@ -15,7 +15,6 @@ from src.components.chatbot.core import RAGChatbot
 from src.components.ingestion.document import FileDocument
 from src.config.configs import settings
 from src.database.models import ChatSession
-from src.database.repository.chat_session_repository import ChatSessionRepository
 from src.database.repository.database_repository import DatabaseRepository
 from src.errors.custom_exceptions import (
     throw_unprocessable_entity_error,
@@ -27,24 +26,39 @@ from src.logger.base_logger import BaseLogger
 
 
 def sanitize_query(query: str, logger: BaseLogger) -> str:
-    """Sanitize user query and return warnings if any."""
+    """Sanitize user query and return the sanitized string.
 
-    if not query:
+    The function is idempotent: repeated calls produce the same output. It
+    performs a canonicalization (unescape) -> cleaning -> escape pipeline and
+    only logs when the canonicalized value changed (so nested callers won't
+    produce duplicate log entries).
+    """
+
+    # Basic presence check
+    if query is None:
         throw_unprocessable_entity_error(
             message="Query cannot be empty", error_code="EMPTY_QUERY"
         )
 
-    # Remove potential script tags and HTML
-    query = html.escape(query)
+    # Normalize input to string and ensure not empty/whitespace
+    raw = str(query)
+    if not raw.strip():
+        throw_unprocessable_entity_error(
+            message="Query cannot be empty", error_code="EMPTY_QUERY"
+        )
 
-    # Remove any remaining HTML tags
-    query = re.sub(r"<[^>]+>", "", query)
+    # Canonicalize HTML entities so we operate on raw text consistently.
+    canonical = html.unescape(raw)
 
-    # Remove excessive whitespace
-    query = re.sub(r"\s+", " ", query).strip()
+    # Remove HTML tags
+    cleaned = re.sub(r"<[^>]+>", "", canonical)
 
-    # Check for suspicious patterns
-    suspicious_patterns = [  # TODO: EXPAND THIS LIST AND STORE ELSEWHERE
+    # Normalize whitespace
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+
+    # TODO: Add more sophisticated XSS/malicious content detection in separate file
+    # Remove suspicious patterns (without logging per pattern to avoid noise)
+    suspicious_patterns = [
         r"<script[^>]*>",
         r"javascript:",
         r"data:text/html",
@@ -53,19 +67,26 @@ def sanitize_query(query: str, logger: BaseLogger) -> str:
         r"window\.",
     ]
 
+    changed = False
     for pattern in suspicious_patterns:
-        if re.search(pattern, query, re.IGNORECASE):
-            logger.warning("Potentially malicious content removed from query")
-            query = re.sub(pattern, "", query, flags=re.IGNORECASE)
+        if re.search(pattern, cleaned, re.IGNORECASE):
+            cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE)
+            changed = True
 
-    # Truncate if too long
-    if len(query) > settings.vector.MAX_QUERY_LENGTH:
-        query = query[: settings.vector.MAX_QUERY_LENGTH]
-        logger.warning(
-            f"Query truncated to {settings.vector.MAX_QUERY_LENGTH} characters"
-        )
+    # Truncate if too long (operate on the canonical cleaned text length)
+    max_len = settings.vector.MAX_QUERY_LENGTH
+    if max_len and len(cleaned) > max_len:
+        cleaned = cleaned[:max_len]
+        changed = True
 
-    return query
+    # Log a single warning only if something was actually removed/truncated
+    if changed:
+        logger.warning("Potentially malicious content removed or query truncated")
+
+    # Escape once to produce a safe string for downstream usage
+    result = html.escape(cleaned)
+
+    return result
 
 
 def validate_url(url: str) -> bool:
@@ -187,13 +208,10 @@ class ChatRequest(BaseModel):
     )
 
     @field_validator("user_query", mode="before")
-    def validate_query(cls, v: str) -> str:
+    def validate_query(self, value: str) -> str:
         """Ensure query is not just whitespace."""
 
-        if not v.strip():
-            raise ValueError("user_query cannot be empty or whitespace")
-
-        return v.strip()
+        return sanitize_query(query=value, logger=BaseLogger(__name__))
 
 
 class UploadDocumentsRequest(BaseModel):

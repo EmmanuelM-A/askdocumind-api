@@ -15,7 +15,6 @@ from src.config.configs import settings
 from src.config.constants import Source
 from src.errors.custom_exceptions import throw_not_found_error, throw_server_error
 from src.logger.base_logger import BaseLogger
-from src.services.validation.rag_validation import sanitize_query
 
 
 class RAGChatbot:
@@ -130,13 +129,13 @@ class RAGChatbot:
     # ========================== QUERY METHODS ==========================
 
     def process_query(
-        self, query: str, index_id: str, web_search_enabled: bool = False
+        self, sanitized_query: str, index_id: str, web_search_enabled: bool = False
     ) -> dict:
         """
         Processes a user query by searching the vector store and optionally
         performing a web search if no relevant results are found.
 
-        :param query: The user query string.
+        :param sanitized_query: The user query string (assumed to be sanitized).
         :param index_id: The ID of the index to search.
         :param web_search_enabled: The flag to enable web search if no results
             are found in the vector store.
@@ -146,8 +145,6 @@ class RAGChatbot:
         self._check_if_index_exist(index_id)
 
         index, metadata = self.vector_store.load_vectors(index_id)
-
-        sanitized_query = sanitize_query(query, self._logger)
 
         results = self.query_handler.search_for_vector(sanitized_query, index, metadata)
 
