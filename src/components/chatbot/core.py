@@ -29,6 +29,15 @@ class RAGChatbot:
         query_handler: QueryHandler,
         web_searcher: WebSearcher,
     ) -> None:
+        """
+        Initializes the RAGChatbot with its components.
+
+        :param vector_store: The vector store instance.
+        :param document_processor: The document processor instance.
+        :param embedder: The embedder instance.
+        :param query_handler: The query handler instance.
+        :param web_searcher: The web searcher instance.
+        """
         self.vector_store = vector_store
         self.document_processor = document_processor
         self.embedder = embedder
@@ -123,6 +132,16 @@ class RAGChatbot:
     def process_query(
         self, query: str, index_id: str, web_search_enabled: bool = False
     ) -> dict:
+        """
+        Processes a user query by searching the vector store and optionally
+        performing a web search if no relevant results are found.
+
+        :param query: The user query string.
+        :param index_id: The ID of the index to search.
+        :param web_search_enabled: The flag to enable web search if no results
+            are found in the vector store.
+        :return: A dictionary containing the answer, sources, and source type.
+        """
 
         self._check_if_index_exist(index_id)
 

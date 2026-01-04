@@ -15,7 +15,8 @@ from typing import TypeVar, Generic, Optional
 from uuid import UUID
 
 from sqlalchemy import delete
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+
+# REFACTOR: USE UUID INSTEAD OF STR FOR ENTITY IDS
 
 from src.database.connection import get_database_connection
 

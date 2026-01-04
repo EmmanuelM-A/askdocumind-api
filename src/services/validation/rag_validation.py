@@ -2,18 +2,25 @@
 Handles input validation for user queries, file paths, and URLs.
 """
 
-import os
 import re
 import html
 from typing import Optional, Tuple, List
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field, validator, field_validator
+from fastapi import UploadFile
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import UUID
 
+from src.components.chatbot.core import RAGChatbot
 from src.components.ingestion.document import FileDocument
 from src.config.configs import settings
-from src.errors.custom_exceptions import throw_unprocessable_entity_error
+from src.database.models import ChatSession
+from src.database.repository.chat_session_repository import ChatSessionRepository
+from src.database.repository.database_repository import DatabaseRepository
+from src.errors.custom_exceptions import (
+    throw_unprocessable_entity_error,
+    throw_not_found_error,
+)
 from src.logger.base_logger import BaseLogger
 
 # TODO: USE PYDANTIC FOR VALIDATION?
@@ -133,6 +140,36 @@ def validate_document_content(
     return True, content
 
 
+async def check_if_chat_exists(
+    chat_id: UUID,
+    chat_session_repo: DatabaseRepository[ChatSession],
+    chatbot: RAGChatbot,
+) -> None:
+    """
+    Check if the chat session and corresponding chat vector store exist.
+
+    Args:
+        chat_id: The UUID of the chat session to check.
+        chat_session_repo: The repository to check chat session existence.
+        chatbot: The RAGChatbot instance to check vector store existence.
+
+    Raises:
+        NotFoundError: If the chat session or vector store does not exist.
+    """
+
+    if not await chat_session_repo.exists(chat_id):
+        throw_not_found_error(
+            message=f"Chat session with ID {chat_id} not found.",
+            error_code="CHAT_SESSION_NOT_FOUND",
+        )
+
+    if not chatbot.chat_exists(index_chat_id=str(chat_id)):
+        throw_not_found_error(
+            message=f"Chat with ID {chat_id} not found in vector store.",
+            error_code="CHAT_NOT_FOUND_IN_VECTOR_STORE",
+        )
+
+
 class ChatRequest(BaseModel):
     """
     Request model for chat interactions.
@@ -149,8 +186,7 @@ class ChatRequest(BaseModel):
         False, description="Flag to enable web search for the query"
     )
 
-    @field_validator("user_query")
-    @classmethod
+    @field_validator("user_query", mode="before")
     def validate_query(cls, v: str) -> str:
         """Ensure query is not just whitespace."""
 
@@ -158,3 +194,51 @@ class ChatRequest(BaseModel):
             raise ValueError("user_query cannot be empty or whitespace")
 
         return v.strip()
+
+
+class UploadDocumentsRequest(BaseModel):
+    """
+    Request model for document uploads.
+    """
+
+    documents: List[UploadFile] = Field(
+        ...,
+        description="List of file documents to be uploaded",
+        min_length=1,
+        max_length=settings.files.MAX_FILES_PER_UPLOAD,
+    )
+    chat_id: UUID = Field(..., description="The chat session identifier")
+
+
+class FetchUploadedDocumentsRequest(BaseModel):
+    """
+    Request model for fetching uploaded documents.
+    """
+
+
+class CreateChatSessionRequest(BaseModel):
+    """
+    Request model for creating a new chat session.
+    """
+
+
+class DeleteChatSessionRequest(BaseModel):
+    """
+    Request model for deleting a chat session.
+    """
+
+    chat_id: UUID = Field(..., description="The chat session identifier")
+
+
+class ListChatSessionsRequest(BaseModel):
+    """
+    Request model for listing chat sessions.
+    """
+
+
+class FetchChatHistoryRequest(BaseModel):
+    """
+    Request model for fetching chat history.
+    """
+
+    chat_id: UUID = Field(..., description="The chat session identifier")

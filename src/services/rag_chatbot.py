@@ -2,13 +2,11 @@
 Service module for handling RAG chatbot interactions.
 """
 
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-
 from src.components.chatbot.chatbot_factory import get_chatbot
 from src.config.constants import ChatMessageRole
 from src.database.models import ChatSession, ChatMessage
 from src.database.repository.database_repository_factory import get_database_repository
-from src.errors.custom_exceptions import throw_not_found_error, throw_server_error
+from src.errors.custom_exceptions import throw_not_found_error
 from src.services.validation.rag_validation import ChatRequest
 from src.utils.api_responses import SuccessResponseModel
 

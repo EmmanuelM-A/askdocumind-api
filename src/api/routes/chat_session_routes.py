@@ -32,6 +32,8 @@ async def delete_chat_session():
     pass
 
 
-@chat_session_router.get("/{session_id}/messages", summary="Get chat messages for a session")
+@chat_session_router.get(
+    "/{session_id}/messages", summary="Get chat messages for a session"
+)
 async def get_chat_messages():
     pass
