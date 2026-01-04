@@ -64,7 +64,6 @@ class Document(Base):
     )
     filename = Column(String(255), nullable=False)
     file_size = Column(BigInteger, nullable=False)
-    content = Column(Text, nullable=False)
     vector_id = Column(String(255), nullable=True)
     processing_status = Column(
         Enum(ProcessingStatus), default=ProcessingStatus.PENDING, nullable=False

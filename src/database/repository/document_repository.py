@@ -2,14 +2,15 @@
 Repository module for document entities.
 """
 
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, update
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 from src.database.models import Document
 from src.database.repository.database_repository import DatabaseRepository
+from src.config.constants import ProcessingStatus
 
 
 class DocumentRepository(DatabaseRepository[Document]):
@@ -37,12 +38,16 @@ class DocumentRepository(DatabaseRepository[Document]):
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
-    async def get(self, entity_id: UUID) -> Optional[Document]:
+    async def get(
+        self, entity_id: Optional[UUID] = None
+    ) -> Optional[Document] | List[Document]:
         """
-        Retrieve a document by its ID.
+        Retrieve a document by its ID, or all documents if no ID is provided.
 
-        :param entity_id: The ID of the document to retrieve.
-        :return: The Document entity if found, None otherwise.
+        :param entity_id: Optional UUID of the document to retrieve. If None,
+                          all Document rows are returned as a list.
+        :return: A single Document when entity_id is provided (or None if not found),
+                 otherwise a list of Document instances.
 
         :raises SQLAlchemyError: If a database error occurs during retrieval.
         :raises IntegrityError: If a data integrity violation occurs.
@@ -50,19 +55,21 @@ class DocumentRepository(DatabaseRepository[Document]):
         """
         try:
             async with self._db.get_session() as session:
-                result = await session.execute(
-                    select(Document).where(Document.id == entity_id)
-                )
-                return result.scalar_one_or_none()
+                if entity_id is None:
+                    result = await session.execute(select(Document))
+                    return result.scalars().all()
+
+                # Use session.get for primary-key lookup (avoids SQL expression typing warnings)
+                return await session.get(Document, entity_id)
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
     async def update(
         self, entity_id: UUID, new_entity_data: Document
-    ) -> Optional[Document]:  # TODO: COMEBACK TO THIS
+    ) -> Optional[Document]:
         """
-        Update an existing document.
+        Update an existing document. Only writable fields are changed.
 
         :param entity_id: The ID of the document to update.
         :param new_entity_data: The new document data to apply.
@@ -74,21 +81,33 @@ class DocumentRepository(DatabaseRepository[Document]):
         """
         try:
             async with self._db.get_session() as session:
-                result = await session.execute(
-                    select(Document).where(Document.id == entity_id)
-                )
-                existing = result.scalar_one_or_none()
+                # Use session.get to fetch by primary key and avoid SQL expression typing issues
+                existing = await session.get(Document, entity_id)
 
                 if not existing:
                     return None
 
-                # Update allowed fields
-                if hasattr(new_entity_data, "title"):
-                    existing.title = new_entity_data.title
-                if hasattr(new_entity_data, "content"):
-                    existing.content = new_entity_data.content
-                if hasattr(new_entity_data, "metadata"):
-                    existing.metadata = new_entity_data.metadata
+                # Update allowed fields for Document
+                if (
+                    hasattr(new_entity_data, "filename")
+                    and new_entity_data.filename is not None
+                ):
+                    existing.filename = new_entity_data.filename
+                if (
+                    hasattr(new_entity_data, "file_size")
+                    and new_entity_data.file_size is not None
+                ):
+                    existing.file_size = new_entity_data.file_size
+                if (
+                    hasattr(new_entity_data, "vector_id")
+                    and new_entity_data.vector_id is not None
+                ):
+                    existing.vector_id = new_entity_data.vector_id
+                if (
+                    hasattr(new_entity_data, "processing_status")
+                    and new_entity_data.processing_status is not None
+                ):
+                    existing.processing_status = new_entity_data.processing_status
 
                 await session.flush()
                 return existing
@@ -109,10 +128,12 @@ class DocumentRepository(DatabaseRepository[Document]):
         """
         try:
             async with self._db.get_session() as session:
-                result = await session.execute(
-                    delete(Document).where(Document.id == entity_id)
-                )
-                return result.rowcount > 0
+                existing = await session.get(Document, entity_id)
+                if not existing:
+                    return False
+                await session.delete(existing)
+                await session.flush()
+                return True
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
@@ -130,12 +151,8 @@ class DocumentRepository(DatabaseRepository[Document]):
         """
         try:
             async with self._db.get_session() as session:
-                result = await session.execute(
-                    select(func.count())
-                    .select_from(Document)
-                    .where(Document.id == entity_id)
-                )
-                return result.scalar_one() > 0
+                existing = await session.get(Document, entity_id)
+                return existing is not None
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
@@ -153,12 +170,39 @@ class DocumentRepository(DatabaseRepository[Document]):
         """
         try:
             async with self._db.get_session() as session:
-                stmt = select(func.count()).select_from(Document)
+                # Use func.count(Document.id) to avoid typing issues with func.count()
+                # type: ignore[call-arg]
+                stmt = select(func.count(Document.id)).select_from(Document)  # type: ignore
                 if filter_id:
                     # Adjust based on your Document model's actual field
-                    stmt = stmt.where(Document.owner_id == filter_id)
+                    stmt = stmt.where(Document.owner_id == filter_id)  # type: ignore[arg-type]
                 result = await session.execute(stmt)
                 return result.scalar_one()
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise e
+
+    async def bulk_update_processing_status(
+        self, entity_ids: List[UUID], status: ProcessingStatus
+    ) -> int:
+        """
+        Bulk update processing_status for multiple documents.
+
+        :param entity_ids: List of document UUIDs to update.
+        :param status: ProcessingStatus enum value to set.
+        :return: Number of rows updated.
+        """
+        if not entity_ids:
+            return 0
+
+        try:
+            async with self._db.get_session() as session:
+                result = await session.execute(
+                    update(Document)
+                    .where(Document.id.in_(entity_ids))
+                    .values(processing_status=status)
+                )
+                return result.rowcount
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e

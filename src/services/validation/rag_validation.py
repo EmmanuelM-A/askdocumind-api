@@ -233,6 +233,27 @@ class FetchUploadedDocumentsRequest(BaseModel):
     Request model for fetching uploaded documents.
     """
 
+    document_ids: Optional[List[UUID]] = Field(
+        None,
+        description="Optional list of document IDs to retrieve. "
+        "If not provided, all documents will be fetched.",
+        min_length=1,
+    )
+    chat_id: UUID = Field(..., description="The chat session identifier")
+
+
+class FetchDocumentMetadataRequest(BaseModel):
+    """
+    Request model for fetching document metadata.
+    """
+
+    document_ids: List[UUID] = Field(
+        ...,
+        description="List of document IDs to retrieve metadata for",
+        min_length=1,
+    )
+    chat_id: UUID = Field(..., description="The chat session identifier")
+
 
 class CreateChatSessionRequest(BaseModel):
     """

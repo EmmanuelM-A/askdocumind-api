@@ -5,9 +5,6 @@ This module defines a generic `DatabaseRepository` abstract base class that
 establishes a minimal CRUD contract for repository implementations. It also
 provides explicit subclasses for common domain repositories used across the
 project.
-
-Implementations should inherit from `DatabaseRepository[T]` and implement all
-abstract methods to interact with the underlying persistence layer.
 """
 
 from abc import ABC, abstractmethod
@@ -29,7 +26,8 @@ class DatabaseRepository(ABC, Generic[T]):
 
     Methods:
     - create: persist a new entity and return a representation (usually a dict).
-    - get: retrieve an entity by its identifier.
+    - get: retrieve an entity by its identifier or all entities when no id is
+      provided.
     - update: apply changes to an existing entity and return a representation.
     - delete: remove an entity and return an identifier or confirmation.
     - exists: check whether an entity with the given id exists.
@@ -66,12 +64,15 @@ class DatabaseRepository(ABC, Generic[T]):
         raise NotImplementedError
 
     @abstractmethod
-    async def get(self, entity_id: UUID) -> Optional[T]:
+    async def get(self, entity_id: Optional[UUID] = None) -> Optional[T] | List[T]:
         """
-        Retrieve an entity by its identifier.
+        Retrieve an entity by its identifier, or return all entities when no
+        identifier is provided.
 
-        :param entity_id: The unique identifier of the entity to retrieve.
-        :return: The entity object corresponding to `entity_id`.
+        :param entity_id: Optional UUID of the entity to retrieve. If None,
+                          implementations should return a list of all entities.
+        :return: The entity object corresponding to `entity_id`, or a list of
+                 entities when `entity_id` is None.
         """
         raise NotImplementedError
 
