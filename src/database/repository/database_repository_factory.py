@@ -13,9 +13,9 @@ from src.database.repository.chat_message_repository import ChatMessageRepositor
 T = TypeVar("T", bound=Base)
 
 _database_repositories = {
-    Document: DocumentRepository(),
-    ChatSession: ChatSessionRepository(),
-    ChatMessage: ChatMessageRepository(),
+    Document: DocumentRepository(model=Document),
+    ChatSession: ChatSessionRepository(model=ChatSession),
+    ChatMessage: ChatMessageRepository(model=ChatMessage),
 }
 
 

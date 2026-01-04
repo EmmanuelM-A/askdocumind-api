@@ -18,7 +18,7 @@ class ChatMessageRepository(DatabaseRepository[ChatMessage]):
     Repository specialization for chat message entities.
     """
 
-    async def create(self, entity: ChatMessage) -> str:
+    async def create(self, entity: ChatMessage) -> UUID:
         """
         Create a new chat message entry in the database.
 
@@ -34,12 +34,12 @@ class ChatMessageRepository(DatabaseRepository[ChatMessage]):
             async with self._db.get_session() as session:
                 session.add(entity)
                 await session.flush()  # ensures ID is generated
-                return str(entity.id)
+                return entity.id
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
-    async def get(self, entity_id: str) -> Optional[ChatMessage]:
+    async def get(self, entity_id: UUID) -> Optional[ChatMessage]:
         """
         Retrieve a chat message entry by its ID.
 
@@ -54,7 +54,7 @@ class ChatMessageRepository(DatabaseRepository[ChatMessage]):
         try:
             async with self._db.get_session() as session:
                 result = await session.execute(
-                    select(ChatMessage).where(ChatMessage.id == UUID(entity_id))
+                    select(ChatMessage).where(ChatMessage.id == entity_id)
                 )
                 return result.scalar_one_or_none()
 
@@ -62,7 +62,7 @@ class ChatMessageRepository(DatabaseRepository[ChatMessage]):
             raise e
 
     async def update(
-        self, entity_id: str, new_entity_data: ChatMessage
+        self, entity_id: UUID, new_entity_data: ChatMessage
     ) -> Optional[ChatMessage]:
         """
         Update an existing chat message.
@@ -79,7 +79,7 @@ class ChatMessageRepository(DatabaseRepository[ChatMessage]):
         try:
             async with self._db.get_session() as session:
                 result = await session.execute(
-                    select(ChatMessage).where(ChatMessage.id == UUID(entity_id))
+                    select(ChatMessage).where(ChatMessage.id == entity_id)
                 )
                 existing = result.scalar_one_or_none()
 
@@ -95,7 +95,7 @@ class ChatMessageRepository(DatabaseRepository[ChatMessage]):
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
-    async def delete(self, entity_id: str) -> str:
+    async def delete(self, entity_id: UUID) -> bool:
         """
         Delete a chat message by its ID.
 
@@ -110,14 +110,14 @@ class ChatMessageRepository(DatabaseRepository[ChatMessage]):
         try:
             async with self._db.get_session() as session:
                 result = await session.execute(
-                    delete(ChatMessage).where(ChatMessage.id == UUID(entity_id))
+                    delete(ChatMessage).where(ChatMessage.id == entity_id)
                 )
                 return result.rowcount > 0
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
-    async def exists(self, entity_id: str) -> bool:
+    async def exists(self, entity_id: UUID) -> bool:
         """
         Check if a chat message exists.
 
@@ -134,14 +134,14 @@ class ChatMessageRepository(DatabaseRepository[ChatMessage]):
                 result = await session.execute(
                     select(func.count())
                     .select_from(ChatMessage)
-                    .where(ChatMessage.id == UUID(entity_id))
+                    .where(ChatMessage.id == entity_id)
                 )
                 return result.scalar_one() > 0
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
-    async def count(self, filter_id: Optional[str]) -> int:
+    async def count(self, filter_id: Optional[UUID]) -> int:
         """
         Count total chat messages, optionally filtered by chat session ID.
 
@@ -157,7 +157,7 @@ class ChatMessageRepository(DatabaseRepository[ChatMessage]):
             async with self._db.get_session() as session:
                 stmt = select(func.count()).select_from(ChatMessage)
                 if filter_id:
-                    stmt = stmt.where(ChatMessage.session_id == UUID(filter_id))
+                    stmt = stmt.where(ChatMessage.session_id == filter_id)
                 result = await session.execute(stmt)
                 return result.scalar_one()
 

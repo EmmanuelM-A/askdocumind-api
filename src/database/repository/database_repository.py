@@ -11,16 +11,16 @@ abstract methods to interact with the underlying persistence layer.
 """
 
 from abc import ABC, abstractmethod
-from typing import TypeVar, Generic, Optional
+from typing import TypeVar, Generic, Optional, Type, List
 from uuid import UUID
 
 from sqlalchemy import delete
 
-# REFACTOR: USE UUID INSTEAD OF STR FOR ENTITY IDS
-
 from src.database.connection import get_database_connection
+from src.database.models import Base
 
-T = TypeVar("T")
+# Type variable for the model
+T = TypeVar("T", bound=Base)
 
 
 class DatabaseRepository(ABC, Generic[T]):
@@ -37,8 +37,14 @@ class DatabaseRepository(ABC, Generic[T]):
     Concrete implementations must implement all abstract methods.
     """
 
-    def __init__(self):
+    def __init__(self, model: Optional[Type[T]] = None):
+        """
+        Initialize the repository.
+
+        :param model: Optional mapped model/class associated with this repository.
+        """
         self._db = get_database_connection()
+        self._model = model
 
     @property
     def get_db_connection(self):
@@ -50,17 +56,17 @@ class DatabaseRepository(ABC, Generic[T]):
         return self._db
 
     @abstractmethod
-    async def create(self, entity: T) -> str:
+    async def create(self, entity: T) -> UUID:
         """
         Persist `entity_data` and return a dictionary representing the created entity.
 
         :param entity: The entity payload to create.
-        :return: Dictionary representation of the created entity (may include generated id).
+        :return: The unique identifier of the created entity.
         """
         raise NotImplementedError
 
     @abstractmethod
-    async def get(self, entity_id: str) -> Optional[T]:
+    async def get(self, entity_id: UUID) -> Optional[T]:
         """
         Retrieve an entity by its identifier.
 
@@ -70,7 +76,7 @@ class DatabaseRepository(ABC, Generic[T]):
         raise NotImplementedError
 
     @abstractmethod
-    async def update(self, entity_id: str, new_entity_data: T) -> Optional[T]:
+    async def update(self, entity_id: UUID, new_entity_data: T) -> Optional[T]:
         """
         Update an existing entity with `new_entity_data`.
 
@@ -81,7 +87,7 @@ class DatabaseRepository(ABC, Generic[T]):
         raise NotImplementedError
 
     @abstractmethod
-    async def delete(self, entity_id: str) -> str:
+    async def delete(self, entity_id: UUID) -> UUID:
         """
         Delete the entity identified by `entity_id`.
 
@@ -91,7 +97,7 @@ class DatabaseRepository(ABC, Generic[T]):
         raise NotImplementedError
 
     @abstractmethod
-    async def exists(self, entity_id: str) -> bool:
+    async def exists(self, entity_id: UUID) -> bool:
         """
         Check whether an entity with `entity_id` exists.
 
@@ -101,7 +107,7 @@ class DatabaseRepository(ABC, Generic[T]):
         raise NotImplementedError
 
     @abstractmethod
-    async def count(self, filter_id: Optional[str]) -> int:
+    async def count(self, filter_id: Optional[UUID]) -> int:
         """
         Count entities matching the given filter.
 
@@ -110,18 +116,28 @@ class DatabaseRepository(ABC, Generic[T]):
         """
         raise NotImplementedError
 
-    async def create_many(self, entities: list[T]) -> list[T]:
+    async def create_many(self, entities: List[T]) -> List[UUID]:
         """
-        Persist multiple entities in a batch operation.
+        Persist multiple entities (model instances) in a single transactional operation.
 
-        :param entities: List of entity payloads to create.
-        :return: List of identifiers for the created entities.
+        The operation is all-or-nothing: if any error occurs the transaction will
+        roll back.
+
+        :param entities: List of model instances to create.
+        :return: List of UUIDs for created rows.
         """
+
+        if not entities:
+            return []
 
         async with self._db.get_session() as session:
-            session.add_all(entities)
-            await session.flush()
-            return entities
+            # Ensure transactional behaviour: commit on success, rollback on error
+            async with session.begin():
+                # Add all model instances and flush to populate their IDs
+                session.add_all(entities)
+                await session.flush()
+
+                return [e.id for e in entities]
 
     async def delete_many(self, entity_ids: list[UUID]) -> int:
         """
@@ -131,6 +147,11 @@ class DatabaseRepository(ABC, Generic[T]):
         :return: The number of entities deleted.
         """
 
+        if self._model is None:
+            raise NotImplementedError("delete_many requires repository model")
+
         async with self._db.get_session() as session:
-            result = await session.execute(delete(T).where(T.id.in_(entity_ids)))
+            result = await session.execute(
+                delete(self._model).where(self._model.id.in_(entity_ids))
+            )
             return result.rowcount
