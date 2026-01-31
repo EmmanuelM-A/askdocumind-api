@@ -11,9 +11,9 @@ from starlette.responses import JSONResponse
 from src.config.configs import settings
 from src.logger.base_logger import BaseLogger
 from src.errors.api_exceptions import ApiException
-from src.utils.api_responses import ErrorInfo
-from src.utils.api_responses import ErrorResponseModel
-from src.utils.response_delivery import create_error_response
+from src.api.utils.api_responses import ErrorInfo
+from src.api.utils.api_responses import ErrorResponseModel
+from src.api.utils.response_delivery import create_error_response
 
 logger = BaseLogger(__name__)
 

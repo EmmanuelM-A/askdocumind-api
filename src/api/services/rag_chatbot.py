@@ -6,8 +6,8 @@ from src.components.chatbot.chatbot_factory import get_chatbot
 from src.config.constants import ChatMessageRole
 from src.database.models import ChatSession, ChatMessage
 from src.database.repository.database_repository_factory import get_database_repository
-from src.services.validation.rag_validation import ChatRequest, check_if_chat_exists
-from src.utils.api_responses import SuccessResponseModel
+from src.api.services.validation.rag_validation import ChatRequest, check_if_chat_exists
+from src.api.utils.api_responses import SuccessResponseModel
 
 
 class ChatbotService:

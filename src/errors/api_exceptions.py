@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import HTTPException
 from starlette import status
 
-from src.utils.api_responses import ErrorInfo
+from src.api.utils.api_responses import ErrorInfo
 
 
 class ApiException(HTTPException):

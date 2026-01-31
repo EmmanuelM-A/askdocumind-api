@@ -5,7 +5,7 @@ response format.
 
 from starlette.responses import JSONResponse
 
-from src.utils.api_responses import SuccessResponseModel, ErrorResponseModel
+from src.api.utils.api_responses import SuccessResponseModel, ErrorResponseModel
 
 
 def create_success_response(

@@ -3,20 +3,37 @@ Routes for the document upload endpoints.
 Provides API routes for interacting with the Chat Session.
 """
 
-from fastapi import APIRouter
+from typing import List
+from uuid import UUID
+
+from fastapi import APIRouter, UploadFile, File, Form
 
 from src.api.controllers.document_uploads_controller import DocumentUploadController
+from src.api.services.validation.rag_validation import (
+    FetchDocumentMetadataRequest,
+)
 
 document_upload_router = APIRouter(prefix="/uploads", tags=["Chat Session"])
 
 _controller = DocumentUploadController()
 
 
-@document_upload_router.get("/", summary="Get all document uploads")
-async def get_document_uploads():
-    pass
+@document_upload_router.get("/", summary="Get the metadata of all uploaded documents")
+async def get_document_uploads(request: FetchDocumentMetadataRequest):
+    """Get all document uploads for a chat session (only metadata)."""
+
+    return await _controller.list_uploaded_files_endpoint(request)
 
 
 @document_upload_router.post("/", summary="Upload documents")
-async def upload_documents():
-    pass
+async def upload_documents(
+    files: List[UploadFile] = File(...), chat_id: UUID = Form(...)
+):
+    """Upload files for a chat session. Form-data fields: files (multiple) and chat_id."""
+    return await _controller.upload_files_endpoint(files=files, chat_id=chat_id)
+
+
+# @document_upload_router.post("/metadata", summary="Fetch document metadata")
+# async def fetch_uploaded_document(request: FetchUploadedDocumentsRequest):
+#     """Fetch metadata for specific document IDs for a given chat."""
+#     return await _controller.fetch_document_endpoint(request)

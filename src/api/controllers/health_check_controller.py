@@ -4,8 +4,8 @@ Orchestrates between FastAPI routes and service layer.
 """
 
 from fastapi import status
-from src.services.health_check import HealthCheckService
-from src.utils.response_delivery import create_success_response
+from src.api.services import HealthCheckService
+from src.api.utils.response_delivery import create_success_response
 
 
 class HealthCheckController:

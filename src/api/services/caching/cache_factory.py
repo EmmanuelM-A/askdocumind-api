@@ -3,8 +3,8 @@ Cache factory for creating different types of caches throughout the application.
 """
 
 from src.logger.base_logger import BaseLogger
-from src.services.caching.caching_service import CachingService
-from src.services.caching.redis_cache import RedisCache
+from src.api.services.caching.caching_service import CachingService
+from src.api.services.caching.redis_cache import RedisCache
 from src.config.configs import settings
 
 logger = BaseLogger(__name__)

@@ -75,8 +75,12 @@ class CustomJSONEncoder(json.JSONEncoder):
         Convert custom objects to a serializable format.
         """
 
+        if hasattr(obj, "to_json"):
+            return json.loads(obj.to_json())
+
         if hasattr(obj, "to_dict"):
             return obj.to_dict()
+
         return str(obj)  # Fallback to string representation
 
 

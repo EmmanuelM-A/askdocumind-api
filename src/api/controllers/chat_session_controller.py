@@ -4,7 +4,7 @@ Handles application logic related to chat sessions and interactions with the
 service layer.
 """
 
-from src.services.chat_sessions import ChatSessionService
+from src.api.services.chat_sessions import ChatSessionService
 
 
 class ChatSessionController:

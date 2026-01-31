@@ -13,7 +13,7 @@ from src.config.configs import settings
 from src.config.constants import CacheNamespace
 from src.logger.base_logger import BaseLogger
 from src.errors.custom_exceptions import throw_server_error
-from src.services.caching.caching_service import CachingService
+from src.api.services.caching.caching_service import CachingService
 
 logger = BaseLogger(__name__)
 

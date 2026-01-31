@@ -18,7 +18,7 @@ from src.components.retrieval.embedder import Embedder
 
 from src.components.ingestion.document import FileDocumentMetadata, FileDocument
 from src.components.ingestion.document_processor import DocumentProcessor
-from src.services.caching.cache_factory import CacheFactory
+from src.api.services.caching.cache_factory import CacheFactory
 from src.components.retrieval.faiss_store import FaissVectorStore
 
 

@@ -17,7 +17,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from src.components.ingestion.document import FileDocument
 from src.components.extraction.text_extraction_factory import get_extractor
-from src.services.validation.rag_validation import validate_document_content
+from src.api.services.validation.rag_validation import validate_document_content
 from src.errors.custom_exceptions import throw_unprocessable_entity_error
 from src.config.configs import settings
 from src.logger.base_logger import BaseLogger

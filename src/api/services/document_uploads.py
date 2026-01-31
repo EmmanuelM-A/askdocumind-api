@@ -11,13 +11,17 @@ from src.database.models import ChatSession, Document
 from src.database.repository.database_repository_factory import get_database_repository
 from src.database.storage.storage_service import StorageService
 from src.errors.custom_exceptions import throw_database_error
-from src.services.validation.rag_validation import (
+from src.logger.base_logger import BaseLogger
+from src.api.services.validation.rag_validation import (
     UploadDocumentsRequest,
     check_if_chat_exists,
     FetchUploadedDocumentsRequest,
     FetchDocumentMetadataRequest,
 )
-from src.utils.api_responses import SuccessResponseModel
+from src.api.utils.api_responses import SuccessResponseModel
+
+
+_logger = BaseLogger(__name__)
 
 
 class UploadService:
@@ -189,23 +193,20 @@ class UploadService:
             data={"quantity_uploaded": len(created_entities)},
         )
 
-    # NOTE: THIS METHOD SHOULD RETURN THE ACTUAL UPLOADED DOCUMENTS WHEREAS THE NEXT ONE RETURNS METADATA
-    async def fetch_uploaded_documents(self, request: FetchUploadedDocumentsRequest):
-        """Fetches uploaded documents based on the request."""
-
-        await check_if_chat_exists(
-            chat_id=request.chat_id,
-            chat_session_repo=self.chat_session_repo,
-            chatbot=self.chatbot,
-        )
-
-        # NOTE: What is actually being returned: the metadata of the uploaded documents
-        # NOTE: or the documents themselves?
+    async def fetch_uploaded_documents(
+        self, request: FetchUploadedDocumentsRequest
+    ) -> SuccessResponseModel:
+        """
+        Fetches uploaded documents (raw bytes, base64-encoded) based on the request.
+        """
 
     async def fetch_uploaded_document_metadata(
         self, request: FetchDocumentMetadataRequest
-    ):
-        """Fetches metadata of uploaded documents."""
+    ) -> SuccessResponseModel:
+        """Fetches metadata of uploaded documents for given document IDs and chat.
+
+        Ensures documents belong to the supplied chat_id.
+        """
 
         await check_if_chat_exists(
             chat_id=request.chat_id,
@@ -213,15 +214,24 @@ class UploadService:
             chatbot=self.chatbot,
         )
 
-        metadata = self.document_repo.get()
+        # Fetch each requested document and verify ownership
+        metadata_list = []
+        for doc_id in request.document_ids:
+            doc = await self.document_repo.get(doc_id)
 
-        if metadata is None:
-            throw_database_error(
-                message="No document metadata found for the given chat session.",
-                error_code="DOCUMENT_METADATA_NOT_FOUND",
-            )
+            if not doc:
+                continue
+
+            if doc.session_id != request.chat_id:
+                _logger.warning(
+                    f"The document {doc} does not belong to chat "
+                    f"{request.chat_id}, skipping..."
+                )
+                continue
+
+            metadata_list.append(doc.to_json())
 
         return SuccessResponseModel(
             message="Document metadata fetched successfully.",
-            data=metadata,
+            data=metadata_list,
         )

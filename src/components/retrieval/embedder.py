@@ -12,7 +12,7 @@ from src.config.constants import CacheNamespace
 from src.errors.custom_exceptions import throw_server_error
 from src.logger.base_logger import BaseLogger
 from src.components.ingestion.document import FileDocument
-from src.services.caching.cache_factory import CacheFactory
+from src.api.services.caching.cache_factory import CacheFactory
 from src.utils.helper import generate_content_hash
 
 
@@ -110,7 +110,9 @@ class Embedder:
             # Cache the result
             self.queries_cache.set(cache_key, embedding)
 
-            self._logger.info(f"The query {query} has been embedded and cached successfully.")
+            self._logger.info(
+                f"The query {query} has been embedded and cached successfully."
+            )
 
             return embedding
 

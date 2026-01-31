@@ -5,7 +5,7 @@ Handles system diagnostics and status reporting logic.
 
 from src.errors.custom_exceptions import throw_database_error
 from src.database.connection import get_database_connection
-from src.utils.api_responses import SuccessResponseModel
+from src.api.utils.api_responses import SuccessResponseModel
 from sqlalchemy import text
 
 

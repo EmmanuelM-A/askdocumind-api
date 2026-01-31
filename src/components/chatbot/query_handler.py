@@ -10,7 +10,7 @@ from langchain_core.output_parsers import StrOutputParser
 from src.config.configs import settings
 from src.components.prompts.prompt_loader import create_prompt_template
 from src.components.retrieval.embedder import Embedder
-from src.services.validation.rag_validation import sanitize_query
+from src.api.services.validation.rag_validation import sanitize_query
 
 from src.errors.custom_exceptions import throw_unprocessable_entity_error
 from src.logger.base_logger import BaseLogger
