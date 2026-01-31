@@ -4,14 +4,18 @@ Handles input validation for user queries, file paths, and URLs.
 
 import re
 import html
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, TYPE_CHECKING
 from urllib.parse import urlparse
 
 from fastapi import UploadFile
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import UUID
+from uuid import UUID
 
-from src.components.chatbot.core import RAGChatbot
+# Avoid importing RAGChatbot at module import time to prevent circular imports;
+# import it only for type checking.
+if TYPE_CHECKING:
+    from src.components.chatbot.core import RAGChatbot
+
 from src.components.ingestion.document import FileDocument
 from src.config.configs import settings
 from src.database.models import ChatSession
@@ -164,7 +168,7 @@ def validate_document_content(
 async def check_if_chat_exists(
     chat_id: UUID,
     chat_session_repo: DatabaseRepository[ChatSession],
-    chatbot: RAGChatbot,
+    chatbot: "RAGChatbot",
 ) -> None:
     """
     Check if the chat session and corresponding chat vector store exist.
@@ -208,7 +212,7 @@ class ChatRequest(BaseModel):
     )
 
     @field_validator("user_query", mode="before")
-    def validate_query(self, value: str) -> str:
+    def validate_query(cls, value: str) -> str:
         """Ensure query is not just whitespace."""
 
         return sanitize_query(query=value, logger=BaseLogger(__name__))

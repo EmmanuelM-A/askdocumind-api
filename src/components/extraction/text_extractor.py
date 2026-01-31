@@ -7,7 +7,12 @@ from typing import Optional
 
 import io
 import zipfile
-import docx
+
+try:
+    import docx  # python-docx package
+except ImportError:
+    docx = None
+
 import fitz
 from fastapi import UploadFile
 
@@ -135,6 +140,15 @@ class DocxDocumentExtractor(TextDocumentExtractor):
     """Text extractor for DOCX documents."""
 
     def extract_text_from(self, document: UploadFile) -> Optional[str]:
+        if docx is None:
+            throw_server_error(
+                message=(
+                    "python-docx is not installed or an incompatible 'docx' package "
+                    "is present. Please install the correct dependency: 'python-docx'."
+                ),
+                error_code="MISSING_PYTHON_DOCX",
+            )
+
         try:
             document.file.seek(0)
             doc = docx.Document(document.file)

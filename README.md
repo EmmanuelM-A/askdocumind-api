@@ -17,32 +17,48 @@ docker-compose up -d
 ### 3. Start the app
 
 ```bash
-python -m src.app
+python -m src.api.server
 ```
 
 ## Migrations (Alembic)
 
 This project uses Alembic for migrations (see `alembic.ini` and `alembic/` folder).
 
-Run migrations (apply all outstanding migrations):
+**Apply migrations** (on startup or after pulling changes):
 
 ```bash
 alembic upgrade head
 ```
 
-Create a new migration (autogenerate changes from models):
+> Always run alembic upgrade head before generating new migrations to ensure the database is in sync.
+
+### During Development
+
+#### Generate a new migration after modifying models:
 
 ```bash
-alembic revision --autogenerate -m "describe change"
+alembic revision --autogenerate -m "describe your change"
 ```
 
-Useful Alembic commands:
+#### View migration history:
 
-- `alembic history --verbose` — show migration history
+```bash
+alembic current # show current revision(s)
+```
 
-- `alembic current` — show current revision(s)
+```bash
+alembic history --verbose # show migration history
+```
 
-- `alembic downgrade -1` — roll back the last migration
+#### Roll back the last migration:
+
+```bash
+alembic downgrade -1 # roll back one version
+```
+
+```bash
+alembic downgrade base # roll back all migrations
+```
 
 Notes about async SQLAlchemy and Alembic:
 

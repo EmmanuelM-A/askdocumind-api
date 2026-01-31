@@ -2,7 +2,7 @@
 <project version="4">
   <component name="PylintSettings">
     <option name="arguments" value="--jobs 0 --recursive y" />
+    <option name="executablePath" value="C:\Users\maduk\Documents\Programming\Personal Projects\DocuChat\docuchat-backend\.venv\Scripts\pylint.exe" />
     <option name="projectDirectory" value="$PROJECT_DIR$" />
-    <option name="useProjectSdk" value="true" />
   </component>
 </project>

@@ -13,7 +13,7 @@ class ChatSessionController:
     """
 
     def __init__(self):
-        self.chat_session_service = ChatSessionService()
+        pass
 
     def create_chat_session_endpoint(self):
         pass

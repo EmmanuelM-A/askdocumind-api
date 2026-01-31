@@ -11,7 +11,7 @@ from fastapi import UploadFile, status, File, Form
 from starlette.responses import JSONResponse
 
 from src.database.storage.local_file_storage_service import LocalFileStorageService
-from src.api.services import UploadService
+from src.api.services.document_uploads import UploadService
 from src.api.services.validation.rag_validation import (
     FetchDocumentMetadataRequest,
 )

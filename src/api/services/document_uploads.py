@@ -21,9 +21,6 @@ from src.api.services.validation.rag_validation import (
 from src.api.utils.api_responses import SuccessResponseModel
 
 
-_logger = BaseLogger(__name__)
-
-
 class UploadService:
     """Service class for handling document uploads."""
 
@@ -32,6 +29,7 @@ class UploadService:
         self.document_repo = get_database_repository(Document)
         self.storage_service = storage_service
         self.chatbot = get_chatbot()
+        self._logger = BaseLogger(__name__)
 
     async def handle_document_uploads(
         self, request: UploadDocumentsRequest
@@ -62,6 +60,10 @@ class UploadService:
             chatbot=self.chatbot,
         )
 
+        self._logger.debug(
+            f"The chat {request.chat_id} has been validated successfully"
+        )
+
         saved_keys: List[str] = []
         entities: List[Document] = []
         created_entities: List = []
@@ -77,12 +79,12 @@ class UploadService:
                 # Persist data in storage (offload to thread if implementation is blocking)
                 try:
                     await asyncio.to_thread(self.storage_service.save, key, data)
-                except Exception as storage_exc:
+                except IOError as storage_exc:
                     # Attempt to clean up any files we already saved
                     for k in saved_keys:
                         try:
                             await asyncio.to_thread(self.storage_service.delete, k)
-                        except Exception:
+                        except (FileNotFoundError, IOError):
                             # Best-effort cleanup; ignore further errors
                             pass
 
@@ -94,6 +96,9 @@ class UploadService:
 
                 # Track saved keys for cleanup if anything fails later
                 saved_keys.append(key)
+                self._logger.debug(
+                    f"The key {key} was saved to storage file successfully"
+                )
 
                 # Build DB model instance; initially mark as PENDING until
                 # vectors are verified/persisted to the vector store.
@@ -112,7 +117,14 @@ class UploadService:
                 # blocking the event loop if seek blocks.
                 try:
                     await asyncio.to_thread(upload.file.seek, 0)
-                except Exception:
+                # except asyncio.CancelledError:
+                #     raise
+                # except (ValueError, OSError) as e:
+                #     throw_unprocessable_entity_error(
+                #         f"Failed to seek uploaded file to start because {e}",
+                #         "SEEK_FAILED"
+                #     )
+                except (ValueError, OSError):
                     # If seek is not supported, vector processing may still work if
                     # the extractor can handle bytes or a fresh UploadFile. We
                     # continue and let the vector processor surface errors.
@@ -223,7 +235,7 @@ class UploadService:
                 continue
 
             if doc.session_id != request.chat_id:
-                _logger.warning(
+                self._logger.warning(
                     f"The document {doc} does not belong to chat "
                     f"{request.chat_id}, skipping..."
                 )
