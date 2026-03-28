@@ -13,7 +13,7 @@ from uuid import UUID
 
 from sqlalchemy import delete
 
-from src.database.connection import get_database_connection
+from src.database.connection import get_database_connection, DatabaseConnection
 from src.database.models import Base
 
 # Type variable for the model
@@ -35,23 +35,17 @@ class DatabaseRepository(ABC, Generic[T]):
     Concrete implementations must implement all abstract methods.
     """
 
-    def __init__(self, model: Optional[Type[T]] = None):
+    def __init__(
+        self, connection: DatabaseConnection, model: Optional[Type[T]] = None
+    ) -> None:
         """
         Initialize the repository.
 
+        :param connection: The database connection to use for operations.
         :param model: Optional mapped model/class associated with this repository.
         """
-        self._db = get_database_connection()
+        self._db = connection
         self._model = model
-
-    @property
-    def get_db_connection(self):
-        """
-        Access the database connection instance.
-
-        :return: The database connection object.
-        """
-        return self._db
 
     @abstractmethod
     async def create(self, entity: T) -> UUID:
@@ -64,15 +58,34 @@ class DatabaseRepository(ABC, Generic[T]):
         raise NotImplementedError
 
     @abstractmethod
-    async def get(self, entity_id: Optional[UUID] = None) -> Optional[T] | List[T]:
+    async def list_by(self, criteria: Optional[T] = None) -> List[T]:
         """
-        Retrieve an entity by its identifier, or return all entities when no
-        identifier is provided.
+        Retrieve all entities matching the given criteria or all entities if
+        no criteria is provided.
 
-        :param entity_id: Optional UUID of the entity to retrieve. If None,
-                          implementations should return a list of all entities.
-        :return: The entity object corresponding to `entity_id`, or a list of
-                 entities when `entity_id` is None.
+        :param criteria: Optional criteria to filter entities.
+        :return: A list of all entities.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_by_id(self, entity_id: UUID) -> T | None:
+        """
+        Retrieve an entity by its identifier or None if no entity exists.
+
+        :param entity_id: The unique identifier of the entity to retrieve.
+        :return: The entity corresponding to `entity_id` or None if not found.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_by_criteria(self, criteria: T) -> T | None:
+        """
+        Retrieve an entity matching the given criteria or None if no entity
+        exists.
+
+        :param criteria: The criteria to filter entities.
+        :return: The entity matching the criteria or None if not found.
         """
         raise NotImplementedError
 
@@ -119,10 +132,11 @@ class DatabaseRepository(ABC, Generic[T]):
 
     async def create_many(self, entities: List[T]) -> List[UUID]:
         """
-        Persist multiple entities (model instances) in a single transactional operation.
+        Persist multiple entities (model instances) in a single transactional
+        operation.
 
-        The operation is all-or-nothing: if any error occurs the transaction will
-        roll back.
+        The operation is all-or-nothing: if any error occurs the transaction
+        will roll back.
 
         :param entities: List of model instances to create.
         :return: List of UUIDs for created rows.
