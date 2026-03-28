@@ -5,13 +5,6 @@ Service module for handling document uploads.
 import asyncio
 from typing import List
 
-from src.components.chatbot.chatbot_factory import get_chatbot
-from src.config.constants import ProcessingStatus
-from src.database.models import ChatSession, Document
-from src.database.repository.database_repository_factory import get_database_repository
-from src.database.storage.storage_service import StorageService
-from src.errors.custom_exceptions import throw_database_error
-from src.logger.base_logger import BaseLogger
 from src.api.services.validation.rag_validation import (
     UploadDocumentsRequest,
     check_if_chat_exists,
@@ -19,16 +12,29 @@ from src.api.services.validation.rag_validation import (
     FetchDocumentMetadataRequest,
 )
 from src.api.utils.api_responses import SuccessResponseModel
+from src.components.chatbot.core import RAGChatbot
+from src.config.constants import ProcessingStatus
+from src.database.models import Document
+from src.database.repository import ChatSessionRepository, DocumentRepository
+from src.database.storage.storage_service import StorageService
+from src.errors.custom_exceptions import throw_database_error
+from src.logger.base_logger import BaseLogger
 
 
 class UploadService:
     """Service class for handling document uploads."""
 
-    def __init__(self, storage_service: StorageService) -> None:
-        self.chat_session_repo = get_database_repository(ChatSession)
-        self.document_repo = get_database_repository(Document)
+    def __init__(
+        self,
+        storage_service: StorageService,
+        chat_session_repo: ChatSessionRepository,
+        document_repo: DocumentRepository,
+        chatbot: RAGChatbot,
+    ) -> None:
         self.storage_service = storage_service
-        self.chatbot = get_chatbot()
+        self.chat_session_repo = chat_session_repo
+        self.document_repo = document_repo
+        self.chatbot = chatbot
         self._logger = BaseLogger(__name__)
 
     async def handle_document_uploads(
@@ -107,7 +113,7 @@ class UploadService:
                         session_id=request.chat_id,
                         filename=upload.filename,
                         file_size=len(data),
-                        vector_id=None,
+                        vector_id=request.vector_id,
                         processing_status=ProcessingStatus.PENDING,
                     )
                 )

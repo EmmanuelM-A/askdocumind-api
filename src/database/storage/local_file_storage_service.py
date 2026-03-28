@@ -6,6 +6,7 @@ paths relative to the root; path traversal outside the root is rejected.
 """
 
 from pathlib import Path
+from typing import Optional
 
 from src.config.configs import settings
 from src.database.storage.storage_service import StorageService
@@ -156,3 +157,18 @@ class LocalFileStorageService(StorageService):
             raise ValueError("Key resolves outside of storage root")
 
         return candidate
+
+
+# USE FACTORY METHOD INSTEAD
+_local_file_storage_services: Optional[StorageService] = None
+
+
+def get_local_file_storage_service() -> StorageService:
+    """Factory method to get a singleton instance of LocalFileStorageService."""
+
+    global _local_file_storage_services
+
+    if _local_file_storage_services is None:
+        _local_file_storage_services = LocalFileStorageService()
+
+    return _local_file_storage_services

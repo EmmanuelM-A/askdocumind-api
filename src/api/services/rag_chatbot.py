@@ -2,21 +2,26 @@
 Service module for handling RAG chatbot interactions.
 """
 
-from src.components.chatbot.chatbot_factory import get_chatbot
+from src.components.chatbot.core import RAGChatbot
 from src.config.constants import ChatMessageRole
-from src.database.models import ChatSession, ChatMessage
-from src.database.repository.database_repository_factory import get_database_repository
+from src.database.models import ChatMessage
 from src.api.services.validation.rag_validation import ChatRequest, check_if_chat_exists
 from src.api.utils.api_responses import SuccessResponseModel
+from src.database.repository import ChatSessionRepository, ChatMessageRepository
 
 
 class ChatbotService:
     """Service class for RAG chatbot interactions."""
 
-    def __init__(self):
-        self.chat_session_repo = get_database_repository(ChatSession)
-        self.chat_message_repo = get_database_repository(ChatMessage)
-        self.chatbot = get_chatbot()
+    def __init__(
+        self,
+        chat_session_repo: ChatSessionRepository,
+        chat_message_repo: ChatMessageRepository,
+        chatbot: RAGChatbot,
+    ) -> None:
+        self.chat_session_repo = chat_session_repo
+        self.chat_message_repo = chat_message_repo
+        self.chatbot = chatbot
 
     async def handle_chat(self, request: ChatRequest) -> SuccessResponseModel:
         """Handles a chat request."""

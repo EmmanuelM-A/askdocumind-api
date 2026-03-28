@@ -23,7 +23,7 @@ from src.components.retrieval.vector_store import VectorStore
 from src.utils.helper import does_file_exist
 
 
-class FaissVectorStore(VectorStore, ABC):
+class FaissVectorStore(VectorStore):
     """
     Concrete implementation of VectorStore using FAISS for vector storage.
     Only for local development and testing purposes.
@@ -59,8 +59,8 @@ class FaissVectorStore(VectorStore, ABC):
         try:
             faiss.write_index(index, self._index_path(index_id))
 
-            with open(self._metadata_path(index_id), "wb") as f:
-                pickle.dump([], f)
+            with open(self._metadata_path(index_id), "wb") as index_file:
+                pickle.dump([], index_file)
         except (OSError, pickle.PickleError) as e:
             throw_server_error(
                 message=f"Failed to create the index '{index_id}'",

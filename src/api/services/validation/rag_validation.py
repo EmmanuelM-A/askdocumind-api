@@ -230,6 +230,9 @@ class UploadDocumentsRequest(BaseModel):
         max_length=settings.files.MAX_FILES_PER_UPLOAD,
     )
     chat_id: UUID = Field(..., description="The chat session identifier")
+    vector_id: UUID = Field(
+        ..., description="The vector store identifier for the chat session"
+    )
 
 
 class FetchUploadedDocumentsRequest(BaseModel):

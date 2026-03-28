@@ -91,7 +91,7 @@ class ChatSession(Base):
 
 
 class Document(Base):
-    """Model representing an uploaded document."""
+    """Model representing an uploaded document's metadata."""
 
     __tablename__ = "document"
 
@@ -104,7 +104,7 @@ class Document(Base):
     )
     filename = Column(String(255), nullable=False)
     file_size = Column(BigInteger, nullable=False)
-    vector_id = Column(String(255), nullable=True)
+    vector_id = Column(UUID, nullable=True)
     processing_status = Column(
         Enum(ProcessingStatus), default=ProcessingStatus.PENDING, nullable=False
     )
