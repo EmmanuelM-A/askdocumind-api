@@ -5,11 +5,18 @@ Responsible for managing chat session storage in the remote database.
 from typing import Optional, List
 from uuid import UUID
 
+from pydantic import BaseModel
 from sqlalchemy import select, func, delete
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.database.models import ChatSession
 from src.database.repository.database_repository import DatabaseRepository
+
+
+class ChatSessionSearchCriteria(BaseModel):
+    id: Optional[UUID] = None
+    title: Optional[str] = None
+    total_messages: Optional[int] = None
 
 
 class ChatSessionRepository(DatabaseRepository[ChatSession]):
@@ -33,15 +40,41 @@ class ChatSessionRepository(DatabaseRepository[ChatSession]):
             async with self._db.get_session() as session:
                 session.add(entity)
                 await session.flush()
+                self._logger.debug(f"New chat session created: {entity.id}")
                 return entity.id
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
     async def list_by(
-        self, criteria: Optional[ChatSession] = None
+        self, criteria: Optional[ChatSessionSearchCriteria] = None
     ) -> List[ChatSession]:
-        pass
+        """
+        Retrieve chat sessions matching the given criteria.
+
+        If no criteria is provided, all chat sessions are returned.
+        """
+        try:
+            async with self._db.get_session() as session:
+                stmt = select(ChatSession)
+
+                if criteria is None:
+                    result = await session.execute(stmt)
+                    self._logger.debug("No criteria provided, returning all chat sessions")
+                    return result.scalars().all()
+
+                filters = []
+
+                for field, value in criteria.model_dump(exclude_none=True).items():
+                    filters.append(getattr(ChatSession, field) == value)
+
+                stmt = stmt.where(*filters)
+                result = await session.execute(stmt)
+                self._logger.debug("Found chat sessions matching criteria")
+                return result.scalars().all()
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise e
 
     async def get_by_id(self, entity_id: UUID) -> Optional[ChatSession]:
         """
@@ -59,13 +92,35 @@ class ChatSessionRepository(DatabaseRepository[ChatSession]):
                 result = await session.execute(
                     select(ChatSession).where(ChatSession.id == entity_id)
                 )
-                return result.scalar_one_or_none()
+                chat_session = result.scalar_one_or_none()
+                if chat_session:
+                    self._logger.debug(f"Found chat session: {entity_id}")
+                return chat_session
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
-    async def get_by_criteria(self, criteria: ChatSession) -> Optional[ChatSession]:
-        pass
+    async def get_by_criteria(self, criteria: ChatSessionSearchCriteria) -> Optional[ChatSession]:
+        """
+        Retrieve a single chat session matching the given criteria.
+        """
+        try:
+            filters = []
+
+            for field, value in criteria.model_dump(exclude_none=True).items():
+                filters.append(getattr(ChatSession, field) == value)
+
+            if not filters:
+                self._logger.debug("No criteria provided for get_by_criteria")
+                return None
+
+            async with self._db.get_session() as session:
+                result = await session.execute(select(ChatSession).where(*filters))
+                self._logger.debug("Found chat session matching criteria")
+                return result.scalars().first()
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise e
 
     async def update(
         self, entity_id: UUID, new_entity_data: ChatSession
@@ -147,10 +202,9 @@ class ChatSessionRepository(DatabaseRepository[ChatSession]):
 
     async def count(self, filter_id: Optional[UUID] = None) -> int:
         """
-        Count the total number of chat sessions that belong to a specific owner.
-        If no owner ID is provided, counts all chat sessions.
+        Count chat sessions, optionally filtered by chat session ID.
 
-        :param filter_id: The owner ID to filter chat sessions by (optional).
+        :param filter_id: Optional chat session ID to filter by.
         :return: Total count of chat sessions.
 
         :raises SQLAlchemyError: If a database error occurs during counting.
@@ -161,7 +215,7 @@ class ChatSessionRepository(DatabaseRepository[ChatSession]):
             async with self._db.get_session() as session:
                 stmt = select(func.count()).select_from(ChatSession)
                 if filter_id:
-                    stmt = stmt.where(ChatSession.owner_id == filter_id)
+                    stmt = stmt.where(ChatSession.id == filter_id)
                 result = await session.execute(stmt)
                 return result.scalar_one()
 

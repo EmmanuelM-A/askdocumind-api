@@ -2,15 +2,24 @@
 Responsible for managing chat message data access in the database.
 """
 
+from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
+from pydantic import BaseModel
 from sqlalchemy import select, func, delete
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
+from src.config.constants import ChatMessageRole
 from src.database.models import ChatMessage
 
 from src.database.repository.database_repository import DatabaseRepository
+
+
+class ChatMessageSearchCriteria(BaseModel):
+    id: Optional[UUID] = None
+    session_id: Optional[UUID] = None
+    role: Optional[ChatMessageRole] = None
 
 
 class ChatMessageRepository(DatabaseRepository[ChatMessage]):
@@ -34,15 +43,43 @@ class ChatMessageRepository(DatabaseRepository[ChatMessage]):
             async with self._db.get_session() as session:
                 session.add(entity)
                 await session.flush()  # ensures ID is generated
+                self._logger.debug(f"New chat message entry created: {entity.id}")
                 return entity.id
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
     async def list_by(
-        self, criteria: Optional[ChatMessage] = None
+        self, criteria: Optional[ChatMessageSearchCriteria] = None
     ) -> List[ChatMessage]:
-        pass
+        """
+        Retrieve chat messages matching the given criteria.
+
+        If no criteria is provided, all chat messages are returned.
+        """
+        try:
+            async with self._db.get_session() as session:
+                stmt = select(ChatMessage)
+
+                if criteria is None:
+                    result = await session.execute(stmt)
+                    self._logger.debug(
+                        "No criteria provided, returning all chat messages"
+                    )
+                    return result.scalars().all()
+
+                filters = []
+
+                for field, value in criteria.model_dump(exclude_none=True).items():
+                    filters.append(getattr(ChatMessage, field) == value)
+
+                stmt = stmt.where(*filters)
+                result = await session.execute(stmt)
+                self._logger.debug("Found chat messages matching criteria")
+                return result.scalars().all()
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise e
 
     async def get_by_id(self, entity_id: UUID) -> Optional[ChatMessage]:
         """
@@ -61,47 +98,45 @@ class ChatMessageRepository(DatabaseRepository[ChatMessage]):
                 result = await session.execute(
                     select(ChatMessage).where(ChatMessage.id == entity_id)
                 )
-                return result.scalar_one_or_none()
+                chat_message = result.scalar_one_or_none()
+                if chat_message:
+                    self._logger.debug(
+                        "Found chat message entry matching the provided ID"
+                    )
+                return chat_message
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
-    async def get_by_criteria(self, criteria: ChatMessage) -> Optional[ChatMessage]:
-        pass
+    async def get_by_criteria(
+        self, criteria: ChatMessageSearchCriteria
+    ) -> Optional[ChatMessage]:
+        """
+        Retrieve a single chat message matching the given criteria.
+        """
+        try:
+            filters = []
+
+            for field, value in criteria.model_dump(exclude_none=True).items():
+                filters.append(getattr(ChatMessage, field) == value)
+
+            if not filters:
+                self._logger.debug("No chat messages matching criteria")
+                return None
+
+            async with self._db.get_session() as session:
+                result = await session.execute(select(ChatMessage).where(*filters))
+                self._logger.debug("Found chat messages matching criteria")
+                return result.scalars().first()
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise e
 
     async def update(
         self, entity_id: UUID, new_entity_data: ChatMessage
     ) -> Optional[ChatMessage]:
-        """
-        Update an existing chat message.
-
-        :param entity_id: The ID of the chat message to update.
-        :param new_entity_data: The new chat message data to apply.
-        :return: The updated ChatMessage entity if successful, None if not found.
-
-        :raise SQLAlchemyError: If a database error occurs during update.
-        :raise IntegrityError: If a data integrity violation occurs.
-        :raise Exception: For any other exceptions that may arise.
-        """
-
-        try:
-            async with self._db.get_session() as session:
-                result = await session.execute(
-                    select(ChatMessage).where(ChatMessage.id == entity_id)
-                )
-                existing = result.scalar_one_or_none()
-
-                if not existing:
-                    return None
-
-                existing.content = new_entity_data.content
-                existing.role = new_entity_data.role
-
-                await session.flush()
-                return existing
-
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
-            raise e
+        self._logger.info("Chat message cannot be updated!")
+        return None
 
     async def delete(self, entity_id: UUID) -> bool:
         """

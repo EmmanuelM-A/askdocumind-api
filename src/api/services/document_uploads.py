@@ -229,7 +229,7 @@ class UploadService:
         # Fetch each requested document and verify ownership
         metadata_list = []
         for doc_id in request.document_ids:
-            doc = await self.document_repo.get(doc_id)
+            doc = await self.document_repo.get_by_id(doc_id)
 
             if not doc:
                 continue

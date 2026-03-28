@@ -5,12 +5,26 @@ Repository module for document entities.
 from typing import Optional, List
 from uuid import UUID
 
+from pydantic import BaseModel
 from sqlalchemy import select, func, update
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 from src.database.models import Document
 from src.database.repository.database_repository import DatabaseRepository
 from src.config.constants import ProcessingStatus
+
+
+class DocumentSearchCriteria(BaseModel):
+    id: Optional[UUID] = None
+    session_id: Optional[UUID] = None
+    filename: Optional[str] = None
+    vector_id: Optional[UUID] = None
+    processing_status: Optional[ProcessingStatus] = None
+
+
+class UpdatableDocument(BaseModel):
+    filename: Optional[str] = None
+    processing_status: Optional[ProcessingStatus] = None
 
 
 class DocumentRepository(DatabaseRepository[Document]):
@@ -33,13 +47,41 @@ class DocumentRepository(DatabaseRepository[Document]):
             async with self._db.get_session() as session:
                 session.add(entity)
                 await session.flush()
+                self._logger.debug(f"New document created: {entity.id}")
                 return entity.id
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
-    async def list_by(self, criteria: Optional[Document] = None) -> List[Document]:
-        pass
+    async def list_by(
+        self, criteria: Optional[DocumentSearchCriteria] = None
+    ) -> List[Document]:
+        """
+        Retrieve documents matching the given criteria.
+
+        If no criteria is provided, all documents are returned.
+        """
+        try:
+            async with self._db.get_session() as session:
+                stmt = select(Document)
+
+                if criteria is None:
+                    result = await session.execute(stmt)
+                    self._logger.debug("No criteria provided, returning all documents")
+                    return result.scalars().all()
+
+                filters = []
+
+                for field, value in criteria.model_dump(exclude_none=True).items():
+                    filters.append(getattr(Document, field) == value)
+
+                stmt = stmt.where(*filters)
+                result = await session.execute(stmt)
+                self._logger.debug("Found documents matching criteria")
+                return result.scalars().all()
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise e
 
     async def get_by_id(self, entity_id: UUID) -> Optional[Document]:
         """
@@ -54,21 +96,41 @@ class DocumentRepository(DatabaseRepository[Document]):
         """
         try:
             async with self._db.get_session() as session:
-                if entity_id is None:
-                    result = await session.execute(select(Document))
-                    return result.scalars().all()
-
                 # Use session.get for primary-key lookup (avoids SQL expression typing warnings)
-                return await session.get(Document, entity_id)
+                result = await session.get(Document, entity_id)
+                if result:
+                    self._logger.debug(f"Found document: {entity_id}")
+                return result
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
-    async def get_by_criteria(self, criteria: Document) -> Optional[Document]:
-        pass
+    async def get_by_criteria(
+        self, criteria: DocumentSearchCriteria
+    ) -> Optional[Document]:
+        """
+        Retrieve a single document matching the given criteria.
+        """
+        try:
+            filters = []
+
+            for field, value in criteria.model_dump(exclude_none=True).items():
+                filters.append(getattr(Document, field) == value)
+
+            if not filters:
+                self._logger.debug("No criteria provided for get_by_criteria")
+                return None
+
+            async with self._db.get_session() as session:
+                result = await session.execute(select(Document).where(*filters))
+                self._logger.debug("Found document matching criteria")
+                return result.scalars().first()
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise e
 
     async def update(
-        self, entity_id: UUID, new_entity_data: Document
+        self, entity_id: UUID, new_entity_data: UpdatableDocument
     ) -> Optional[Document]:
         """
         Update an existing document. Only writable fields are changed.
@@ -176,8 +238,7 @@ class DocumentRepository(DatabaseRepository[Document]):
                 # type: ignore[call-arg]
                 stmt = select(func.count(Document.id)).select_from(Document)  # type: ignore
                 if filter_id:
-                    # Adjust based on your Document model's actual field
-                    stmt = stmt.where(Document.owner_id == filter_id)  # type: ignore[arg-type]
+                    stmt = stmt.where(Document.session_id == filter_id)  # type: ignore[arg-type]
                 result = await session.execute(stmt)
                 return result.scalar_one()
 

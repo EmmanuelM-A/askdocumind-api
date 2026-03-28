@@ -13,8 +13,9 @@ from uuid import UUID
 
 from sqlalchemy import delete
 
-from src.database.connection import get_database_connection, DatabaseConnection
+from src.database.connection import DatabaseConnection
 from src.database.models import Base
+from src.logger.base_logger import BaseLogger
 
 # Type variable for the model
 T = TypeVar("T", bound=Base)
@@ -26,8 +27,9 @@ class DatabaseRepository(ABC, Generic[T]):
 
     Methods:
     - create: persist a new entity and return a representation (usually a dict).
-    - get: retrieve an entity by its identifier or all entities when no id is
-      provided.
+    - list_by: retrieve entities matching an optional criteria object.
+    - get_by_id: retrieve an entity by its identifier.
+    - get_by_criteria: retrieve one entity matching criteria.
     - update: apply changes to an existing entity and return a representation.
     - delete: remove an entity and return an identifier or confirmation.
     - exists: check whether an entity with the given id exists.
@@ -36,15 +38,20 @@ class DatabaseRepository(ABC, Generic[T]):
     """
 
     def __init__(
-        self, connection: DatabaseConnection, model: Optional[Type[T]] = None
+        self,
+        connection: DatabaseConnection,
+        logger: BaseLogger,
+        model: Optional[Type[T]] = None,
     ) -> None:
         """
         Initialize the repository.
 
         :param connection: The database connection to use for operations.
+        :param logger: The logger to use for logging.
         :param model: Optional mapped model/class associated with this repository.
         """
         self._db = connection
+        self._logger = logger
         self._model = model
 
     @abstractmethod
@@ -101,12 +108,12 @@ class DatabaseRepository(ABC, Generic[T]):
         raise NotImplementedError
 
     @abstractmethod
-    async def delete(self, entity_id: UUID) -> UUID:
+    async def delete(self, entity_id: UUID) -> bool:
         """
         Delete the entity identified by `entity_id`.
 
         :param entity_id: The unique identifier of the entity to delete.
-        :return: Confirmation string or the identifier of the deleted entity.
+        :return: True if the entity was deleted, otherwise False.
         """
         raise NotImplementedError
 
@@ -161,6 +168,9 @@ class DatabaseRepository(ABC, Generic[T]):
         :param entity_ids: List of unique identifiers of entities to delete.
         :return: The number of entities deleted.
         """
+
+        if not entity_ids:
+            return 0
 
         if self._model is None:
             raise NotImplementedError("delete_many requires repository model")
