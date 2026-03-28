@@ -2,7 +2,7 @@
 Responsible for managing chat message data access in the database.
 """
 
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 
 from sqlalchemy import select, func, delete
@@ -39,7 +39,12 @@ class ChatMessageRepository(DatabaseRepository[ChatMessage]):
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
-    async def get(self, entity_id: UUID) -> Optional[ChatMessage]:
+    async def list_by(
+        self, criteria: Optional[ChatMessage] = None
+    ) -> List[ChatMessage]:
+        pass
+
+    async def get_by_id(self, entity_id: UUID) -> Optional[ChatMessage]:
         """
         Retrieve a chat message entry by its ID.
 
@@ -60,6 +65,9 @@ class ChatMessageRepository(DatabaseRepository[ChatMessage]):
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
+
+    async def get_by_criteria(self, criteria: ChatMessage) -> Optional[ChatMessage]:
+        pass
 
     async def update(
         self, entity_id: UUID, new_entity_data: ChatMessage

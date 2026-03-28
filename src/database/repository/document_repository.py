@@ -38,16 +38,15 @@ class DocumentRepository(DatabaseRepository[Document]):
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
-    async def get(
-        self, entity_id: Optional[UUID] = None
-    ) -> Optional[Document] | List[Document]:
-        """
-        Retrieve a document by its ID, or all documents if no ID is provided.
+    async def list_by(self, criteria: Optional[Document] = None) -> List[Document]:
+        pass
 
-        :param entity_id: Optional UUID of the document to retrieve. If None,
-                          all Document rows are returned as a list.
-        :return: A single Document when entity_id is provided (or None if not found),
-                 otherwise a list of Document instances.
+    async def get_by_id(self, entity_id: UUID) -> Optional[Document]:
+        """
+        Retrieve a document by its ID or None if it does not exist.
+
+        :param entity_id: The ID of the document to retrieve.
+        :return: A document or None if it does not exist.
 
         :raises SQLAlchemyError: If a database error occurs during retrieval.
         :raises IntegrityError: If a data integrity violation occurs.
@@ -64,6 +63,9 @@ class DocumentRepository(DatabaseRepository[Document]):
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
+
+    async def get_by_criteria(self, criteria: Document) -> Optional[Document]:
+        pass
 
     async def update(
         self, entity_id: UUID, new_entity_data: Document

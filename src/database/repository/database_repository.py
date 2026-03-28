@@ -69,7 +69,7 @@ class DatabaseRepository(ABC, Generic[T]):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_by_id(self, entity_id: UUID) -> T | None:
+    async def get_by_id(self, entity_id: UUID) -> Optional[T]:
         """
         Retrieve an entity by its identifier or None if no entity exists.
 
@@ -79,7 +79,7 @@ class DatabaseRepository(ABC, Generic[T]):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_by_criteria(self, criteria: T) -> T | None:
+    async def get_by_criteria(self, criteria: T) -> Optional[T]:
         """
         Retrieve an entity matching the given criteria or None if no entity
         exists.

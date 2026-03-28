@@ -2,7 +2,7 @@
 Responsible for managing chat session storage in the remote database.
 """
 
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 
 from sqlalchemy import select, func, delete
@@ -38,7 +38,12 @@ class ChatSessionRepository(DatabaseRepository[ChatSession]):
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
 
-    async def get(self, entity_id: UUID) -> Optional[ChatSession]:
+    async def list_by(
+        self, criteria: Optional[ChatSession] = None
+    ) -> List[ChatSession]:
+        pass
+
+    async def get_by_id(self, entity_id: UUID) -> Optional[ChatSession]:
         """
         Retrieve a chat session by its ID.
 
@@ -58,6 +63,9 @@ class ChatSessionRepository(DatabaseRepository[ChatSession]):
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise e
+
+    async def get_by_criteria(self, criteria: ChatSession) -> Optional[ChatSession]:
+        pass
 
     async def update(
         self, entity_id: UUID, new_entity_data: ChatSession
