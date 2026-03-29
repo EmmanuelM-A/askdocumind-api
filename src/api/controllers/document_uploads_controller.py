@@ -4,10 +4,7 @@ Handles application logic related to document uploads and interactions with the
 service layer.
 """
 
-from typing import List
-from uuid import UUID
-
-from fastapi import UploadFile, status, File, Form
+from fastapi import status
 from starlette.responses import JSONResponse
 
 from src.api.services.service_factory import get_upload_service
@@ -26,13 +23,17 @@ class DocumentUploadController:
     def __init__(self):
         self.upload_service = None
 
+    def lazy_init(self) -> None:
+        """Lazy initialize variables."""
+        if self.upload_service is None:
+            self.upload_service = get_upload_service()
+
     async def upload_files_endpoint(
         self, request: UploadDocumentsRequest
     ) -> JSONResponse:
         """Receive files and chat_id from FastAPI route, call service and return response."""
 
-        if self.upload_service is None:
-            self.upload_service = get_upload_service()
+        self.lazy_init()
 
         response_model = await self.upload_service.handle_document_uploads(request)
 
@@ -45,8 +46,7 @@ class DocumentUploadController:
     ) -> JSONResponse:
         """Fetch the metadata for uploaded documents"""
 
-        if self.upload_service is None:
-            self.upload_service = get_upload_service()
+        self.lazy_init()
 
         response_model = await self.upload_service.fetch_uploaded_document_metadata(
             request
