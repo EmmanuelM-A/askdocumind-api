@@ -10,7 +10,7 @@ try:
 except ImportError:
     docx = None
 
-import fitz
+import pymupdf
 from fastapi import UploadFile
 
 from src.components.extraction.base_extractor import TextDocumentExtractor
@@ -92,7 +92,7 @@ class PDFDocumentExtractor(TextDocumentExtractor):
         pdf_bytes = document.file.read()
 
         try:
-            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
 
             if not doc:
                 raise server_error(

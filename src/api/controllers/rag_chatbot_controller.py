@@ -16,7 +16,7 @@ class RAGChatbotController:
     """
 
     def __init__(self):
-        self.rag_chatbot_service = get_rag_chatbot_service()
+        self.rag_chatbot_service = None
 
     async def chat_endpoint(self, request: ChatRequest) -> JSONResponse:
         """
@@ -25,6 +25,9 @@ class RAGChatbotController:
         :param request: ChatRequest object containing user query and context.
         :return: JSONResponse with the chatbot's answer.
         """
+
+        if self.rag_chatbot_service is None:
+            self.rag_chatbot_service = get_rag_chatbot_service()
 
         chat_response = await self.rag_chatbot_service.handle_chat(request)
 

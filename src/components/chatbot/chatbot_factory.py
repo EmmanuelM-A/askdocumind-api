@@ -12,19 +12,29 @@ from src.components.retrieval.faiss_store import FaissVectorStore
 from src.components.retrieval.vector_store import VectorStore
 from src.components.retrieval.web_searcher import WebSearcher
 
-# RAG Chatbot component instances
-_document_processor: DocumentProcessor = DocumentProcessor()
-_vector_store: VectorStore = FaissVectorStore()
-_embedder: Embedder = Embedder()
-_query_handler: QueryHandler = QueryHandler(embedder=_embedder)
-_web_searcher: WebSearcher = WebSearcher(
-    embedder=_embedder,
-    document_processor=_document_processor,
-    vector_store=_vector_store,
-)
-
 # Singleton instance of RAGChatbot (USE FACTORY METHOD TO ACCESS)
 _rag_chatbot_instance: Optional[RAGChatbot] = None
+
+
+def _build_chatbot() -> RAGChatbot:
+    """Construct a fully wired RAGChatbot instance lazily."""
+    document_processor: DocumentProcessor = DocumentProcessor()
+    vector_store: VectorStore = FaissVectorStore()
+    embedder: Embedder = Embedder()
+    query_handler: QueryHandler = QueryHandler(embedder=embedder)
+    web_searcher: WebSearcher = WebSearcher(
+        embedder=embedder,
+        document_processor=document_processor,
+        vector_store=vector_store,
+    )
+
+    return RAGChatbot(
+        vector_store=vector_store,
+        document_processor=document_processor,
+        embedder=embedder,
+        query_handler=query_handler,
+        web_searcher=web_searcher,
+    )
 
 
 def get_chatbot() -> RAGChatbot:
@@ -33,12 +43,6 @@ def get_chatbot() -> RAGChatbot:
     global _rag_chatbot_instance
 
     if _rag_chatbot_instance is None:
-        _rag_chatbot_instance = RAGChatbot(
-            vector_store=_vector_store,
-            document_processor=_document_processor,
-            embedder=_embedder,
-            query_handler=_query_handler,
-            web_searcher=_web_searcher,
-        )
+        _rag_chatbot_instance = _build_chatbot()
 
     return _rag_chatbot_instance

@@ -24,7 +24,7 @@ class DocumentUploadController:
     """
 
     def __init__(self):
-        self.upload_service = get_upload_service()
+        self.upload_service = None
 
     async def upload_files_endpoint(
         self, files: List[UploadFile] = File(...), chat_id: UUID = Form(...)
@@ -32,6 +32,9 @@ class DocumentUploadController:
         """Receive files and chat_id from FastAPI route, call service and return response."""
 
         request = UploadDocumentsRequest(documents=files, chat_id=chat_id)
+
+        if self.upload_service is None:
+            self.upload_service = get_upload_service()
 
         response_model = await self.upload_service.handle_document_uploads(request)
 
@@ -43,6 +46,9 @@ class DocumentUploadController:
         self, request: FetchDocumentMetadataRequest
     ) -> JSONResponse:
         """Fetch the metadata for uploaded documents"""
+
+        if self.upload_service is None:
+            self.upload_service = get_upload_service()
 
         response_model = await self.upload_service.fetch_uploaded_document_metadata(
             request
