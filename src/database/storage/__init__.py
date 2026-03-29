@@ -1,9 +1,7 @@
-from src.database.storage.local_file_storage_service import (
-    get_local_file_storage_service,
-)
 from src.database.storage.storage_service import StorageService
+from src.database.storage.storage_service_factory import get_storage_service
 
 __all__ = [
     "StorageService",
-    "get_local_file_storage_service",
+    "get_storage_service",
 ]

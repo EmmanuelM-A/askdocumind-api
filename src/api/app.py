@@ -36,7 +36,7 @@ def create_app():
     app = FastAPI(title="DocuChatAPI", version="1.0.0", lifespan=lifespan)
 
     # --- Routers ---
-    app.include_router(prefix="/api/v1", router=health_check_router)
+    app.include_router(prefix="/api", router=health_check_router)
     app.include_router(prefix="/api/v1", router=document_upload_router)
     app.include_router(prefix="/api/v1", router=chat_session_router)
     app.include_router(prefix="/api/v1", router=rag_chatbot_router)

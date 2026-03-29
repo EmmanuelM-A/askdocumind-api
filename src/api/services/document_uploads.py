@@ -15,9 +15,13 @@ from src.api.utils.api_responses import SuccessResponseModel
 from src.components.chatbot.core import RAGChatbot
 from src.config.constants import ProcessingStatus
 from src.database.models import Document
-from src.database.repository import ChatSessionRepository, DocumentRepository
-from src.database.storage.storage_service import StorageService
-from src.errors.custom_exceptions import throw_database_error
+from src.database.repository.interfaces import (
+    ChatSessionRepositoryInterface,
+    DocumentRepositoryInterface,
+)
+
+from src.database.storage import StorageService
+from src.errors.custom_exceptions import database_error
 from src.logger.base_logger import BaseLogger
 
 
@@ -27,8 +31,8 @@ class UploadService:
     def __init__(
         self,
         storage_service: StorageService,
-        chat_session_repo: ChatSessionRepository,
-        document_repo: DocumentRepository,
+        chat_session_repo: ChatSessionRepositoryInterface,
+        document_repo: DocumentRepositoryInterface,
         chatbot: RAGChatbot,
     ) -> None:
         self.storage_service = storage_service
@@ -94,7 +98,7 @@ class UploadService:
                             # Best-effort cleanup; ignore further errors
                             pass
 
-                    throw_database_error(
+                    raise database_error(
                         message=f"Failed to store document {upload.filename}",
                         error_code="DOCUMENT_STORAGE_FAILED",
                         stack_trace=str(storage_exc),
@@ -145,7 +149,7 @@ class UploadService:
                         # Best-effort cleanup; ignore further errors
                         pass
 
-                throw_database_error(
+                raise database_error(
                     message=f"Failed to process uploaded file {upload.filename}",
                     error_code="DOCUMENT_READ_FAILED",
                     stack_trace=str(e),
@@ -168,7 +172,7 @@ class UploadService:
                 except Exception:
                     pass
 
-            throw_database_error(
+            raise database_error(
                 message="Failed to process and save document vectors",
                 error_code="VECTOR_PROCESSING_FAILED",
                 stack_trace=str(e),
@@ -186,7 +190,7 @@ class UploadService:
                 except Exception:
                     pass
 
-            throw_database_error(
+            raise database_error(
                 message="Failed to store document metadata in the database",
                 error_code="DOCUMENT_METADATA_STORAGE_FAILED",
                 stack_trace=str(e),
@@ -200,7 +204,7 @@ class UploadService:
                 except Exception:
                     pass
 
-            throw_database_error(
+            raise database_error(
                 message="Failed to store document metadata in the database",
                 error_code="DOCUMENT_METADATA_STORAGE_FAILED",
                 error_details="Mismatch in number of created document entities",

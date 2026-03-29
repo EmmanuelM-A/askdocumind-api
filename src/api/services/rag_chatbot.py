@@ -7,16 +7,19 @@ from src.config.constants import ChatMessageRole
 from src.database.models import ChatMessage
 from src.api.services.validation.rag_validation import ChatRequest, check_if_chat_exists
 from src.api.utils.api_responses import SuccessResponseModel
-from src.database.repository import ChatSessionRepository, ChatMessageRepository
+from src.database.repository.interfaces import (
+    ChatSessionRepositoryInterface,
+    ChatMessageRepositoryInterface,
+)
 
 
-class ChatbotService:
+class RAGChatbotService:
     """Service class for RAG chatbot interactions."""
 
     def __init__(
         self,
-        chat_session_repo: ChatSessionRepository,
-        chat_message_repo: ChatMessageRepository,
+        chat_session_repo: ChatSessionRepositoryInterface,
+        chat_message_repo: ChatMessageRepositoryInterface,
         chatbot: RAGChatbot,
     ) -> None:
         self.chat_session_repo = chat_session_repo

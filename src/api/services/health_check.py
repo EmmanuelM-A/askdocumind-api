@@ -3,7 +3,7 @@ Service layer for API and database health checks.
 Handles system diagnostics and status reporting logic.
 """
 
-from src.errors.custom_exceptions import throw_database_error
+from src.errors.custom_exceptions import database_error
 from src.database.connection import get_database_connection
 from src.api.utils.api_responses import SuccessResponseModel
 from sqlalchemy import text
@@ -26,7 +26,7 @@ class HealthCheckService:
         )
 
     @staticmethod
-    async def check_database_health() -> SuccessResponseModel | None:
+    async def check_database_health() -> SuccessResponseModel:
         """
         Verifies database connectivity by running a lightweight query.
         """
@@ -40,10 +40,8 @@ class HealthCheckService:
                 message="Database connection is healthy.", data={"status": "OK"}
             )
         except Exception as e:
-            throw_database_error(
+            raise database_error(
                 message="Failed to connect to the database during health check.",
                 error_code="DB_CONNECTION_FAILED",
                 stack_trace=str(e),
             )
-
-            return None

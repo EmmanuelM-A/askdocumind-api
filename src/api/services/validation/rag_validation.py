@@ -11,6 +11,8 @@ from fastapi import UploadFile
 from pydantic import BaseModel, Field, field_validator
 from uuid import UUID
 
+from src.database.repository.interfaces import ChatSessionRepositoryInterface
+
 # Avoid importing RAGChatbot at module import time to prevent circular imports;
 # import it only for type checking.
 if TYPE_CHECKING:
@@ -18,8 +20,6 @@ if TYPE_CHECKING:
 
 from src.components.ingestion.document import FileDocument
 from src.config.configs import settings
-from src.database.models import ChatSession
-from src.database.repository.database_repository import DatabaseRepository
 from src.errors.custom_exceptions import (
     throw_unprocessable_entity_error,
     throw_not_found_error,
@@ -167,7 +167,7 @@ def validate_document_content(
 
 async def check_if_chat_exists(
     chat_id: UUID,
-    chat_session_repo: DatabaseRepository[ChatSession],
+    chat_session_repo: ChatSessionRepositoryInterface,
     chatbot: "RAGChatbot",
 ) -> None:
     """
