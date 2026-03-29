@@ -18,7 +18,6 @@ from src.database.repository.interfaces import ChatSessionRepositoryInterface
 if TYPE_CHECKING:
     from src.components.chatbot.core import RAGChatbot
 
-from src.components.ingestion.document import FileDocument
 from src.config.configs import settings
 from src.errors.custom_exceptions import (
     unprocessable_entity_error,
@@ -125,44 +124,6 @@ def validate_url(url: str) -> bool:
         )
 
     return True
-
-
-def validate_document_content(
-    document: FileDocument, logger: BaseLogger
-) -> Tuple[bool, Optional[str]]:
-    """
-    Validate document content before processing.
-
-    Args:
-        document: The FileDocument instance to validate.
-        logger: The logger instance for logging warnings.
-
-    Returns:
-        A tuple containing a boolean indicating if the document is valid,
-        and the cleaned content or None.
-    """
-
-    if not document or not document.content:
-        return False, None
-
-    content = document.content.strip()
-    if len(content) < settings.app.MIN_DOCUMENT_CONTENT_LENGTH:
-        logger.warning(f"Document {document.metadata.filename} too short, skipping")
-        return False, None
-
-    if len(content) > settings.app.MAX_DOCUMENT_CONTENT_LENGTH:
-        if settings.app.IS_TRUNCATION_ENABLED:
-            logger.warning(
-                f"Document {document.metadata.filename} too large, truncating"
-            )
-            document.content = (
-                content[: settings.app.MAX_DOCUMENT_CONTENT_LENGTH] + "... [TRUNCATED]"
-            )
-        else:
-            logger.warning(f"Document {document.metadata.filename} too large, skipping")
-            return False, None
-
-    return True, content
 
 
 async def check_if_chat_exists(
