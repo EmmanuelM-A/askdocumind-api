@@ -10,12 +10,18 @@ from langchain_core.output_parsers import StrOutputParser
 from src.config.configs import settings
 from src.components.prompts.prompt_loader import create_prompt_template
 from src.components.retrieval.embedder import Embedder
-from src.api.services.validation.rag_validation import sanitize_query
 
 from src.errors.custom_exceptions import unprocessable_entity_error
 from src.logger.base_logger import BaseLogger
 
 logger = BaseLogger(__name__)
+
+
+def sanitize_query(query: str, logger: BaseLogger) -> str:
+    """Lazy sanitizer proxy to keep this module patch-friendly in tests."""
+    from src.api.services.validation.rag_validation import sanitize_query as _sanitize
+
+    return _sanitize(query=query, logger=logger)
 
 
 class QueryHandler:
@@ -48,6 +54,7 @@ class QueryHandler:
                 message="Valid metadata dictionary is required",
                 error_code="INVALID_METADATA",
             )
+
 
         query = sanitize_query(query=query, logger=logger)
 

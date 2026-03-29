@@ -11,7 +11,6 @@ import pytest
 from src.components.chatbot.query_handler import QueryHandler
 from src.errors.api_exceptions import ApiException
 
-
 # ==================== INITIALIZATION TESTS ====================
 
 

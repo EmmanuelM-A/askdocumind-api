@@ -117,7 +117,7 @@ class UploadService:
                         session_id=request.chat_id,
                         filename=upload.filename,
                         file_size=len(data),
-                        vector_id=request.vector_id,
+                        vector_id=request.chat_id,
                         processing_status=ProcessingStatus.PENDING,
                     )
                 )

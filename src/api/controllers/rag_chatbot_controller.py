@@ -5,7 +5,7 @@ Controller layer fot the RAG chatbot interactions.
 from fastapi import status
 from starlette.responses import JSONResponse
 
-from src.api.services import rag_chatbot_service
+from src.api.services.service_factory import get_rag_chatbot_service
 from src.api.services.validation.rag_validation import ChatRequest
 from src.api.utils.response_delivery import create_success_response
 
@@ -16,7 +16,7 @@ class RAGChatbotController:
     """
 
     def __init__(self):
-        self.rag_chatbot_service = rag_chatbot_service
+        self.rag_chatbot_service = get_rag_chatbot_service()
 
     async def chat_endpoint(self, request: ChatRequest) -> JSONResponse:
         """

@@ -10,7 +10,7 @@ from uuid import UUID
 from fastapi import UploadFile, status, File, Form
 from starlette.responses import JSONResponse
 
-from src.api.services import upload_service
+from src.api.services.service_factory import get_upload_service
 from src.api.services.validation.rag_validation import (
     FetchDocumentMetadataRequest,
 )
@@ -24,7 +24,7 @@ class DocumentUploadController:
     """
 
     def __init__(self):
-        self.upload_service = upload_service
+        self.upload_service = get_upload_service()
 
     async def upload_files_endpoint(
         self, files: List[UploadFile] = File(...), chat_id: UUID = Form(...)

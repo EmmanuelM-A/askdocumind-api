@@ -6,7 +6,7 @@ changing the service layer code.
 
 from typing import Optional
 
-from src.database.storage import StorageService
+from src.database.storage.storage_service import StorageService
 from src.database.storage.local_file_storage_service import LocalFileStorageService
 
 _storage_service: Optional[StorageService] = None
