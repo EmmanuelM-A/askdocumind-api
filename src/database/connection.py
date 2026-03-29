@@ -7,7 +7,7 @@ from typing import Any, AsyncGenerator, Optional
 
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
-from src.errors.custom_exceptions import throw_database_error
+from src.errors.custom_exceptions import database_error
 from src.logger.base_logger import BaseLogger
 from src.config.configs import settings
 
@@ -27,7 +27,7 @@ class DatabaseConnection:
         self.session_maker = None
 
         if not self.database_url:
-            throw_database_error(
+            raise database_error(
                 "DATABASE_URL is not configured or invalid.", "MISSING_DATABASE_URL"
             )
 
@@ -50,7 +50,7 @@ class DatabaseConnection:
                 bind=self.engine, expire_on_commit=False, autoflush=False
             )
         except Exception as e:
-            throw_database_error(
+            raise database_error(
                 message="Failed to connect to the database during initialization.",
                 error_code="DB_CONNECTION_ERROR",
                 stack_trace=str(e),
@@ -70,7 +70,7 @@ class DatabaseConnection:
         """Get a new database session."""
 
         if not self.session_maker:
-            throw_database_error(
+            raise database_error(
                 "No session available because the database has not been connected.",
                 "NO_DB_CONNECTION_DETECTED",
             )
@@ -88,7 +88,7 @@ class DatabaseConnection:
 
 
 # Global database connection instance
-database_connection: Optional[DatabaseConnection] = None
+_database_connection: Optional[DatabaseConnection] = None
 
 
 def get_database_connection() -> DatabaseConnection:
@@ -96,9 +96,9 @@ def get_database_connection() -> DatabaseConnection:
     Returns the global singleton instance of the DatabaseConnection class.
     """
 
-    global database_connection
+    global _database_connection
 
-    if database_connection is None:
-        database_connection = DatabaseConnection()
+    if _database_connection is None:
+        _database_connection = DatabaseConnection()
 
-    return database_connection
+    return _database_connection

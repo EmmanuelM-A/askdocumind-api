@@ -52,7 +52,9 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
 
                 if criteria is None:
                     result = await session.execute(stmt)
-                    self._logger.debug("No criteria provided, returning all chat sessions")
+                    self._logger.debug(
+                        "No criteria provided, returning all chat sessions"
+                    )
                     return result.scalars().all()
 
                 filters = []
