@@ -18,7 +18,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from src.components.ingestion.document import FileDocument
 from src.components.extraction.text_extraction_factory import get_extractor
 from src.api.services.validation.rag_validation import validate_document_content
-from src.errors.custom_exceptions import throw_unprocessable_entity_error
+from src.errors.custom_exceptions import unprocessable_entity_error
 from src.config.configs import settings
 from src.logger.base_logger import BaseLogger
 
@@ -81,7 +81,7 @@ class DocumentProcessor:
         """
 
         if not files:
-            throw_unprocessable_entity_error(
+            raise unprocessable_entity_error(
                 message="No files provided for document processing.",
                 error_code="NO_FILES_PROVIDED",
             )
@@ -134,7 +134,7 @@ class DocumentProcessor:
             del cleaned_content
 
         if not yielded_any_chunk:
-            throw_unprocessable_entity_error(
+            raise unprocessable_entity_error(
                 message="No valid document chunks produced.",
                 error_code="NO_VALID_DOCUMENT_CHUNKS",
             )

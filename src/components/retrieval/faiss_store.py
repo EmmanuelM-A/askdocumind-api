@@ -6,7 +6,6 @@ systems.
 import os
 import pickle
 import uuid
-from abc import ABC
 from typing import Sequence, Dict, Optional, Any, List, Tuple
 import numpy as np
 import faiss
@@ -14,9 +13,9 @@ import faiss
 
 from src.config.configs import settings
 from src.errors.custom_exceptions import (
-    throw_unprocessable_entity_error,
-    throw_not_found_error,
-    throw_server_error,
+    unprocessable_entity_error,
+    not_found_error,
+    server_error,
 )
 from src.logger.base_logger import BaseLogger
 from src.components.retrieval.vector_store import VectorStore
@@ -47,7 +46,7 @@ class FaissVectorStore(VectorStore):
             index_id = uuid.uuid4().hex
 
         if self.vector_index_exists(index_id):
-            throw_unprocessable_entity_error(
+            raise unprocessable_entity_error(
                 message=f"Index '{index_id}' already exists.",
                 error_code="INDEX_ALREADY_EXISTS",
             )
@@ -62,7 +61,7 @@ class FaissVectorStore(VectorStore):
             with open(self._metadata_path(index_id), "wb") as index_file:
                 pickle.dump([], index_file)
         except (OSError, pickle.PickleError) as e:
-            throw_server_error(
+            raise server_error(
                 message=f"Failed to create the index '{index_id}'",
                 error_code="INDEX_CREATION_FAILED",
                 stack_trace=str(e),
@@ -76,9 +75,8 @@ class FaissVectorStore(VectorStore):
         index_path = self._index_path(index_id)
 
         if not does_file_exist(index_path):
-            throw_not_found_error(
-                message="Index not found.",
-                error_code="INDEX_NOT_FOUND",
+            raise not_found_error(
+                message="Index not found.", error_code="INDEX_NOT_FOUND"
             )
 
         return self._safe_read_index(index_id)
@@ -101,7 +99,7 @@ class FaissVectorStore(VectorStore):
 
     def delete_vector_index(self, index_id: str) -> None:
         if not self.vector_index_exists(index_id):
-            throw_not_found_error(
+            raise not_found_error(
                 message=f"The index '{index_id}' not found.",
                 error_code="INDEX_NOT_FOUND",
             )
@@ -155,25 +153,22 @@ class FaissVectorStore(VectorStore):
         """
 
         if not self.vector_index_exists(index_id):
-            throw_not_found_error(
-                message="Index does not exist.",
-                error_code="INDEX_NOT_FOUND",
+            raise not_found_error(
+                message="Index does not exist.", error_code="INDEX_NOT_FOUND"
             )
 
         if not vectors:
-            throw_unprocessable_entity_error(
-                message="No vectors provided.",
-                error_code="NO_VECTORS",
+            raise unprocessable_entity_error(
+                message="No vectors provided.", error_code="NO_VECTORS"
             )
 
         if not metadata:
-            throw_unprocessable_entity_error(
-                message="No metadata provided.",
-                error_code="NO_METADATA",
+            raise unprocessable_entity_error(
+                message="No metadata provided.", error_code="NO_METADATA"
             )
 
         if len(vectors) != len(metadata):
-            throw_unprocessable_entity_error(
+            raise unprocessable_entity_error(
                 message="Vectors and metadata length mismatch.",
                 error_code="VECTORS_METADATA_SIZE_MISMATCH",
             )
@@ -199,7 +194,7 @@ class FaissVectorStore(VectorStore):
 
         # Dimension check
         if index.d != dim:
-            throw_unprocessable_entity_error(
+            raise unprocessable_entity_error(
                 message="Vector dimension mismatch.",
                 error_code="VECTOR_DIMENSION_MISMATCH",
             )
@@ -228,7 +223,7 @@ class FaissVectorStore(VectorStore):
 
     def load_vectors(self, index_id: str) -> Tuple[faiss.Index, List[dict]]:
         if not self.vector_index_exists(index_id):
-            throw_not_found_error(
+            raise not_found_error(
                 message=f"The index '{index_id}' does not exist.",
                 error_code="INDEX_NOT_FOUND",
             )
@@ -245,7 +240,7 @@ class FaissVectorStore(VectorStore):
         index_id: str,
     ) -> None:
         if not self.vector_index_exists(index_id):
-            throw_not_found_error(
+            raise not_found_error(
                 message=f"The index '{index_id}' does not exist.",
                 error_code="INDEX_NOT_FOUND",
             )
@@ -266,7 +261,7 @@ class FaissVectorStore(VectorStore):
 
     # ========================== HELPER METHODS ==========================
 
-    def _safe_read_index(self, index_id: str) -> Any | None:
+    def _safe_read_index(self, index_id: str) -> Any:
         """
         Safely read a FAISS index from disk.
 
@@ -284,12 +279,11 @@ class FaissVectorStore(VectorStore):
             index = faiss.read_index(self._index_path(index_id))
             return index
         except OSError as e:
-            throw_server_error(
+            raise server_error(
                 message=f"Failed to read index '{index_id}'",
                 error_code="READ_INDEX_FAILED",
                 stack_trace=str(e),
             )
-            return None
 
     def _persist(
         self,
@@ -315,7 +309,7 @@ class FaissVectorStore(VectorStore):
             with open(self._metadata_path(index_id), "wb") as f:
                 pickle.dump(metadata, f, protocol=pickle.HIGHEST_PROTOCOL)
         except (OSError, pickle.PickleError) as e:
-            throw_server_error(
+            raise server_error(
                 message=f"Failed to persist index '{index_id}'",
                 error_code="PERSIST_INDEX_FAILED",
                 stack_trace=str(e),

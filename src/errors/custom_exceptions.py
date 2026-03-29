@@ -10,15 +10,15 @@ from fastapi import status
 from src.errors.api_exceptions import ApiException
 
 
-def throw_bad_request_error(
+def bad_request_error(
     message: str,
     error_code: str,
     error_details: Optional[str] = None,
     stack_trace: Optional[str] = None,
     headers: Optional[dict] = None,
-) -> None:
+) -> ApiException:
     """Raises a 400 Bad Request exception."""
-    raise ApiException(
+    return ApiException(
         error_code=error_code,
         error_details=error_details,
         stack_trace=stack_trace,
@@ -28,15 +28,15 @@ def throw_bad_request_error(
     )
 
 
-def throw_unauthorized_error(
+def unauthorized_error(
     message: str = "Unauthorized access.",
     error_code: str = "UNAUTHORIZED",
     error_details: Optional[str] = None,
     stack_trace: Optional[str] = None,
     headers: Optional[dict] = None,
-) -> None:
+) -> ApiException:
     """Raises a 401 Unauthorized exception."""
-    raise ApiException(
+    return ApiException(
         error_code=error_code,
         error_details=error_details,
         stack_trace=stack_trace,
@@ -46,15 +46,15 @@ def throw_unauthorized_error(
     )
 
 
-def throw_forbidden_error(
+def forbidden_error(
     message: str = "Forbidden: insufficient permissions.",
     error_code: str = "FORBIDDEN",
     error_details: Optional[str] = None,
     stack_trace: Optional[str] = None,
     headers: Optional[dict] = None,
-) -> None:
+) -> ApiException:
     """Raises a 403 Forbidden exception."""
-    raise ApiException(
+    return ApiException(
         error_code=error_code,
         error_details=error_details,
         stack_trace=stack_trace,
@@ -64,15 +64,15 @@ def throw_forbidden_error(
     )
 
 
-def throw_not_found_error(
+def not_found_error(
     message: str = "Requested resource not found.",
     error_code: str = "NOT_FOUND",
     error_details: Optional[str] = None,
     stack_trace: Optional[str] = None,
     headers: Optional[dict] = None,
-) -> None:
+) -> ApiException:
     """Raises a 404 Not Found exception."""
-    raise ApiException(
+    return ApiException(
         error_code=error_code,
         error_details=error_details,
         stack_trace=stack_trace,
@@ -82,15 +82,15 @@ def throw_not_found_error(
     )
 
 
-def throw_conflict_error(
+def conflict_error(
     message: str = "Resource conflict occurred.",
     error_code: str = "CONFLICT",
     error_details: Optional[str] = None,
     stack_trace: Optional[str] = None,
     headers: Optional[dict] = None,
-) -> None:
+) -> ApiException:
     """Raises a 409 Conflict exception."""
-    raise ApiException(
+    return ApiException(
         error_code=error_code,
         error_details=error_details,
         stack_trace=stack_trace,
@@ -100,15 +100,15 @@ def throw_conflict_error(
     )
 
 
-def throw_unprocessable_entity_error(
+def unprocessable_entity_error(
     message: str = "Unprocessable entity.",
     error_code: str = "UNPROCESSABLE_ENTITY",
     error_details: Optional[str] = None,
     stack_trace: Optional[str] = None,
     headers: Optional[dict] = None,
-) -> None:
+) -> ApiException:
     """Raises a 422 Unprocessable Entity exception."""
-    raise ApiException(
+    return ApiException(
         error_code=error_code,
         error_details=error_details,
         stack_trace=stack_trace,
@@ -118,15 +118,15 @@ def throw_unprocessable_entity_error(
     )
 
 
-def throw_database_error(
+def database_error(
     message: str = "An error occurred in the database",
     error_code: str = "INTERNAL_SERVER_ERROR",
     error_details: Optional[str] = None,
     stack_trace: Optional[str] = None,
     headers: Optional[dict] = None,
-) -> None:
+) -> ApiException:
     """Raises a 500 Internal Server Error exception."""
-    raise ApiException(
+    return ApiException(
         error_code=error_code,
         error_details=error_details,
         stack_trace=stack_trace,
@@ -136,15 +136,15 @@ def throw_database_error(
     )
 
 
-def throw_server_error(
+def server_error(
     message: str = "An internal server error occurred.",
     error_code: str = "INTERNAL_SERVER_ERROR",
     error_details: Optional[str] = None,
     stack_trace: Optional[str] = None,
     headers: Optional[dict] = None,
-) -> None:
+) -> ApiException:
     """Raises a 500 Internal Server Error exception."""
-    raise ApiException(
+    return ApiException(
         error_code=error_code,
         error_details=error_details,
         stack_trace=stack_trace,

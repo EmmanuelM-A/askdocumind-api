@@ -12,7 +12,7 @@ import redis
 from src.config.configs import settings
 from src.config.constants import CacheNamespace
 from src.logger.base_logger import BaseLogger
-from src.errors.custom_exceptions import throw_server_error
+from src.errors.custom_exceptions import server_error
 from src.api.services.caching.caching_service import CachingService
 
 logger = BaseLogger(__name__)
@@ -47,7 +47,7 @@ class RedisCache(CachingService):
 
         except Exception as e:
             self.client = None
-            throw_server_error(
+            raise server_error(
                 message="Failed to connect to Redis!",
                 error_code="REDIS_CONNECTION_ERROR",
                 stack_trace=str(e),

@@ -3,9 +3,6 @@ Module for text extraction from various file formats.
 """
 
 from importlib.metadata import PackageNotFoundError
-from typing import Optional
-
-import io
 import zipfile
 
 try:
@@ -19,7 +16,7 @@ from fastapi import UploadFile
 from src.components.extraction.base_extractor import TextDocumentExtractor
 from src.components.ingestion.document import FileDocumentMetadata
 from src.config.constants import Source
-from src.errors.custom_exceptions import throw_server_error
+from src.errors.custom_exceptions import server_error
 from src.logger.base_logger import BaseLogger
 
 logger = BaseLogger(__name__)
@@ -28,7 +25,7 @@ logger = BaseLogger(__name__)
 class TxtDocumentExtractor(TextDocumentExtractor):
     """Text extractor for TXT documents."""
 
-    def extract_text_from(self, document: UploadFile) -> Optional[str]:
+    def extract_text_from(self, document: UploadFile) -> str:
         try:
             content = document.file.read().decode("utf-8")
         except UnicodeDecodeError:
@@ -38,13 +35,12 @@ class TxtDocumentExtractor(TextDocumentExtractor):
             document.file.seek(0)
             content = document.file.read().decode("latin-1")
         except (FileNotFoundError, PermissionError, IsADirectoryError, OSError) as e:
-            throw_server_error(
+            raise server_error(
                 message="An error occurred whilst extracting text from the file "
                 f"{document.filename}",
                 error_code="TEXT_EXTRACTION_ERROR",
                 stack_trace=str(e),
             )
-            return None
 
         return content
 
@@ -60,7 +56,7 @@ class TxtDocumentExtractor(TextDocumentExtractor):
 class MarkdownDocumentExtractor(TextDocumentExtractor):
     """Text extractor for Markdown documents."""
 
-    def extract_text_from(self, document: UploadFile) -> Optional[str]:
+    def extract_text_from(self, document: UploadFile) -> str:
         try:
             content = document.file.read().decode("utf-8")
         except UnicodeDecodeError:
@@ -70,13 +66,12 @@ class MarkdownDocumentExtractor(TextDocumentExtractor):
             document.file.seek(0)
             content = document.file.read().decode("latin-1")
         except (FileNotFoundError, PermissionError, IsADirectoryError, OSError) as e:
-            throw_server_error(
+            raise server_error(
                 message="An error occurred whilst extracting text from the file "
                 f"{document.filename}",
                 error_code="MARKDOWN_EXTRACTION_ERROR",
                 stack_trace=str(e),
             )
-            return None
 
         return content
 
@@ -100,7 +95,7 @@ class PDFDocumentExtractor(TextDocumentExtractor):
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
 
             if not doc:
-                throw_server_error(
+                raise server_error(
                     message="PDF contains no readable content",
                     error_code="PDF_EXTRACTION_ERROR",
                 )
@@ -117,7 +112,7 @@ class PDFDocumentExtractor(TextDocumentExtractor):
                     continue
 
             if not content.strip():
-                throw_server_error(
+                raise server_error(
                     message="PDF contains no readable content",
                     error_code="PDF_NO_CONTENT",
                 )
@@ -139,9 +134,9 @@ class PDFDocumentExtractor(TextDocumentExtractor):
 class DocxDocumentExtractor(TextDocumentExtractor):
     """Text extractor for DOCX documents."""
 
-    def extract_text_from(self, document: UploadFile) -> Optional[str]:
+    def extract_text_from(self, document: UploadFile) -> str:
         if docx is None:
-            throw_server_error(
+            raise server_error(
                 message=(
                     "python-docx is not installed or an incompatible 'docx' package "
                     "is present. Please install the correct dependency: 'python-docx'."
@@ -163,13 +158,12 @@ class DocxDocumentExtractor(TextDocumentExtractor):
             zipfile.BadZipFile,
             MemoryError,
         ) as e:
-            throw_server_error(
+            raise server_error(
                 message="An error occurred whilst extracting text from the file "
                 f"{document.filename}",
                 error_code="DOCX_EXTRACTION_ERROR",
                 stack_trace=str(e),
             )
-            return None
 
     def extract_metadata_from(self, document: UploadFile) -> FileDocumentMetadata:
         return FileDocumentMetadata(

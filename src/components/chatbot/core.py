@@ -13,7 +13,7 @@ from src.components.retrieval.vector_store import VectorStore
 from src.components.retrieval.web_searcher import WebSearcher
 from src.config.configs import settings
 from src.config.constants import Source
-from src.errors.custom_exceptions import throw_not_found_error, throw_server_error
+from src.errors.custom_exceptions import not_found_error, server_error
 from src.logger.base_logger import BaseLogger
 
 
@@ -160,7 +160,7 @@ class RAGChatbot:
             )
 
             if not settings.web.IS_WEB_SEARCH_ENABLED:
-                throw_server_error(
+                raise server_error(
                     message="Web search is disabled in the system settings.",
                     error_code="WEB_SEARCH_DISABLED",
                 )
@@ -225,7 +225,7 @@ class RAGChatbot:
         exists = self.vector_store.vector_index_exists(index_id)
 
         if not exists:
-            throw_not_found_error(
+            raise not_found_error(
                 message=f"Index with ID {index_id} not found.",
                 error_code="INDEX_NOT_FOUND",
             )

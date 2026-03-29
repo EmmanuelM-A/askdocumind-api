@@ -12,7 +12,7 @@ from src.components.prompts.prompt_loader import create_prompt_template
 from src.components.retrieval.embedder import Embedder
 from src.api.services.validation.rag_validation import sanitize_query
 
-from src.errors.custom_exceptions import throw_unprocessable_entity_error
+from src.errors.custom_exceptions import unprocessable_entity_error
 from src.logger.base_logger import BaseLogger
 
 logger = BaseLogger(__name__)
@@ -39,12 +39,12 @@ class QueryHandler:
         """
 
         if index is None:
-            throw_unprocessable_entity_error(
+            raise unprocessable_entity_error(
                 message="FAISS index is required", error_code="MISSING_FAISS_INDEX"
             )
 
         if metadata is None or not isinstance(metadata, dict):
-            throw_unprocessable_entity_error(
+            raise unprocessable_entity_error(
                 message="Valid metadata dictionary is required",
                 error_code="INVALID_METADATA",
             )

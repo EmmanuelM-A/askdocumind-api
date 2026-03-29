@@ -9,7 +9,7 @@ from langchain_openai import OpenAIEmbeddings
 
 from src.config.configs import settings
 from src.config.constants import CacheNamespace
-from src.errors.custom_exceptions import throw_server_error
+from src.errors.custom_exceptions import server_error
 from src.logger.base_logger import BaseLogger
 from src.components.ingestion.document import FileDocument
 from src.api.services.caching.cache_factory import CacheFactory
@@ -40,7 +40,7 @@ class Embedder:
                 f"Initialized embedder with the model: {settings.llm.EMBEDDING_MODEL_NAME}"
             )
         except Exception as e:
-            throw_server_error(
+            raise server_error(
                 message="Failed to initialize the embedding model.",
                 error_code="EMBEDDER_INIT_ERROR",
                 stack_trace=str(e),
@@ -72,7 +72,7 @@ class Embedder:
         if buffer_docs:
             yield self._embed_batch(buffer_docs)
 
-    def embed_query(self, query: str) -> Optional[List[float]]:
+    def embed_query(self, query: str) -> List[float]:
         """
         Embed a single query string with caching.
 
@@ -87,7 +87,7 @@ class Embedder:
         """
 
         if not query or not query.strip():
-            throw_server_error(
+            raise server_error(
                 message="Query is empty or contains only whitespace.",
                 error_code="NO_QUERY_PROVIDED",
             )
@@ -117,12 +117,11 @@ class Embedder:
             return embedding
 
         except Exception as e:
-            throw_server_error(
+            raise server_error(
                 message="Failed to embed query.",
                 error_code="EMBEDDER_EMBED_QUERY_ERROR",
                 stack_trace=str(e),
             )
-            return None
 
     # ========================= HELPER METHODS =========================
 
@@ -209,7 +208,7 @@ class Embedder:
 
     def _get_new_document_embeddings(
         self, uncached_items: List[Tuple[int, str, str]]
-    ) -> Optional[List[Tuple[int, List[float]]]]:
+    ) -> List[Tuple[int, List[float]]]:
         """
         Get embeddings for uncached items and store them in cache.
 
@@ -249,12 +248,11 @@ class Embedder:
             return result
 
         except Exception as e:
-            throw_server_error(
+            raise server_error(
                 message="Failed to get embeddings from model.",
                 error_code="EMBEDDING_ERROR",
                 stack_trace=str(e),
             )
-            return None
 
     @staticmethod
     def _combine_embeddings(
@@ -289,7 +287,7 @@ class Embedder:
         # Verify all positions are filled
         if None in vectors:
             missing_indices = [i for i, v in enumerate(vectors) if v is None]
-            throw_server_error(
+            raise server_error(
                 message="Failed to combine embeddings. Some positions are missing.",
                 error_code="EMBEDDER_COMBINE_ERROR",
                 error_details=f"Missing indices: {missing_indices}",

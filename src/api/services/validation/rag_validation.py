@@ -21,8 +21,8 @@ if TYPE_CHECKING:
 from src.components.ingestion.document import FileDocument
 from src.config.configs import settings
 from src.errors.custom_exceptions import (
-    throw_unprocessable_entity_error,
-    throw_not_found_error,
+    unprocessable_entity_error,
+    not_found_error,
 )
 from src.logger.base_logger import BaseLogger
 
@@ -40,14 +40,14 @@ def sanitize_query(query: str, logger: BaseLogger) -> str:
 
     # Basic presence check
     if query is None:
-        throw_unprocessable_entity_error(
+        raise unprocessable_entity_error(
             message="Query cannot be empty", error_code="EMPTY_QUERY"
         )
 
     # Normalize input to string and ensure not empty/whitespace
     raw = str(query)
     if not raw.strip():
-        throw_unprocessable_entity_error(
+        raise unprocessable_entity_error(
             message="Query cannot be empty", error_code="EMPTY_QUERY"
         )
 
@@ -97,7 +97,7 @@ def validate_url(url: str) -> bool:
     """Validate URL for web searches."""
 
     if not url:
-        throw_unprocessable_entity_error(
+        raise unprocessable_entity_error(
             message="URL cannot be empty", error_code="EMPTY_URL"
         )
 
@@ -105,13 +105,13 @@ def validate_url(url: str) -> bool:
 
     # Must have scheme and netloc
     if not parsed.scheme or not parsed.netloc:
-        throw_unprocessable_entity_error(
+        raise unprocessable_entity_error(
             message="Invalid URL format", error_code="INVALID_URL_FORMAT"
         )
 
     # Only allow HTTP/HTTPS
     if parsed.scheme not in ["http", "https"]:
-        throw_unprocessable_entity_error(
+        raise unprocessable_entity_error(
             message="Only HTTP and HTTPS URLs are allowed",
             error_code="INVALID_URL_SCHEME",
         )
@@ -119,7 +119,7 @@ def validate_url(url: str) -> bool:
     # Block local/private addresses
     blocked_hosts = ["localhost", "127.0.0.1", "0.0.0.0"]
     if any(blocked in parsed.netloc.lower() for blocked in blocked_hosts):
-        throw_unprocessable_entity_error(
+        raise unprocessable_entity_error(
             message="Local and private addresses are not allowed",
             error_code="BLOCKED_URL_HOST",
         )
@@ -183,13 +183,13 @@ async def check_if_chat_exists(
     """
 
     if not await chat_session_repo.exists(chat_id):
-        throw_not_found_error(
+        raise not_found_error(
             message=f"Chat session with ID {chat_id} not found.",
             error_code="CHAT_SESSION_NOT_FOUND",
         )
 
     if not chatbot.chat_exists(index_chat_id=str(chat_id)):
-        throw_not_found_error(
+        raise not_found_error(
             message=f"Chat with ID {chat_id} not found in vector store.",
             error_code="CHAT_NOT_FOUND_IN_VECTOR_STORE",
         )

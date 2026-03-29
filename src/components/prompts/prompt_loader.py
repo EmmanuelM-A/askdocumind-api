@@ -5,7 +5,7 @@ Loads ChatPromptTemplates from YAML prompt files for use with LangChain LLMs.
 import yaml
 from langchain_core.prompts import ChatPromptTemplate
 
-from src.errors.custom_exceptions import throw_server_error
+from src.errors.custom_exceptions import server_error
 from src.logger.base_logger import BaseLogger
 
 logger = BaseLogger(__name__)
@@ -43,7 +43,7 @@ def create_prompt_template(prompt_filepath):
         with open(prompt_filepath, "r", encoding="utf-8") as f:
             prompt_data = yaml.safe_load(f)
     except Exception as e:
-        throw_server_error(
+        raise server_error(
             message="Failed to load prompt template.",
             error_code="PROMPT_TEMPLATE_LOAD_ERROR",
             stack_trace=str(e),
