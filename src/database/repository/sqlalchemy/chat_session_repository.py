@@ -5,37 +5,30 @@ Responsible for managing chat session storage in the remote database.
 from typing import Optional, List
 from uuid import UUID
 
-from pydantic import BaseModel
 from sqlalchemy import select, func, delete
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from src.database.connection import DatabaseConnection
 from src.database.models import ChatSession
-from src.database.repository.database_repository import DatabaseRepository
+from src.database.repository.interfaces.chat_session_repository import (
+    ChatSessionRepositoryInterface,
+    ChatSessionSearchCriteria,
+    UpdatedChatSessionData,
+)
+from src.errors.custom_exceptions import database_error
+from src.logger.base_logger import BaseLogger
 
 
-class ChatSessionSearchCriteria(BaseModel):
-    id: Optional[UUID] = None
-    title: Optional[str] = None
-    total_messages: Optional[int] = None
-
-
-class ChatSessionRepository(DatabaseRepository[ChatSession]):
+class ChatSessionRepository(ChatSessionRepositoryInterface):
     """
-    Repository specialization for chat session entities.
+    Concrete implementation of the chat session repository interface.
     """
+
+    def __init__(self, connection: DatabaseConnection) -> None:
+        self._db = connection
+        self._logger = BaseLogger(__name__)
 
     async def create(self, entity: ChatSession) -> UUID:
-        """
-        Creates a new chat session entry in the database.
-
-        :param entity: ChatSession entity to create.
-        :return: The ID of the created chat session.
-
-        :raise SQLAlchemyError: If a database error occurs during update.
-        :raise IntegrityError: If a data integrity violation occurs.
-        :raise Exception: For any other exceptions that may arise.
-        """
-
         try:
             async with self._db.get_session() as session:
                 session.add(entity)
@@ -44,16 +37,15 @@ class ChatSessionRepository(DatabaseRepository[ChatSession]):
                 return entity.id
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
-            raise e
+            raise database_error(
+                message="An error occurred while creating a new chat session.",
+                error_code="CHAT_SESSION_CREATION_ERROR",
+                stack_trace=str(e),
+            )
 
     async def list_by(
         self, criteria: Optional[ChatSessionSearchCriteria] = None
     ) -> List[ChatSession]:
-        """
-        Retrieve chat sessions matching the given criteria.
-
-        If no criteria is provided, all chat sessions are returned.
-        """
         try:
             async with self._db.get_session() as session:
                 stmt = select(ChatSession)
@@ -74,19 +66,13 @@ class ChatSessionRepository(DatabaseRepository[ChatSession]):
                 return result.scalars().all()
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
-            raise e
+            raise database_error(
+                message="An error occurred while listing chat sessions by criteria.",
+                error_code="CHAT_SESSION_LISTING_ERROR",
+                stack_trace=str(e),
+            )
 
     async def get_by_id(self, entity_id: UUID) -> Optional[ChatSession]:
-        """
-        Retrieve a chat session by its ID.
-
-        :param entity_id: The ID of the chat session to retrieve.
-        :return: The ChatSession entity if found and None otherwise.
-
-        :raises SQLAlchemyError: If a database error occurs during retrieval.
-        :raises IntegrityError: If a data integrity violation occurs.
-        :raises Exception: For any other exceptions that may arise.
-        """
         try:
             async with self._db.get_session() as session:
                 result = await session.execute(
@@ -98,12 +84,15 @@ class ChatSessionRepository(DatabaseRepository[ChatSession]):
                 return chat_session
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
-            raise e
+            raise database_error(
+                message="An error occurred while getting chat session by id.",
+                error_code="CHAT_SESSION_GET_ERROR",
+                stack_trace=str(e),
+            )
 
-    async def get_by_criteria(self, criteria: ChatSessionSearchCriteria) -> Optional[ChatSession]:
-        """
-        Retrieve a single chat session matching the given criteria.
-        """
+    async def get_by_criteria(
+        self, criteria: ChatSessionSearchCriteria
+    ) -> Optional[ChatSession]:
         try:
             filters = []
 
@@ -120,22 +109,15 @@ class ChatSessionRepository(DatabaseRepository[ChatSession]):
                 return result.scalars().first()
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
-            raise e
+            raise database_error(
+                message="An error occurred while getting chat session by criteria.",
+                error_code="CHAT_SESSION_GET_ERROR",
+                stack_trace=str(e),
+            )
 
     async def update(
-        self, entity_id: UUID, new_entity_data: ChatSession
+        self, entity_id: UUID, new_entity_data: UpdatedChatSessionData
     ) -> Optional[ChatSession]:
-        """
-        Update an existing chat session based on provided entity data.
-
-        :param entity_id: The ID of the chat session to update.
-        :param new_entity_data: The new chat session data to apply.
-        :return: The updated ChatSession entity if successful, None if not found.
-
-        :raises SQLAlchemyError: If a database error occurs during update.
-        :raises IntegrityError: If a data integrity violation occurs.
-        :raises Exception: For any other exceptions that may arise.
-        """
         try:
             async with self._db.get_session() as session:
                 result = await session.execute(
@@ -146,27 +128,23 @@ class ChatSessionRepository(DatabaseRepository[ChatSession]):
                 if not existing:
                     return None
 
-                # Update allowed fields only
-                if hasattr(new_entity_data, "title"):
+                if (
+                    hasattr(new_entity_data, "title")
+                    and new_entity_data.title is not None
+                ):
                     existing.title = new_entity_data.title
 
                 await session.flush()
                 return existing
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
-            raise e
+            raise database_error(
+                message="An error occurred while updating chat session.",
+                error_code="CHAT_SESSION_UPDATE_ERROR",
+                stack_trace=str(e),
+            )
 
     async def delete(self, entity_id: UUID) -> bool:
-        """
-        Delete a chat session by its ID.
-
-        :param entity_id: The ID of the chat session to delete.
-        :return: True if deleted, False if not found.
-
-        :raises SQLAlchemyError: If a database error occurs during deletion.
-        :raises IntegrityError: If a data integrity violation occurs.
-        :raises Exception: For any other exceptions that may arise.
-        """
         try:
             async with self._db.get_session() as session:
                 result = await session.execute(
@@ -175,19 +153,13 @@ class ChatSessionRepository(DatabaseRepository[ChatSession]):
                 return result.rowcount > 0
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
-            raise e
+            raise database_error(
+                message="An error occurred while deleting chat session.",
+                error_code="CHAT_SESSION_DELETE_ERROR",
+                stack_trace=str(e),
+            )
 
     async def exists(self, entity_id: UUID) -> bool:
-        """
-        Check if a chat session exists by its ID.
-
-        :param entity_id: The ID of the chat session to check.
-        :return: True if exists, False otherwise.
-
-        :raises SQLAlchemyError: If a database error occurs during existence check.
-        :raises IntegrityError: If a data integrity violation occurs.
-        :raises Exception: For any other exceptions that may arise.
-        """
         try:
             async with self._db.get_session() as session:
                 result = await session.execute(
@@ -198,19 +170,13 @@ class ChatSessionRepository(DatabaseRepository[ChatSession]):
                 return result.scalar_one() > 0
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
-            raise e
+            raise database_error(
+                message="An error occurred while determining if chat session exists.",
+                error_code="CHAT_SESSION_EXISTS_ERROR",
+                stack_trace=str(e),
+            )
 
     async def count(self, filter_id: Optional[UUID] = None) -> int:
-        """
-        Count chat sessions, optionally filtered by chat session ID.
-
-        :param filter_id: Optional chat session ID to filter by.
-        :return: Total count of chat sessions.
-
-        :raises SQLAlchemyError: If a database error occurs during counting.
-        :raises IntegrityError: If a data integrity violation occurs.
-        :raises Exception: For any other exceptions that may arise.
-        """
         try:
             async with self._db.get_session() as session:
                 stmt = select(func.count()).select_from(ChatSession)
@@ -220,4 +186,47 @@ class ChatSessionRepository(DatabaseRepository[ChatSession]):
                 return result.scalar_one()
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
-            raise e
+            raise database_error(
+                message="An error occurred while counting chat sessions.",
+                error_code="CHAT_SESSION_COUNT_ERROR",
+                stack_trace=str(e),
+            )
+
+    async def create_many(self, entities: List[ChatSession]) -> List[UUID]:
+        if not entities:
+            return []
+
+        try:
+            async with self._db.get_session() as session:
+                session.add_all(entities)
+                await session.flush()
+                created_ids = [entity.id for entity in entities]
+                self._logger.debug(f"Created {len(created_ids)} chat sessions")
+                return created_ids
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise database_error(
+                message="An error occurred while creating multiple chat sessions.",
+                error_code="CHAT_SESSION_BULK_CREATION_ERROR",
+                stack_trace=str(e),
+            )
+
+    async def delete_many(self, session_ids: List[UUID]) -> int:
+        if not session_ids:
+            return 0
+
+        try:
+            async with self._db.get_session() as session:
+                result = await session.execute(
+                    delete(ChatSession).where(ChatSession.id.in_(session_ids))
+                )
+                deleted_count = result.rowcount or 0
+                self._logger.debug(f"Deleted {deleted_count} chat sessions")
+                return deleted_count
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise database_error(
+                message="An error occurred while deleting multiple chat sessions.",
+                error_code="CHAT_SESSION_DELETE_ERROR",
+                stack_trace=str(e),
+            )
