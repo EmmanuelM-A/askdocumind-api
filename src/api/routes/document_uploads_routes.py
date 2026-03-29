@@ -11,9 +11,10 @@ from fastapi import APIRouter, UploadFile, File, Form
 from src.api.controllers.document_uploads_controller import DocumentUploadController
 from src.api.services.validation.rag_validation import (
     FetchDocumentMetadataRequest,
+    UploadDocumentsRequest,
 )
 
-document_upload_router = APIRouter(prefix="/uploads", tags=["Chat Session"])
+document_upload_router = APIRouter(prefix="/uploads", tags=["Document Uploads"])
 
 _controller = DocumentUploadController()
 
@@ -26,11 +27,9 @@ async def get_document_uploads(request: FetchDocumentMetadataRequest):
 
 
 @document_upload_router.post("/", summary="Upload documents")
-async def upload_documents(
-    files: List[UploadFile] = File(...), chat_id: UUID = Form(...)
-):
-    """Upload files for a chat session. Form-data fields: files (multiple) and chat_id."""
-    return await _controller.upload_files_endpoint(files=files, chat_id=chat_id)
+async def upload_documents(request: UploadDocumentsRequest):
+    """Upload files to a chat session"""
+    return await _controller.upload_files_endpoint(request)
 
 
 # @document_upload_router.post("/metadata", summary="Fetch document metadata")

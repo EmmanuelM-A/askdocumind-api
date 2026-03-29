@@ -27,7 +27,12 @@ async def get_chat_session():
     pass
 
 
-@chat_session_router.delete("/{session_id}", summary="Update chat session by ID")
+@chat_session_router.patch("/{session_id}", summary="Update chat session")
+async def update_chat_session():
+    pass
+
+
+@chat_session_router.delete("/{session_id}", summary="Delete chat session")
 async def delete_chat_session():
     pass
 

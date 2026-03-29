@@ -27,11 +27,9 @@ class DocumentUploadController:
         self.upload_service = None
 
     async def upload_files_endpoint(
-        self, files: List[UploadFile] = File(...), chat_id: UUID = Form(...)
+        self, request: UploadDocumentsRequest
     ) -> JSONResponse:
         """Receive files and chat_id from FastAPI route, call service and return response."""
-
-        request = UploadDocumentsRequest(documents=files, chat_id=chat_id)
 
         if self.upload_service is None:
             self.upload_service = get_upload_service()
