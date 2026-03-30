@@ -13,6 +13,10 @@ from src.database.repository.interfaces.document_repository import (
 	DocumentSearchCriteria,
 	UpdatedDocumentData,
 )
+from src.database.repository.interfaces.db_transaction import (
+	DBTransaction,
+	DBTransactionFactory,
+)
 
 __all__ = [
 	"ChatMessageRepositoryInterface",
@@ -24,5 +28,7 @@ __all__ = [
 	"DocumentRepositoryInterface",
 	"DocumentSearchCriteria",
 	"UpdatedDocumentData",
+	"DBTransaction",
+	"DBTransactionFactory",
 ]
 
