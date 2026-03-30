@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from src.database.models import Document
 from src.config.constants import ProcessingStatus
+from src.database.repository.interfaces.db_transaction import DBTransaction
 
 
 class DocumentSearchCriteria(BaseModel):
@@ -28,7 +29,6 @@ class UpdatedDocumentData(BaseModel):
     filename: Optional[str] = None
     processing_status: Optional[ProcessingStatus] = None
 
-
 class DocumentRepositoryInterface(ABC):
     """
     Abstract interface for document repository operations.
@@ -38,20 +38,21 @@ class DocumentRepositoryInterface(ABC):
     """
 
     @abstractmethod
-    async def create(self, data: Document) -> UUID:
+    async def create(self, data: Document, tx: Optional[DBTransaction] = None) -> UUID:
         """
         Create and persist a new document entity.
 
         :param data: The Document entity to persist.
+        :param tx: Optional db transaction to wrap a db operation in.
         :return: The UUID of the newly created document.
-        :raises SQLAlchemyError: If database operation fails.
-        :raises IntegrityError: If data integrity constraint is violated.
         """
         raise NotImplementedError
 
     @abstractmethod
     async def list_by(
-        self, criteria: Optional[DocumentSearchCriteria] = None
+        self,
+        criteria: Optional[DocumentSearchCriteria] = None,
+        tx: Optional[DBTransaction] = None,
     ) -> List[Document]:
         """
         Retrieve documents matching the given criteria.
@@ -59,26 +60,30 @@ class DocumentRepositoryInterface(ABC):
         Returns all documents if no criteria is provided.
 
         :param criteria: Optional search criteria to filter documents.
+        :param tx: Optional db transaction to wrap a db operation in.
         :return: List of Document entities matching the criteria (empty list
             if none found).
-        :raises SQLAlchemyError: If database operation fails.
         """
         raise NotImplementedError
 
     @abstractmethod
-    async def get_by_id(self, document_id: UUID) -> Optional[Document]:
+    async def get_by_id(
+        self, document_id: UUID, tx: Optional[DBTransaction] = None
+    ) -> Optional[Document]:
         """
         Retrieve a single document by its unique identifier.
 
         :param document_id: The UUID of the document to retrieve.
+        :param tx: Optional db transaction to wrap a db operation in.
         :return: The Document entity if found, None otherwise.
-        :raises SQLAlchemyError: If database operation fails.
         """
         raise NotImplementedError
 
     @abstractmethod
     async def get_by_criteria(
-        self, criteria: DocumentSearchCriteria
+        self,
+        criteria: DocumentSearchCriteria,
+        tx: Optional[DBTransaction] = None,
     ) -> Optional[Document]:
         """
         Retrieve a single document matching the given criteria.
@@ -86,62 +91,74 @@ class DocumentRepositoryInterface(ABC):
         Returns the first match if multiple documents satisfy the criteria.
 
         :param criteria: The search criteria to filter by.
+        :param tx: Optional db transaction to wrap a db operation in.
         :return: The first Document entity matching criteria, or None if not
             found.
-        :raises SQLAlchemyError: If database operation fails.
         """
         raise NotImplementedError
 
     @abstractmethod
     async def update(
-        self, entity_id: UUID, new_entity_data: UpdatedDocumentData
+        self,
+        entity_id: UUID,
+        new_entity_data: UpdatedDocumentData,
+        tx: Optional[DBTransaction] = None,
     ) -> Optional[Document]:
         """
         Update an existing document with new data.
 
         :param entity_id: The UUID of the document to update.
         :param new_entity_data: The update payload containing new field values.
+        :param tx: Optional db transaction to wrap a db operation in.
         :return: The updated Document entity if found, None otherwise.
-        :raises SQLAlchemyError: If database operation fails.
-        :raises IntegrityError: If data integrity constraint is violated.
         """
         raise NotImplementedError
 
     @abstractmethod
-    async def delete(self, document_id: UUID) -> bool:
+    async def delete(
+        self, document_id: UUID, tx: Optional[DBTransaction] = None
+    ) -> bool:
         """
         Delete a document by its unique identifier.
 
         :param document_id: The UUID of the document to delete.
+        :param tx: Optional db transaction to wrap a db operation in.
         :return: True if document was deleted, False if not found.
-        :raises SQLAlchemyError: If database operation fails.
         """
         raise NotImplementedError
 
     @abstractmethod
-    async def exists(self, entity_id: UUID) -> bool:
+    async def exists(
+        self, entity_id: UUID, tx: Optional[DBTransaction] = None
+    ) -> bool:
         """
         Check if a document with the given UUID exists.
 
         :param entity_id: The UUID to check for existence.
+        :param tx: Optional db transaction to wrap a db operation in.
         :return: True if document exists, False otherwise.
-        :raises SQLAlchemyError: If database operation fails.
         """
         raise NotImplementedError
 
     @abstractmethod
-    async def count(self, filter_id: Optional[UUID] = None) -> int:
+    async def count(
+        self,
+        filter_id: Optional[UUID] = None,
+        tx: Optional[DBTransaction] = None,
+    ) -> int:
         """
         Count documents, optionally filtered by session ID.
 
         :param filter_id: Optional session UUID to filter by. If provided,
             counts only documents in that session.
+        :param tx: Optional db transaction to wrap a db operation in.
         :return: The count of documents matching the filter.
-        :raises SQLAlchemyError: If database operation fails.
         """
         raise NotImplementedError
 
-    async def create_many(self, entities: List[Document]) -> List[UUID]:
+    async def create_many(
+        self, entities: List[Document], tx: Optional[DBTransaction] = None
+    ) -> List[UUID]:
         """
         Create and persist multiple document entities in a single transactional
         operation.
@@ -150,30 +167,35 @@ class DocumentRepositoryInterface(ABC):
         transaction is rolled back and no documents are created.
 
         :param entities: List of Document entities to persist.
+        :param tx: Optional db transaction to wrap a db operation in.
         :return: List of UUIDs for the newly created documents.
-        :raises SQLAlchemyError: If database operation fails.
         """
         raise NotImplementedError
 
-    async def delete_many(self, document_ids: list[UUID]) -> int:
+    async def delete_many(
+        self, document_ids: list[UUID], tx: Optional[DBTransaction] = None
+    ) -> int:
         """
         Delete multiple documents by their identifiers.
 
         :param document_ids: List of document UUIDs to delete.
+        :param tx: Optional db transaction to wrap a db operation in.
         :return: The number of documents successfully deleted.
-        :raises SQLAlchemyError: If database operation fails.
         """
         raise NotImplementedError
 
     async def bulk_update_processing_status(
-        self, document_ids: List[UUID], status: ProcessingStatus
+        self,
+        document_ids: List[UUID],
+        status: ProcessingStatus,
+        tx: Optional[DBTransaction] = None,
     ) -> int:
         """
         Update the processing status for multiple documents.
 
         :param document_ids: List of document UUIDs to update.
         :param status: The ProcessingStatus value to set for all documents.
+        :param tx: Optional db transaction to wrap a db operation in.
         :return: The number of documents successfully updated.
-        :raises SQLAlchemyError: If database operation fails.
         """
         raise NotImplementedError
