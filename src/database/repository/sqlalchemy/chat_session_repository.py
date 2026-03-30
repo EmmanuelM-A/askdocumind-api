@@ -15,6 +15,7 @@ from src.database.repository.interfaces.chat_session_repository import (
     ChatSessionSearchCriteria,
     UpdatedChatSessionData,
 )
+from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.errors.custom_exceptions import database_error
 from src.logger.base_logger import BaseLogger
 
@@ -28,13 +29,28 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
         self._db = connection
         self._logger = BaseLogger(__name__)
 
-    async def create(self, entity: ChatSession) -> UUID:
+    @staticmethod
+    def _build_filters(criteria: ChatSessionSearchCriteria) -> list:
+        filters = []
+        for field, value in criteria.model_dump(exclude_none=True).items():
+            filters.append(getattr(ChatSession, field) == value)
+        return filters
+
+    async def create(
+        self, data: ChatSession, tx: Optional[DBTransaction] = None
+    ) -> UUID:
         try:
+            if tx is not None:
+                await tx.add(data)
+                await tx.flush()
+                self._logger.debug(f"New chat session created: {data.id}")
+                return data.id
+
             async with self._db.get_session() as session:
-                session.add(entity)
+                session.add(data)
                 await session.flush()
-                self._logger.debug(f"New chat session created: {entity.id}")
-                return entity.id
+                self._logger.debug(f"New chat session created: {data.id}")
+                return data.id
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise database_error(
@@ -44,26 +60,33 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
             )
 
     async def list_by(
-        self, criteria: Optional[ChatSessionSearchCriteria] = None
+        self,
+        criteria: Optional[ChatSessionSearchCriteria] = None,
+        tx: Optional[DBTransaction] = None,
     ) -> List[ChatSession]:
         try:
-            async with self._db.get_session() as session:
-                stmt = select(ChatSession)
+            stmt = select(ChatSession)
 
+            if criteria is not None:
+                stmt = stmt.where(*self._build_filters(criteria))
+
+            if tx is not None:
+                result = await tx.execute(stmt)
                 if criteria is None:
-                    result = await session.execute(stmt)
+                    self._logger.debug(
+                        "No criteria provided, returning all chat sessions"
+                    )
+                else:
+                    self._logger.debug("Found chat sessions matching criteria")
+                return result.scalars().all()
+
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
+                if criteria is None:
                     self._logger.debug(
                         "No criteria provided, returning all chat sessions"
                     )
                     return result.scalars().all()
-
-                filters = []
-
-                for field, value in criteria.model_dump(exclude_none=True).items():
-                    filters.append(getattr(ChatSession, field) == value)
-
-                stmt = stmt.where(*filters)
-                result = await session.execute(stmt)
                 self._logger.debug("Found chat sessions matching criteria")
                 return result.scalars().all()
 
@@ -74,15 +97,24 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def get_by_id(self, entity_id: UUID) -> Optional[ChatSession]:
+    async def get_by_id(
+        self, session_id: UUID, tx: Optional[DBTransaction] = None
+    ) -> Optional[ChatSession]:
         try:
-            async with self._db.get_session() as session:
-                result = await session.execute(
-                    select(ChatSession).where(ChatSession.id == entity_id)
-                )
+            stmt = select(ChatSession).where(ChatSession.id == session_id)
+
+            if tx is not None:
+                result = await tx.execute(stmt)
                 chat_session = result.scalar_one_or_none()
                 if chat_session:
-                    self._logger.debug(f"Found chat session: {entity_id}")
+                    self._logger.debug(f"Found chat session: {session_id}")
+                return chat_session
+
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
+                chat_session = result.scalar_one_or_none()
+                if chat_session:
+                    self._logger.debug(f"Found chat session: {session_id}")
                 return chat_session
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
@@ -93,20 +125,26 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
             )
 
     async def get_by_criteria(
-        self, criteria: ChatSessionSearchCriteria
+        self,
+        criteria: ChatSessionSearchCriteria,
+        tx: Optional[DBTransaction] = None,
     ) -> Optional[ChatSession]:
         try:
-            filters = []
-
-            for field, value in criteria.model_dump(exclude_none=True).items():
-                filters.append(getattr(ChatSession, field) == value)
+            filters = self._build_filters(criteria)
 
             if not filters:
                 self._logger.debug("No criteria provided for get_by_criteria")
                 return None
 
+            stmt = select(ChatSession).where(*filters)
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                self._logger.debug("Found chat session matching criteria")
+                return result.scalars().first()
+
             async with self._db.get_session() as session:
-                result = await session.execute(select(ChatSession).where(*filters))
+                result = await session.execute(stmt)
                 self._logger.debug("Found chat session matching criteria")
                 return result.scalars().first()
 
@@ -118,13 +156,32 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
             )
 
     async def update(
-        self, entity_id: UUID, new_entity_data: UpdatedChatSessionData
+        self,
+        entity_id: UUID,
+        new_entity_data: UpdatedChatSessionData,
+        tx: Optional[DBTransaction] = None,
     ) -> Optional[ChatSession]:
         try:
+            stmt = select(ChatSession).where(ChatSession.id == entity_id)
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                existing = result.scalar_one_or_none()
+
+                if not existing:
+                    return None
+
+                if (
+                    hasattr(new_entity_data, "title")
+                    and new_entity_data.title is not None
+                ):
+                    existing.title = new_entity_data.title
+
+                await tx.flush()
+                return existing
+
             async with self._db.get_session() as session:
-                result = await session.execute(
-                    select(ChatSession).where(ChatSession.id == entity_id)
-                )
+                result = await session.execute(stmt)
                 existing = result.scalar_one_or_none()
 
                 if not existing:
@@ -146,13 +203,19 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def delete(self, entity_id: UUID) -> bool:
+    async def delete(
+        self, session_id: UUID, tx: Optional[DBTransaction] = None
+    ) -> bool:
         try:
+            stmt = delete(ChatSession).where(ChatSession.id == session_id)
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                return (result.rowcount or 0) > 0
+
             async with self._db.get_session() as session:
-                result = await session.execute(
-                    delete(ChatSession).where(ChatSession.id == entity_id)
-                )
-                return result.rowcount > 0
+                result = await session.execute(stmt)
+                return (result.rowcount or 0) > 0
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise database_error(
@@ -161,14 +224,22 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def exists(self, entity_id: UUID) -> bool:
+    async def exists(
+        self, entity_id: UUID, tx: Optional[DBTransaction] = None
+    ) -> bool:
         try:
+            stmt = (
+                select(func.count())
+                .select_from(ChatSession)
+                .where(ChatSession.id == entity_id)
+            )
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                return result.scalar_one() > 0
+
             async with self._db.get_session() as session:
-                result = await session.execute(
-                    select(func.count())
-                    .select_from(ChatSession)
-                    .where(ChatSession.id == entity_id)
-                )
+                result = await session.execute(stmt)
                 return result.scalar_one() > 0
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
@@ -178,12 +249,21 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def count(self, filter_id: Optional[UUID] = None) -> int:
+    async def count(
+        self,
+        filter_id: Optional[UUID] = None,
+        tx: Optional[DBTransaction] = None,
+    ) -> int:
         try:
+            stmt = select(func.count()).select_from(ChatSession)
+            if filter_id:
+                stmt = stmt.where(ChatSession.id == filter_id)
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                return result.scalar_one()
+
             async with self._db.get_session() as session:
-                stmt = select(func.count()).select_from(ChatSession)
-                if filter_id:
-                    stmt = stmt.where(ChatSession.id == filter_id)
                 result = await session.execute(stmt)
                 return result.scalar_one()
 
@@ -194,11 +274,20 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def create_many(self, entities: List[ChatSession]) -> List[UUID]:
+    async def create_many(
+        self, entities: List[ChatSession], tx: Optional[DBTransaction] = None
+    ) -> List[UUID]:
         if not entities:
             return []
 
         try:
+            if tx is not None:
+                await tx.add_all(entities)
+                await tx.flush()
+                created_ids = [entity.id for entity in entities]
+                self._logger.debug(f"Created {len(created_ids)} chat sessions")
+                return created_ids
+
             async with self._db.get_session() as session:
                 session.add_all(entities)
                 await session.flush()
@@ -213,15 +302,23 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def delete_many(self, session_ids: List[UUID]) -> int:
+    async def delete_many(
+        self, session_ids: List[UUID], tx: Optional[DBTransaction] = None
+    ) -> int:
         if not session_ids:
             return 0
 
         try:
+            stmt = delete(ChatSession).where(ChatSession.id.in_(session_ids))
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                deleted_count = result.rowcount or 0
+                self._logger.debug(f"Deleted {deleted_count} chat sessions")
+                return deleted_count
+
             async with self._db.get_session() as session:
-                result = await session.execute(
-                    delete(ChatSession).where(ChatSession.id.in_(session_ids))
-                )
+                result = await session.execute(stmt)
                 deleted_count = result.rowcount or 0
                 self._logger.debug(f"Deleted {deleted_count} chat sessions")
                 return deleted_count

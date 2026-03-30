@@ -17,6 +17,7 @@ from src.database.repository.interfaces.document_repository import (
     DocumentSearchCriteria,
     UpdatedDocumentData,
 )
+from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.errors.custom_exceptions import database_error
 from src.logger.base_logger import BaseLogger
 
@@ -30,13 +31,26 @@ class DocumentRepository(DocumentRepositoryInterface):
         self._db = connection
         self._logger = BaseLogger(__name__)
 
-    async def create(self, entity: Document) -> UUID:
+    @staticmethod
+    def _build_filters(criteria: DocumentSearchCriteria) -> list:
+        filters = []
+        for field, value in criteria.model_dump(exclude_none=True).items():
+            filters.append(getattr(Document, field) == value)
+        return filters
+
+    async def create(self, data: Document, tx: Optional[DBTransaction] = None) -> UUID:
         try:
+            if tx is not None:
+                await tx.add(data)
+                await tx.flush()
+                self._logger.debug(f"New document created: {data.id}")
+                return data.id
+
             async with self._db.get_session() as session:
-                session.add(entity)
+                session.add(data)
                 await session.flush()
-                self._logger.debug(f"New document created: {entity.id}")
-                return entity.id
+                self._logger.debug(f"New document created: {data.id}")
+                return data.id
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise database_error(
@@ -46,24 +60,29 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def list_by(
-        self, criteria: Optional[DocumentSearchCriteria] = None
+        self,
+        criteria: Optional[DocumentSearchCriteria] = None,
+        tx: Optional[DBTransaction] = None,
     ) -> List[Document]:
         try:
-            async with self._db.get_session() as session:
-                stmt = select(Document)
+            stmt = select(Document)
 
+            if criteria is not None:
+                stmt = stmt.where(*self._build_filters(criteria))
+
+            if tx is not None:
+                result = await tx.execute(stmt)
                 if criteria is None:
-                    result = await session.execute(stmt)
+                    self._logger.debug("No criteria provided, returning all documents")
+                else:
+                    self._logger.debug("Found documents matching criteria")
+                return result.scalars().all()
+
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
+                if criteria is None:
                     self._logger.debug("No criteria provided, returning all documents")
                     return result.scalars().all()
-
-                filters = []
-
-                for field, value in criteria.model_dump(exclude_none=True).items():
-                    filters.append(getattr(Document, field) == value)
-
-                stmt = stmt.where(*filters)
-                result = await session.execute(stmt)
                 self._logger.debug("Found documents matching criteria")
                 return result.scalars().all()
 
@@ -74,13 +93,25 @@ class DocumentRepository(DocumentRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def get_by_id(self, entity_id: UUID) -> Optional[Document]:
+    async def get_by_id(
+        self, document_id: UUID, tx: Optional[DBTransaction] = None
+    ) -> Optional[Document]:
         try:
+            stmt = select(Document).where(Document.id == document_id)
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                document = result.scalar_one_or_none()
+                if document:
+                    self._logger.debug(f"Found document: {document_id}")
+                return document
+
             async with self._db.get_session() as session:
-                result = await session.get(Document, entity_id)
-                if result:
-                    self._logger.debug(f"Found document: {entity_id}")
-                return result
+                result = await session.execute(stmt)
+                document = result.scalar_one_or_none()
+                if document:
+                    self._logger.debug(f"Found document: {document_id}")
+                return document
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise database_error(
@@ -90,20 +121,26 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def get_by_criteria(
-        self, criteria: DocumentSearchCriteria
+        self,
+        criteria: DocumentSearchCriteria,
+        tx: Optional[DBTransaction] = None,
     ) -> Optional[Document]:
         try:
-            filters = []
-
-            for field, value in criteria.model_dump(exclude_none=True).items():
-                filters.append(getattr(Document, field) == value)
+            filters = self._build_filters(criteria)
 
             if not filters:
                 self._logger.debug("No criteria provided for get_by_criteria")
                 return None
 
+            stmt = select(Document).where(*filters)
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                self._logger.debug("Found document matching criteria")
+                return result.scalars().first()
+
             async with self._db.get_session() as session:
-                result = await session.execute(select(Document).where(*filters))
+                result = await session.execute(stmt)
                 self._logger.debug("Found document matching criteria")
                 return result.scalars().first()
 
@@ -115,25 +152,52 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def update(
-        self, document_id: UUID, updated_data: UpdatedDocumentData
+        self,
+        entity_id: UUID,
+        new_entity_data: UpdatedDocumentData,
+        tx: Optional[DBTransaction] = None,
     ) -> Optional[Document]:
         try:
-            async with self._db.get_session() as session:
-                existing = await session.get(Document, document_id)
+            stmt = select(Document).where(Document.id == entity_id)
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                existing = result.scalar_one_or_none()
 
                 if not existing:
                     return None
 
                 if (
-                    hasattr(updated_data, "filename")
-                    and updated_data.filename is not None
+                    hasattr(new_entity_data, "filename")
+                    and new_entity_data.filename is not None
                 ):
-                    existing.filename = updated_data.filename
+                    existing.filename = new_entity_data.filename
                 if (
-                    hasattr(updated_data, "processing_status")
-                    and updated_data.processing_status is not None
+                    hasattr(new_entity_data, "processing_status")
+                    and new_entity_data.processing_status is not None
                 ):
-                    existing.processing_status = updated_data.processing_status
+                    existing.processing_status = new_entity_data.processing_status
+
+                await tx.flush()
+                return existing
+
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
+                existing = result.scalar_one_or_none()
+
+                if not existing:
+                    return None
+
+                if (
+                    hasattr(new_entity_data, "filename")
+                    and new_entity_data.filename is not None
+                ):
+                    existing.filename = new_entity_data.filename
+                if (
+                    hasattr(new_entity_data, "processing_status")
+                    and new_entity_data.processing_status is not None
+                ):
+                    existing.processing_status = new_entity_data.processing_status
 
                 await session.flush()
                 return existing
@@ -145,15 +209,19 @@ class DocumentRepository(DocumentRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def delete(self, entity_id: UUID) -> bool:
+    async def delete(
+        self, document_id: UUID, tx: Optional[DBTransaction] = None
+    ) -> bool:
         try:
+            stmt = delete(Document).where(Document.id == document_id)
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                return (result.rowcount or 0) > 0
+
             async with self._db.get_session() as session:
-                existing = await session.get(Document, entity_id)
-                if not existing:
-                    return False
-                await session.delete(existing)
-                await session.flush()
-                return True
+                result = await session.execute(stmt)
+                return (result.rowcount or 0) > 0
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise database_error(
@@ -162,11 +230,21 @@ class DocumentRepository(DocumentRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def exists(self, entity_id: UUID) -> bool:
+    async def exists(self, entity_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
         try:
+            stmt = (
+                select(func.count())
+                .select_from(Document)
+                .where(Document.id == entity_id)
+            )
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                return result.scalar_one() > 0
+
             async with self._db.get_session() as session:
-                existing = await session.get(Document, entity_id)
-                return existing is not None
+                result = await session.execute(stmt)
+                return result.scalar_one() > 0
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise database_error(
@@ -175,12 +253,21 @@ class DocumentRepository(DocumentRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def count(self, filter_id: Optional[UUID] = None) -> int:
+    async def count(
+        self,
+        filter_id: Optional[UUID] = None,
+        tx: Optional[DBTransaction] = None,
+    ) -> int:
         try:
+            stmt = select(func.count(Document.id)).select_from(Document)
+            if filter_id:
+                stmt = stmt.where(Document.session_id == filter_id)
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                return result.scalar_one()
+
             async with self._db.get_session() as session:
-                stmt = select(func.count(Document.id)).select_from(Document)  # type: ignore
-                if filter_id:
-                    stmt = stmt.where(Document.session_id == filter_id)  # type: ignore[arg-type]
                 result = await session.execute(stmt)
                 return result.scalar_one()
 
@@ -191,11 +278,20 @@ class DocumentRepository(DocumentRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def create_many(self, entities: List[Document]) -> List[UUID]:
+    async def create_many(
+        self, entities: List[Document], tx: Optional[DBTransaction] = None
+    ) -> List[UUID]:
         if not entities:
             return []
 
         try:
+            if tx is not None:
+                await tx.add_all(entities)
+                await tx.flush()
+                created_ids = [entity.id for entity in entities]
+                self._logger.debug(f"Created {len(created_ids)} document entries")
+                return created_ids
+
             async with self._db.get_session() as session:
                 session.add_all(entities)
                 await session.flush()
@@ -210,15 +306,23 @@ class DocumentRepository(DocumentRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def delete_many(self, document_ids: list[UUID]) -> int:
+    async def delete_many(
+        self, document_ids: list[UUID], tx: Optional[DBTransaction] = None
+    ) -> int:
         if not document_ids:
             return 0
 
         try:
+            stmt = delete(Document).where(Document.id.in_(document_ids))
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                deleted_count = result.rowcount or 0
+                self._logger.debug(f"Deleted {deleted_count} document entries")
+                return deleted_count
+
             async with self._db.get_session() as session:
-                result = await session.execute(
-                    delete(Document).where(Document.id.in_(document_ids))
-                )
+                result = await session.execute(stmt)
                 deleted_count = result.rowcount or 0
                 self._logger.debug(f"Deleted {deleted_count} document entries")
                 return deleted_count
@@ -231,18 +335,31 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def bulk_update_processing_status(
-        self, document_ids: List[UUID], status: ProcessingStatus
+        self,
+        document_ids: List[UUID],
+        status: ProcessingStatus,
+        tx: Optional[DBTransaction] = None,
     ) -> int:
         if not document_ids:
             return 0
 
         try:
-            async with self._db.get_session() as session:
-                result = await session.execute(
-                    update(Document)
-                    .where(Document.id.in_(document_ids))
-                    .values(processing_status=status)
+            stmt = (
+                update(Document)
+                .where(Document.id.in_(document_ids))
+                .values(processing_status=status)
+            )
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                updated_count = result.rowcount or 0
+                self._logger.debug(
+                    f"Updated processing status for {updated_count} documents"
                 )
+                return updated_count
+
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
                 updated_count = result.rowcount or 0
                 self._logger.debug(
                     f"Updated processing status for {updated_count} documents"
