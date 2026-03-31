@@ -157,12 +157,12 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
 
     async def update(
         self,
-        entity_id: UUID,
+        chat_id: UUID,
         new_entity_data: UpdatedChatSessionData,
         tx: Optional[DBTransaction] = None,
     ) -> Optional[ChatSession]:
         try:
-            stmt = select(ChatSession).where(ChatSession.id == entity_id)
+            stmt = select(ChatSession).where(ChatSession.id == chat_id)
 
             if tx is not None:
                 result = await tx.execute(stmt)

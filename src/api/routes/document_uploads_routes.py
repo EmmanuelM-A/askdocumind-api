@@ -3,7 +3,6 @@ Routes for the document upload endpoints.
 Provides API routes for interacting with the Chat Session.
 """
 
-from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, UploadFile, File, Form
@@ -27,8 +26,12 @@ async def get_document_uploads(request: FetchDocumentMetadataRequest):
 
 
 @document_upload_router.post("/", summary="Upload documents")
-async def upload_documents(request: UploadDocumentsRequest):
-    """Upload files to a chat session"""
+async def upload_documents(
+    documents: list[UploadFile] = File(...),
+    chat_id: UUID = Form(...),
+):
+    """Upload files to a chat session."""
+    request = UploadDocumentsRequest(documents=documents, chat_id=chat_id)
     return await _controller.upload_files_endpoint(request)
 
 

@@ -84,8 +84,6 @@ class DatabaseSettings(BaseSettings):
 
     DB_SAFETY_ENABLED: bool = Field(default=True)
 
-    LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{PROJECT_ROOT}/data/local")
-
     model_config = _DEFAULT_MODEL_CONFIG
 
 
@@ -179,8 +177,8 @@ class LLMIntegrationSettings(BaseSettings):
 class VectorStoreSettings(BaseSettings):
     """Vector store configuration settings."""
 
-    DEV_VECTOR_STORE: str = Field(default=f"{PROJECT_ROOT}/faiss/indexes")
-    DEV_METADATA_STORE: str = Field(default=f"{PROJECT_ROOT}/faiss/metadata")
+    DEV_VECTOR_STORE: str = Field(default=f"{PROJECT_ROOT}/data/faiss/indexes")
+    DEV_METADATA_STORE: str = Field(default=f"{PROJECT_ROOT}/data/faiss/metadata")
 
     CHUNK_SIZE: int = Field(default=1000)
     CHUNK_OVERLAP: int = Field(default=20)

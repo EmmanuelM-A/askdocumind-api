@@ -18,6 +18,7 @@ from src.database.models import Document
 from src.database.repository.interfaces import (
     ChatSessionRepositoryInterface,
     DocumentRepositoryInterface,
+    DocumentSearchCriteria,
 )
 
 from src.database.storage import StorageService
@@ -236,22 +237,11 @@ class UploadService:
             chatbot=self.chatbot,
         )
 
-        # Fetch each requested document and verify ownership
-        metadata_list = []
-        for doc_id in request.document_ids:
-            doc = await self.document_repo.get_by_id(doc_id)
+        documents = await self.document_repo.list_by(
+            criteria=DocumentSearchCriteria(session_id=request.chat_id)
+        )
 
-            if not doc:
-                continue
-
-            if doc.session_id != request.chat_id:
-                self._logger.warning(
-                    f"The document {doc} does not belong to chat "
-                    f"{request.chat_id}, skipping..."
-                )
-                continue
-
-            metadata_list.append(doc.to_json())
+        metadata_list = [document.to_dict() for document in documents]
 
         return SuccessResponseModel(
             message="Document metadata fetched successfully.",

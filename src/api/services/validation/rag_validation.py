@@ -212,11 +212,6 @@ class FetchDocumentMetadataRequest(BaseModel):
     Request model for fetching document metadata.
     """
 
-    document_ids: List[UUID] = Field(
-        ...,
-        description="List of document IDs to retrieve metadata for",
-        min_length=1,
-    )
     chat_id: UUID = Field(..., description="The chat session identifier")
 
 
