@@ -97,14 +97,14 @@ class ChatSessionRepositoryInterface(ABC):
     @abstractmethod
     async def update(
         self,
-        entity_id: UUID,
+        chat_id: UUID,
         new_entity_data: UpdatedChatSessionData,
         tx: Optional[DBTransaction] = None,
     ) -> Optional[ChatSession]:
         """
         Update an existing chat session with new data.
 
-        :param entity_id: The UUID of the chat session to update.
+        :param chat_id: The UUID of the chat session to update.
         :param new_entity_data: The update payload containing new field values.
         :param tx: Optional db transaction to wrap a db operation in.
         :return: The updated ChatSession entity if found, None otherwise.
@@ -112,26 +112,22 @@ class ChatSessionRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def delete(
-        self, session_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> bool:
+    async def delete(self, chat_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
         """
         Delete a chat session by its unique identifier.
 
-        :param session_id: The UUID of the chat session to delete.
+        :param chat_id: The UUID of the chat session to delete.
         :param tx: Optional db transaction to wrap a db operation in.
         :return: True if chat session was deleted, False if not found.
         """
         raise NotImplementedError
 
     @abstractmethod
-    async def exists(
-        self, entity_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> bool:
+    async def exists(self, chat_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
         """
         Check if a chat session with the given UUID exists.
 
-        :param entity_id: The UUID to check for existence.
+        :param chat_id: The UUID to check for existence.
         :param tx: Optional db transaction to wrap a db operation in.
         :return: True if the chat session exists, False otherwise.
         """
@@ -167,12 +163,12 @@ class ChatSessionRepositoryInterface(ABC):
 
     @abstractmethod
     async def delete_many(
-        self, session_ids: List[UUID], tx: Optional[DBTransaction] = None
+        self, chat_ids: List[UUID], tx: Optional[DBTransaction] = None
     ) -> int:
         """
         Delete multiple chat sessions by their identifiers.
 
-        :param session_ids: List of chat session UUIDs to delete.
+        :param chat_ids: List of chat session UUIDs to delete.
         :param tx: Optional db transaction to wrap a db operation in.
         :return: The number of chat sessions successfully deleted.
         """
