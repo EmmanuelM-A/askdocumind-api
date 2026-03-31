@@ -203,19 +203,16 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def delete(
-        self, session_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> bool:
+    async def delete(self, chat_id: UUID, tx: Optional[DBTransaction] = None) -> UUID:
         try:
-            stmt = delete(ChatSession).where(ChatSession.id == session_id)
-
+            stmt = delete(ChatSession).where(ChatSession.id == chat_id)
             if tx is not None:
-                result = await tx.execute(stmt)
-                return (result.rowcount or 0) > 0
+                await tx.execute(stmt)
+            else:
+                async with self._db.get_session() as session:
+                    await session.execute(stmt)
 
-            async with self._db.get_session() as session:
-                result = await session.execute(stmt)
-                return (result.rowcount or 0) > 0
+            return chat_id
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise database_error(
@@ -224,9 +221,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def exists(
-        self, entity_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> bool:
+    async def exists(self, entity_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
         try:
             stmt = (
                 select(func.count())

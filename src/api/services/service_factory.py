@@ -2,8 +2,10 @@
 
 from typing import TYPE_CHECKING
 
+from src.api.services.chat_sessions import ChatSessionService
 from src.components.chatbot.chatbot_factory import get_chatbot
 from src.database.repository import get_database_repository
+from src.database.repository.database_repository_factory import get_tx_factory
 from src.database.storage import get_storage_service
 
 if TYPE_CHECKING:
@@ -12,6 +14,7 @@ if TYPE_CHECKING:
 
 _rag_chatbot_service: "RAGChatbotService | None" = None
 _upload_service: "UploadService | None" = None
+_chat_service: "ChatSessionService | None" = None
 
 
 def get_rag_chatbot_service() -> "RAGChatbotService":
@@ -46,3 +49,20 @@ def get_upload_service() -> "UploadService":
 
     return _upload_service
 
+
+def get_chat_service() -> "ChatSessionService":
+    """Return a singleton instance of the chat session service."""
+    global _chat_service
+
+    if _chat_service is None:
+        from src.api.services.chat_sessions import ChatSessionService
+
+        _chat_service = ChatSessionService(
+            chatbot=get_chatbot(),
+            storage=get_storage_service(),
+            chat_session_repo=get_database_repository("CHAT_SESSION"),
+            chat_message_repo=get_database_repository("CHAT_MESSAGE"),
+            tx_factory=get_tx_factory(),
+        )
+
+    return _chat_service

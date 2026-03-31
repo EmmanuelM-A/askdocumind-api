@@ -112,7 +112,7 @@ class ChatSessionRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def delete(self, chat_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
+    async def delete(self, chat_id: UUID, tx: Optional[DBTransaction] = None) -> UUID:
         """
         Delete a chat session by its unique identifier.
 
