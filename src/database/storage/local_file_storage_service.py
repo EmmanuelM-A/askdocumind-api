@@ -137,6 +137,51 @@ class LocalFileStorageService(StorageService):
         # count files recursively
         return sum(1 for _ in target.rglob("*") if _.is_file())
 
+    def delete_all(self, key: str | None = None) -> int:
+        """
+        Delete all files under the given key scope.
+
+        :param key: Optional key (path relative to root). If None, delete all files under root.
+        :return: Number of deleted files.
+
+        :raise IOError: If bulk deletion fails.
+        """
+
+        target = self._resolve(key) if key else self.root.resolve()
+
+        if not target.exists():
+            return 0
+
+        deleted_count = 0
+
+        try:
+            if target.is_file():
+                target.unlink()
+                return 1
+
+            files = [path for path in target.rglob("*") if path.is_file()]
+            for file_path in files:
+                file_path.unlink()
+                deleted_count += 1
+
+            # Remove empty directories from deepest to shallowest, but never remove root.
+            dirs = sorted(
+                [path for path in target.rglob("*") if path.is_dir()],
+                key=lambda p: len(p.parts),
+                reverse=True,
+            )
+            for dir_path in dirs:
+                if dir_path != self.root.resolve():
+                    try:
+                        dir_path.rmdir()
+                    except OSError:
+                        # Directory not empty (or in use), keep going.
+                        pass
+
+            return deleted_count
+        except Exception as e:
+            raise IOError(f"Failed to delete all data under {key or '/'}: {e}") from e
+
     # ============================ HELPER METHODS ============================
 
     def _resolve(self, key: str) -> Path:

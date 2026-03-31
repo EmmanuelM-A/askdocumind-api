@@ -6,6 +6,7 @@ Defines the minimal file/object-storage contract used by the application:
 - load: retrieve bytes for a key, or return None if not found.
 - delete: remove a stored object and optionally return a confirmation or None.
 - exists: check whether a key exists.
+- delete_all: bulk-delete objects under an optional key/prefix.
 
 Concrete implementations should handle key normalization, security concerns
 (e.g. path traversal), and any storage-specific behavior (local FS, cloud, etc.).
@@ -29,6 +30,8 @@ class StorageService(ABC):
     - delete(key): Remove the stored item for `key`. Return an optional string
       (e.g. confirmation or error message) or `None`.
     - exists(key): Return `True` if `key` is present, otherwise `False`.
+    - delete_all(key): Remove all objects under an optional key/prefix and
+      return the number of deleted objects.
     """
 
     @abstractmethod
@@ -69,5 +72,15 @@ class StorageService(ABC):
 
         :param key: Storage key to check.
         :return: True if present, False otherwise.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_all(self, key: str | None = None) -> int:
+        """
+        Delete all stored objects under `key`.
+
+        :param key: Optional key/prefix scope. If `None`, delete all objects in storage.
+        :return: Number of deleted objects.
         """
         raise NotImplementedError
