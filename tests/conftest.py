@@ -7,6 +7,9 @@ import sys
 import uuid
 from unittest.mock import Mock, patch
 
+from src.database.connection import DatabaseConnection
+from src.database.models import User, ChatSession
+
 # Mock problematic imports BEFORE any other imports that might use them
 sys.modules["docx"] = Mock()
 sys.modules["fitz"] = Mock()
@@ -20,7 +23,6 @@ from src.components.ingestion.document import FileDocumentMetadata, FileDocument
 from src.components.ingestion.document_processor import DocumentProcessor
 from src.api.services.caching.cache_factory import CacheFactory
 from src.components.retrieval.faiss_store import FaissVectorStore
-
 
 # ============================ CACHE FIXTURES ============================
 
@@ -36,6 +38,54 @@ def cache():
     yield c
     c.clear()
     c.close()
+
+
+# ========================= COMMON DATABASE FIXTURES =========================
+
+
+@pytest.fixture
+async def db_connection():
+    """Provide a database connection for tests."""
+    conn = DatabaseConnection()
+    await conn.connect()
+    yield conn
+    await conn.disconnect()
+
+
+@pytest.fixture
+async def test_user(db_connection):
+    """Create a test user for document ownership."""
+    user = User()
+    async with db_connection.get_session() as session:
+        session.add(user)
+        await session.commit()
+    try:
+        yield user
+    finally:
+        from sqlalchemy import delete
+
+        async with db_connection.get_session() as session:
+            await session.execute(delete(User).where(User.id == user.id))
+            await session.commit()
+
+
+@pytest.fixture
+async def test_chat_session(db_connection, test_user):
+    """Create a test chat session."""
+    chat_session = ChatSession(user_id=test_user.id)
+    async with db_connection.get_session() as db_session:
+        db_session.add(chat_session)
+        await db_session.commit()
+    try:
+        yield chat_session
+    finally:
+        from sqlalchemy import delete
+
+        async with db_connection.get_session() as db_session:
+            await db_session.execute(
+                delete(ChatSession).where(ChatSession.id == chat_session.id)
+            )
+            await db_session.commit()
 
 
 # ====================== DOCUMENT PROCESSOR FIXTURES ======================

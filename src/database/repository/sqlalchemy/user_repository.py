@@ -5,7 +5,7 @@ operations and specific queries related to user entities.
 
 from typing import Optional
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import select, func, delete
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
@@ -37,6 +37,14 @@ class UserRepository(UserRepositoryInterface):
         for field, value in criteria.model_dump(exclude_none=True).items():
             filters.append(getattr(User, field) == value)
         return filters
+
+    @staticmethod
+    def _to_naive_utc_datetime(value: str) -> datetime:
+        """Parse ISO datetime text and normalize to naive UTC for DB writes."""
+        parsed = datetime.fromisoformat(value)
+        if parsed.tzinfo is not None:
+            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        return parsed
 
     async def create(self, data: User, tx: Optional[DBTransaction] = None) -> UUID:
         try:
@@ -106,14 +114,14 @@ class UserRepository(UserRepositoryInterface):
                     hasattr(new_user_data, "last_seen_at")
                     and new_user_data.last_seen_at is not None
                 ):
-                    existing.last_seen_at = datetime.fromisoformat(
+                    existing.last_seen_at = self._to_naive_utc_datetime(
                         new_user_data.last_seen_at
                     )
                 if (
                     hasattr(new_user_data, "expires_at")
                     and new_user_data.expires_at is not None
                 ):
-                    existing.expires_at = datetime.fromisoformat(
+                    existing.expires_at = self._to_naive_utc_datetime(
                         new_user_data.expires_at
                     )
 
@@ -132,14 +140,14 @@ class UserRepository(UserRepositoryInterface):
                     hasattr(new_user_data, "last_seen_at")
                     and new_user_data.last_seen_at is not None
                 ):
-                    existing.last_seen_at = datetime.fromisoformat(
+                    existing.last_seen_at = self._to_naive_utc_datetime(
                         new_user_data.last_seen_at
                     )
                 if (
                     hasattr(new_user_data, "expires_at")
                     and new_user_data.expires_at is not None
                 ):
-                    existing.expires_at = datetime.fromisoformat(
+                    existing.expires_at = self._to_naive_utc_datetime(
                         new_user_data.expires_at
                     )
 

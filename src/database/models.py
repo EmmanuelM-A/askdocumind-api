@@ -18,8 +18,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
 )
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, declarative_base
 
 from src.config.constants import ChatMessageRole, ProcessingStatus
 
@@ -46,9 +45,9 @@ def _serialize_value(value: Any) -> Any:
 
 class User(Base):
     """Model representing a minimalistic user."""
-    
+
     __tablename__ = "user"
-    
+
     id = Column(UUID, primary_key=True, default=uuid.uuid4)
     created_at = Column(DateTime, default=datetime.now, index=True)
     last_seen_at = Column(DateTime, default=datetime.now, index=True)
