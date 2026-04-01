@@ -49,9 +49,9 @@ class QueryHandler:
                 message="FAISS index is required", error_code="MISSING_FAISS_INDEX"
             )
 
-        if metadata is None or not isinstance(metadata, dict):
+        if metadata is None or not isinstance(metadata, (dict, list)):
             raise unprocessable_entity_error(
-                message="Valid metadata dictionary is required",
+                message="Valid metadata dictionary or list is required",
                 error_code="INVALID_METADATA",
             )
 
@@ -76,7 +76,16 @@ class QueryHandler:
         results = []
 
         for i in indices[0]:
-            entry = metadata[i]
+            try:
+                entry = metadata[i]
+            except (KeyError, IndexError, TypeError):
+                logger.warning(f"No metadata entry found at index {i}.")
+                continue
+
+            if not isinstance(entry, dict):
+                logger.warning(f"Invalid metadata entry type at index {i}: {type(entry)}")
+                continue
+
             text = entry.get("text")
             meta = entry.get("meta")
 
@@ -124,6 +133,10 @@ class QueryHandler:
         Formats a prompt with the query and retrieved chunks, then passes it
         to an LLM.
         """
+
+        if not retrieved_chunks:
+            logger.warning("No retrieved chunks provided for response generation.")
+            return None
 
         logger.debug(f"Generating responses for the query: {query}")
 

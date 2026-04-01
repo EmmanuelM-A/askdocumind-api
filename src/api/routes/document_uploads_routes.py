@@ -19,9 +19,9 @@ _controller = DocumentUploadController()
 
 
 @document_upload_router.get("/", summary="Get the metadata of all uploaded documents")
-async def get_document_uploads(request: FetchDocumentMetadataRequest):
+async def get_document_uploads(chat_id: UUID):
     """Get all document uploads for a chat session (only metadata)."""
-
+    request = FetchDocumentMetadataRequest(chat_id=chat_id)
     return await _controller.list_uploaded_files_endpoint(request)
 
 

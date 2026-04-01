@@ -153,7 +153,17 @@ class RAGChatbot:
             f"the query '{sanitized_query}'."
         )
 
-        if not results and web_search_enabled:
+        if results:
+            response_data = self.query_handler.generate_responses(
+                query=sanitized_query, retrieved_chunks=results
+            )
+
+            if response_data:
+                response_data["source_type"] = Source.UPLOAD
+                self._logger.info(f"Generated response for query: '{sanitized_query}'.")
+                return response_data
+
+        elif web_search_enabled:
             self._logger.info(
                 f"No results found in vector store for query: '{sanitized_query}'. "
                 "Attempting web search..."
@@ -182,16 +192,6 @@ class RAGChatbot:
                     f"Generated response from web search for the query: "
                     f"'{sanitized_query}'."
                 )
-                return response_data
-
-        else:
-            response_data = self.query_handler.generate_responses(
-                query=sanitized_query, retrieved_chunks=results
-            )
-
-            if response_data:
-                response_data["source_type"] = Source.UPLOAD
-                self._logger.info(f"Generated response for query: '{sanitized_query}'.")
                 return response_data
 
         # No results found anywhere

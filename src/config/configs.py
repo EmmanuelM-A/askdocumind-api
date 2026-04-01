@@ -165,7 +165,7 @@ class LLMIntegrationSettings(BaseSettings):
     API_RETRY_DELAY_SEC: int = Field(default=1)
 
     RESPONSE_PROMPT_FILEPATH: str = Field(
-        default="../data/prompts/default_response_prompt.yaml"
+        default=f"{PROJECT_ROOT}/data/prompts/default_response_prompt.yaml"
     )
 
     model_config = _DEFAULT_MODEL_CONFIG

@@ -3,7 +3,7 @@ Responsible for wrapping the embedding model client to encode text into
 vectors.
 """
 
-from typing import Dict, Any, List, Tuple, Optional, Iterable, Iterator
+from typing import Dict, Any, List, Tuple, Iterable, Iterator
 
 from langchain_openai import OpenAIEmbeddings
 
@@ -151,7 +151,14 @@ class Embedder:
             len(documents),
         )
 
-        metadata = [doc.metadata.to_dict() for doc in documents]
+        # Persist chunk text alongside metadata so retrieval can build context directly.
+        metadata = [
+            {
+                "text": doc.content,
+                "meta": doc.metadata.to_dict(),
+            }
+            for doc in documents
+        ]
 
         return vectors, metadata
 
