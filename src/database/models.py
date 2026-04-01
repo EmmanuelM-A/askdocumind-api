@@ -44,6 +44,36 @@ def _serialize_value(value: Any) -> Any:
     return value
 
 
+class User(Base):
+    """Model representing a minimalistic user."""
+    
+    __tablename__ = "user"
+    
+    id = Column(UUID, primary_key=True, default=uuid.uuid4)
+    created_at = Column(DateTime, default=datetime.now, index=True)
+    last_seen_at = Column(DateTime, default=datetime.now, index=True)
+    expires_at = Column(DateTime, index=True)
+
+    def __repr__(self):
+        return f"User(id={self.id}, created_at={self.created_at})"
+
+    def __str__(self) -> str:
+        return str(self.id) if self.id is not None else "Unknown User"
+
+    def to_dict(self) -> dict:
+        """Return JSON-serializable dict representation of the User."""
+        return {
+            "id": _serialize_value(self.id),
+            "created_at": _serialize_value(self.created_at),
+            "last_seen_at": _serialize_value(self.last_seen_at),
+            "expires_at": _serialize_value(self.expires_at),
+        }
+
+    def to_json(self) -> str:
+        """Return a JSON string representation of the User."""
+        return json.dumps(self.to_dict(), indent=4)
+
+
 class ChatSession(Base):
     """Model representing a chat session."""
 
@@ -51,6 +81,7 @@ class ChatSession(Base):
 
     # Columns
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"))
     title = Column(Text, nullable=True)
     total_messages = Column(Integer, default=0, nullable=False)
     created_at = Column(

@@ -13,6 +13,11 @@ from src.database.repository.interfaces.document_repository import (
 	DocumentSearchCriteria,
 	UpdatedDocumentData,
 )
+from src.database.repository.interfaces.user_repository import (
+	UserRepositoryInterface,
+	UserSearchCriteria,
+	UpdatedUserData,
+)
 from src.database.repository.interfaces.db_transaction import (
 	DBTransaction,
 	DBTransactionFactory,
@@ -28,6 +33,9 @@ __all__ = [
 	"DocumentRepositoryInterface",
 	"DocumentSearchCriteria",
 	"UpdatedDocumentData",
+	"UserRepositoryInterface",
+	"UserSearchCriteria",
+	"UpdatedUserData",
 	"DBTransaction",
 	"DBTransactionFactory",
 ]
