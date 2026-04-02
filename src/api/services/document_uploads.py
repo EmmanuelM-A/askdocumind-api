@@ -77,7 +77,9 @@ class UploadService:
             f"The chat {request.chat_id} has been validated successfully"
         )
 
-        existing_documents_count = await self.document_repo.count(filter_id=request.chat_id)
+        existing_documents_count = await self.document_repo.count(
+            filter_id=request.chat_id
+        )
         incoming_documents_count = len(request.documents)
         max_documents_per_chat = settings.server.MAX_DOCUMENTS_PER_CHAT
 
