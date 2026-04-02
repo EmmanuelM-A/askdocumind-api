@@ -132,6 +132,10 @@ class AuthSettings(BaseSettings):
     ANON_SESSION_COOKIE_DOMAIN: Optional[str] = Field(default=None)
     ANON_SESSION_REFRESH_EVERY_REQUEST: bool = Field(default=True)
 
+    USER_SESSION_CLEANUP_ENABLED: bool = Field(default=True)
+    USER_SESSION_CLEANUP_INTERVAL_MINUTES: int = Field(default=60)
+    USER_SESSION_CLEANUP_BATCH_SIZE: int = Field(default=100)
+
     model_config = _DEFAULT_MODEL_CONFIG
 
 

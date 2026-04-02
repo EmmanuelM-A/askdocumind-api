@@ -5,6 +5,7 @@ Service module
 from typing import List
 from uuid import UUID
 
+from src.api.services.caching.caching_service import CachingService
 from src.api.services.validation.schemas import (
     CreateChatSchema,
 )
@@ -32,12 +33,14 @@ class ChatSessionService:
         storage: StorageService,
         chat_session_repo: ChatSessionRepositoryInterface,
         chat_message_repo: ChatMessageRepositoryInterface,
+        cache: CachingService,
         tx_factory: DBTransactionFactory,
     ) -> None:
         self.chatbot = chatbot
         self.storage = storage
         self.chat_session_repo = chat_session_repo
         self.chat_message_repo = chat_message_repo
+        self.cache = cache
         self.tx_factory = tx_factory
         self._logger = BaseLogger(__name__)
 
@@ -112,7 +115,7 @@ class ChatSessionService:
             deleted_id = await self.chat_session_repo.delete(chat_id, tx)
 
             # Delete all uploaded files
-            self.storage.delete_all(str(chat_id))
+            self.storage.delete(str(chat_id))
 
             # Delete all vector indexes associated
             self.chatbot.delete_chat(str(chat_id))

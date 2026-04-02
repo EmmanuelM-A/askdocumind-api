@@ -3,7 +3,9 @@ This module initializes the FastAPI application and includes the routes for
 the application.
 """
 
+import asyncio
 from contextlib import asynccontextmanager
+from contextlib import suppress
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,9 +21,13 @@ from src.api.middleware.anonymous_session import AnonymousSessionMiddleware
 from src.api.routes.health_check_routes import health_check_router
 from src.api.middleware.exception_handler import setup_exception_handlers
 from src.api.middleware.rate_limiter import limiter
+from src.api.services.user_session_cleanup import (
+    UserSessionCleanupService,
+    run_user_session_cleanup_scheduler,
+)
 
 
-async def rate_limit_exception_handler(request: Request, exc: Exception):
+async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded):
     """Delegate SlowAPI limit errors to the library-provided response builder."""
     return _rate_limit_exceeded_handler(request, exc)
 
@@ -35,9 +41,28 @@ async def lifespan(app: FastAPI):
 
     # Startup
     await get_database_connection().connect()
+    cleanup_stop_event = asyncio.Event()
+    cleanup_task = None
+
+    if settings.auth.USER_SESSION_CLEANUP_ENABLED:
+        cleanup_task = asyncio.create_task(
+            run_user_session_cleanup_scheduler(
+                stop_event=cleanup_stop_event,
+                interval_minutes=settings.auth.USER_SESSION_CLEANUP_INTERVAL_MINUTES,
+                batch_size=settings.auth.USER_SESSION_CLEANUP_BATCH_SIZE,
+                cleanup_service=UserSessionCleanupService(),
+            )
+        )
+
     yield
 
     # Shutdown
+    cleanup_stop_event.set()
+    if cleanup_task is not None:
+        cleanup_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await cleanup_task
+
     await get_database_connection().disconnect()
 
 
@@ -64,7 +89,7 @@ def create_app():
     app.include_router(prefix="/api/v1", router=rag_chatbot_router)
 
     # --- Exception Handlers ---
-    app.add_exception_handler(RateLimitExceeded, rate_limit_exception_handler)
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exception_handler)  # type: ignore[arg-type]
     setup_exception_handlers(app)
 
     return app
