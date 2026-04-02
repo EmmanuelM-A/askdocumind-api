@@ -4,7 +4,7 @@ Handles input validation for user queries, file paths, and URLs.
 
 import re
 import html
-from typing import Optional, Tuple, List, TYPE_CHECKING
+from typing import Optional, List, TYPE_CHECKING
 from urllib.parse import urlparse
 
 from fastapi import UploadFile
@@ -12,6 +12,8 @@ from pydantic import BaseModel, Field, field_validator
 from uuid import UUID
 
 from src.database.repository.interfaces import ChatSessionRepositoryInterface
+from src.database.repository.interfaces import ChatSessionSearchCriteria
+from src.api.utils.session_identity import require_current_anonymous_user_id
 
 # Avoid importing RAGChatbot at module import time to prevent circular imports;
 # import it only for type checking.
@@ -143,7 +145,13 @@ async def check_if_chat_exists(
         NotFoundError: If the chat session or vector store does not exist.
     """
 
-    if not await chat_session_repo.exists(chat_id):
+    current_user_id = require_current_anonymous_user_id()
+
+    chat = await chat_session_repo.get_by_criteria(
+        ChatSessionSearchCriteria(id=chat_id, user_id=current_user_id)
+    )
+
+    if chat is None:
         raise not_found_error(
             message=f"Chat session with ID {chat_id} not found.",
             error_code="CHAT_SESSION_NOT_FOUND",

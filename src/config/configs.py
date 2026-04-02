@@ -4,7 +4,7 @@ Each configuration class handles a specific domain of settings.
 """
 
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -119,6 +119,18 @@ class AuthSettings(BaseSettings):
     # REFRESH_SECRET: SecretStr = Field(..., env="REFRESH_TOKEN_SECRET")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=5)
     REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7)
+
+    USER_SESSION_SECRET: SecretStr = Field(
+        default="dev-anon-session-secret-change-me",
+        json_schema_extra={"env": "USER_SESSION_SECRET"},
+    )
+    ANON_SESSION_COOKIE_NAME: str = Field(default="docu_chat_user_cookie")
+    USER_SESSION_TTL_HOURS: int = Field(default=24)
+    ANON_SESSION_COOKIE_HTTP_ONLY: bool = Field(default=True)
+    ANON_SESSION_COOKIE_SECURE: bool = Field(default=False)
+    ANON_SESSION_COOKIE_SAMESITE: str = Field(default="lax")
+    ANON_SESSION_COOKIE_DOMAIN: Optional[str] = Field(default=None)
+    ANON_SESSION_REFRESH_EVERY_REQUEST: bool = Field(default=True)
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -261,10 +273,10 @@ class APIServerSettings(BaseSettings):
     PORT: int = Field(default=8000)
     WORKERS: int = Field(default=1)
 
-    API_V1_PREFIX: str = Field(default="/api/v1")
     DOCS_URL: str = Field(default="/docs")
     REDOC_URL: str = Field(default="/redoc")
 
+    API_V1_PREFIX: str = Field(default="/api/v1")
     CORS_ORIGINS: List[str] = Field(default=["http://localhost:3000"])
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
     CORS_ALLOW_METHODS: List[str] = Field(default=["*"])

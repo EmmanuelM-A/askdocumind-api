@@ -49,8 +49,16 @@ class User(Base):
     __tablename__ = "user"
 
     id = Column(UUID, primary_key=True, default=uuid.uuid4)
-    created_at = Column(DateTime, default=datetime.now, index=True)
-    last_seen_at = Column(DateTime, default=datetime.now, index=True)
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        index=True,
+    )
+    last_seen_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        index=True,
+    )
     expires_at = Column(DateTime, index=True)
 
     def __repr__(self):
@@ -80,7 +88,9 @@ class ChatSession(Base):
 
     # Columns
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"))
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False
+    )
     title = Column(Text, nullable=True)
     total_messages = Column(Integer, default=0, nullable=False)
     created_at = Column(

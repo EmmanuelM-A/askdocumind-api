@@ -8,6 +8,7 @@ from uuid import UUID
 from src.api.services.validation.schemas import (
     CreateChatSchema,
 )
+from src.api.utils.session_identity import require_current_anonymous_user_id
 from src.components.chatbot.core import RAGChatbot
 from src.database.models import ChatSession, ChatMessage
 from src.database.repository.interfaces import (
@@ -16,6 +17,7 @@ from src.database.repository.interfaces import (
     UpdatedChatSessionData,
     ChatMessageSearchCriteria,
     ChatMessageRepositoryInterface,
+    ChatSessionSearchCriteria,
 )
 from src.database.storage import StorageService
 from src.errors.custom_exceptions import not_found_error
@@ -38,9 +40,28 @@ class ChatSessionService:
         self.tx_factory = tx_factory
         self._logger = BaseLogger(__name__)
 
+    async def _get_owned_chat(self, chat_id: UUID) -> ChatSession:
+        """Fetch a chat session owned by the current anonymous user."""
+
+        current_user_id = require_current_anonymous_user_id()
+        chat = await self.chat_session_repo.get_by_criteria(
+            ChatSessionSearchCriteria(id=chat_id, user_id=current_user_id)
+        )
+
+        if chat is None:
+            raise not_found_error(
+                message="The chat with the provided id was not found.",
+                error_code="CHAT_NOT_FOUND",
+            )
+
+        return chat
+
     async def create_new_chat(self, chat_data: CreateChatSchema) -> UUID:
         async with self.tx_factory.create() as tx:
-            data = ChatSession(title=chat_data.title)
+            data = ChatSession(
+                title=chat_data.title,
+                user_id=require_current_anonymous_user_id(),
+            )
             created_id = await self.chat_session_repo.create(
                 data=data,
                 tx=tx,
@@ -51,18 +72,13 @@ class ChatSessionService:
             return created_id
 
     async def get_chat_metadata(self, chat_id: UUID) -> ChatSession:
-        chat = await self.chat_session_repo.get_by_id(chat_id)
-
-        if chat is None:
-            raise not_found_error(
-                "The chat with the provided id was not found." "CHAT_NOT_FOUND"
-            )
-
-        return chat
+        return await self._get_owned_chat(chat_id)
 
     async def update_chat_metadata(
         self, chat_id: UUID, data: UpdatedChatSessionData
     ) -> ChatSession:
+        await self._get_owned_chat(chat_id)
+
         updated_chat = await self.chat_session_repo.update(
             chat_id=chat_id,
             new_entity_data=data,
@@ -70,19 +86,14 @@ class ChatSessionService:
 
         if updated_chat is None:
             raise not_found_error(
-                "The chat with the provided id was not found." "CHAT_NOT_FOUND"
+                message="The chat with the provided id was not found.",
+                error_code="CHAT_NOT_FOUND",
             )
 
         return updated_chat
 
     async def delete_chat(self, chat_id: UUID) -> UUID:
-        exists = await self.chat_session_repo.exists(chat_id)
-
-        if not exists:
-            raise not_found_error(
-                message="The chat with the provided id was not found.",
-                error_code="CHAT_NOT_FOUND",
-            )
+        await self._get_owned_chat(chat_id)
 
         async with self.tx_factory.create() as tx:
             # Delete metadata
@@ -99,4 +110,5 @@ class ChatSessionService:
     async def get_chat_messages(
         self, criteria: ChatMessageSearchCriteria
     ) -> List[ChatMessage]:
+        await self._get_owned_chat(criteria.session_id)
         return await self.chat_message_repo.list_by(criteria)

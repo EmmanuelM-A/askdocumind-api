@@ -16,6 +16,7 @@ class ChatSessionSearchCriteria(BaseModel):
     """Criteria for filtering chat sessions in list/search operations."""
 
     id: Optional[UUID] = None
+    user_id: Optional[UUID] = None
     title: Optional[str] = None
     total_messages: Optional[int] = None
 
