@@ -13,6 +13,7 @@ from src.api.services.validation.rag_validation import (
 )
 from src.api.utils.api_responses import SuccessResponseModel
 from src.components.chatbot.core import RAGChatbot
+from src.config.configs import settings
 from src.config.constants import ProcessingStatus
 from src.database.models import Document
 from src.database.repository.interfaces import (
@@ -22,7 +23,8 @@ from src.database.repository.interfaces import (
 )
 
 from src.database.storage import StorageService
-from src.errors.custom_exceptions import database_error
+from src.errors.api_exceptions import ApiException
+from src.errors.custom_exceptions import database_error, unprocessable_entity_error
 from src.logger.base_logger import BaseLogger
 
 
@@ -75,9 +77,23 @@ class UploadService:
             f"The chat {request.chat_id} has been validated successfully"
         )
 
+        existing_documents_count = await self.document_repo.count(filter_id=request.chat_id)
+        incoming_documents_count = len(request.documents)
+        max_documents_per_chat = settings.server.MAX_DOCUMENTS_PER_CHAT
+
+        if existing_documents_count + incoming_documents_count > max_documents_per_chat:
+            raise unprocessable_entity_error(
+                message=(
+                    "Document upload limit reached for this chat. "
+                    f"Maximum allowed documents: {max_documents_per_chat}."
+                ),
+                error_code="CHAT_DOCUMENT_LIMIT_REACHED",
+            )
+
+        max_file_size_bytes = settings.files.MAX_FILE_SIZE_MB * 1024 * 1024
+
         saved_keys: List[str] = []
         entities: List[Document] = []
-        created_entities: List = []
 
         # 1) Persist files to storage and build Document entities
         for upload in request.documents:
@@ -86,6 +102,15 @@ class UploadService:
             try:
                 # Offload potentially blocking file read to a thread
                 data = await asyncio.to_thread(upload.file.read)
+
+                if len(data) > max_file_size_bytes:
+                    raise unprocessable_entity_error(
+                        message=(
+                            f"File '{upload.filename}' exceeds the maximum size of "
+                            f"{settings.server.ANON_SESSION_MAX_FILE_SIZE_MB} MB."
+                        ),
+                        error_code="FILE_SIZE_LIMIT_EXCEEDED",
+                    )
 
                 # Persist data in storage (offload to thread if implementation is blocking)
                 try:
@@ -141,6 +166,8 @@ class UploadService:
                     # continue and let the vector processor surface errors.
                     pass
 
+            except ApiException:
+                raise
             except Exception as e:
                 # Attempt to clean up any files we already saved
                 for k in saved_keys:

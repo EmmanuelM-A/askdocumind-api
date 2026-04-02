@@ -253,12 +253,7 @@ class LoggingSettings(BaseSettings):
     )
     # Use a space between date and time for human-friendly logs
     DATE_FORMAT: str = Field(default="%Y-%m-%d %H:%M:%S")
-    IS_FILE_LOGGING_ENABLED: bool = Field(default=False)
-    LOG_MAX_BYTES: int = Field(default=10485760)
-
-    LOG_WEB_SEARCHES: bool = Field(default=False)
-    LOG_DATABASE_QUERIES: bool = Field(default=False)
-    LOG_API_REQUESTS: bool = Field(default=True)
+    LOG_MAX_MB: int = Field(default=10)
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -285,6 +280,10 @@ class APIServerSettings(BaseSettings):
     RATE_LIMIT_ENABLED: bool = Field(default=True)
     RATE_LIMIT_REQUESTS: int = Field(default=100)
     RATE_LIMIT_WINDOW: int = Field(default=60)
+
+    MAX_CHATS_PER_USER: int = Field(default=1)
+    MAX_DOCUMENTS_PER_CHAT: int = Field(default=5)
+    MAX_CHAT_QUERIES_PER_MINUTE: int = Field(default=10)
 
     model_config = _DEFAULT_MODEL_CONFIG
 

@@ -10,6 +10,7 @@ from src.api.services.validation.schemas import (
 )
 from src.api.utils.session_identity import require_current_anonymous_user_id
 from src.components.chatbot.core import RAGChatbot
+from src.config.configs import settings
 from src.database.models import ChatSession, ChatMessage
 from src.database.repository.interfaces import (
     ChatSessionRepositoryInterface,
@@ -20,7 +21,7 @@ from src.database.repository.interfaces import (
     ChatSessionSearchCriteria,
 )
 from src.database.storage import StorageService
-from src.errors.custom_exceptions import not_found_error
+from src.errors.custom_exceptions import not_found_error, unprocessable_entity_error
 from src.logger.base_logger import BaseLogger
 
 
@@ -57,10 +58,21 @@ class ChatSessionService:
         return chat
 
     async def create_new_chat(self, chat_data: CreateChatSchema) -> UUID:
+        current_user_id = require_current_anonymous_user_id()
+        existing_chats = await self.chat_session_repo.list_by(
+            ChatSessionSearchCriteria(user_id=current_user_id)
+        )
+
+        if len(existing_chats) >= settings.server.MAX_CHATS_PER_USER:
+            raise unprocessable_entity_error(
+                message="User has reached the maximum number of chat allowed per user.",
+                error_code="MAX_CHATS_PER_USER_REACHED",
+            )
+
         async with self.tx_factory.create() as tx:
             data = ChatSession(
                 title=chat_data.title,
-                user_id=require_current_anonymous_user_id(),
+                user_id=current_user_id,
             )
             created_id = await self.chat_session_repo.create(
                 data=data,

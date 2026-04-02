@@ -5,8 +5,10 @@ the application.
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from src.api.routes.chat_session_routes import chat_session_router
 from src.api.routes.document_uploads_routes import document_upload_router
@@ -16,6 +18,12 @@ from src.database.connection import get_database_connection
 from src.api.middleware.anonymous_session import AnonymousSessionMiddleware
 from src.api.routes.health_check_routes import health_check_router
 from src.api.middleware.exception_handler import setup_exception_handlers
+from src.api.middleware.rate_limiter import limiter
+
+
+async def rate_limit_exception_handler(request: Request, exc: Exception):
+    """Delegate SlowAPI limit errors to the library-provided response builder."""
+    return _rate_limit_exceeded_handler(request, exc)
 
 
 @asynccontextmanager
@@ -37,6 +45,7 @@ def create_app():
     """Create and configure the FastAPI application."""
 
     app = FastAPI(title="DocuChatAPI", version="1.0.0", lifespan=lifespan)
+    app.state.limiter = limiter  # type: ignore[attr-defined]
 
     # --- Middleware ---
     app.add_middleware(AnonymousSessionMiddleware)
@@ -55,6 +64,7 @@ def create_app():
     app.include_router(prefix="/api/v1", router=rag_chatbot_router)
 
     # --- Exception Handlers ---
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exception_handler)
     setup_exception_handlers(app)
 
     return app
