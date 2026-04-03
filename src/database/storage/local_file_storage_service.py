@@ -178,6 +178,15 @@ class LocalFileStorageService(StorageService):
                         # Directory not empty (or in use), keep going.
                         pass
 
+            # If scoped deletion was requested, also remove the target directory
+            # itself when it is now empty.
+            if key and target.is_dir() and target != self.root.resolve():
+                try:
+                    target.rmdir()
+                except OSError:
+                    # Directory not empty (or in use), keep going.
+                    pass
+
             return deleted_count
         except Exception as e:
             raise IOError(f"Failed to delete all data under {key or '/'}: {e}") from e
