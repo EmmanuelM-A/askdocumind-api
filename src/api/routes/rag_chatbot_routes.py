@@ -20,7 +20,7 @@ _controller = RAGChatbotController()
 
 @rag_chatbot_router.post("/", summary="RAG Chatbot Interaction")
 @limiter.limit(chat_query_limit, key_func=user_key_func)
-async def chat(_request: Request, chat_request: ChatRequest):
+async def chat(request: Request, chat_request: ChatRequest):
     """Endpoint to handle chat requests."""
 
     return await _controller.chat_endpoint(chat_request)
