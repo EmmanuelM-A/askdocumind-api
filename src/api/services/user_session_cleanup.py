@@ -1,9 +1,9 @@
-"""Service for purging expired user sessions and related resources."""
+"""Service for purging inactive user sessions and related resources."""
 
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -47,7 +47,7 @@ class UserSessionCleanupService:
         self._logger = BaseLogger(__name__)
 
     async def cleanup_expired_user_sessions(self, batch_size: Optional[int] = None) -> int:
-        """Remove expired user sessions and all related resources."""
+        """Remove inactive user sessions and all related resources."""
 
         effective_batch_size = batch_size or settings.auth.USER_SESSION_CLEANUP_BATCH_SIZE
         expired_users = await self._get_expired_users(batch_size=effective_batch_size)
@@ -101,15 +101,16 @@ class UserSessionCleanupService:
                 continue
 
     async def _get_expired_users(self, batch_size: int) -> list[User]:
-        """Fetch expired users ordered by expiry time."""
+        """Fetch inactive users ordered by last seen time."""
 
         now = datetime.now(timezone.utc).replace(tzinfo=None)
+        cutoff = now - timedelta(hours=settings.auth.USER_SESSION_TTL_HOURS)
 
         async with self._db.get_session() as session:
             stmt = (
                 select(User)
-                .where(User.expires_at.is_not(None), User.expires_at <= now)
-                .order_by(User.expires_at.asc())
+                .where(User.last_seen_at.is_not(None), User.last_seen_at <= cutoff)
+                .order_by(User.last_seen_at.asc())
                 .limit(batch_size)
             )
             result = await session.execute(stmt)

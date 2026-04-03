@@ -145,7 +145,6 @@ def test_refreshes_existing_session_when_cookie_is_valid(
     assert update_call.args[0] == existing_user_id
     update_data = update_call.args[1]
     assert update_data.last_seen_at == fixed_now.isoformat()
-    assert update_data.expires_at == "2026-04-02T13:00:00"
 
     middleware_mocks.token_manager.create_token.assert_called_once_with(existing_user_id)
 

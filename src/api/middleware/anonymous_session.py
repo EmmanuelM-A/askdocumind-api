@@ -5,8 +5,6 @@ Middleware that ensures each API request has a signed anonymous session.
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
-from datetime import timedelta
-
 from src.api.utils.session_identity import (
     get_anonymous_session_token_manager,
     reset_current_anonymous_user_id,
@@ -38,7 +36,6 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
         cookie_value = request.cookies.get(cookie_name)
         user_repo = UserRepository(connection=get_database_connection())
         now = utc_now_naive()
-        expires_at = now + timedelta(seconds=token_manager.ttl_seconds)
 
         refresh_cookie = False
 
@@ -55,15 +52,14 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
                     user_id,
                     UpdatedUserData(
                         last_seen_at=now.isoformat(),
-                        expires_at=expires_at.isoformat(),
                     ),
                 )
             except Exception:
-                user = User(expires_at=expires_at)
+                user = User()
                 user_id = await user_repo.create(user)
                 refresh_cookie = True
         else:
-            user = User(expires_at=expires_at)
+            user = User()
             user_id = await user_repo.create(user)
             refresh_cookie = True
 

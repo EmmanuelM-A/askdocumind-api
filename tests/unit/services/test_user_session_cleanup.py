@@ -19,7 +19,10 @@ async def test_cleanup_expired_user_sessions_removes_related_resources(monkeypat
     chat_id_1 = uuid4()
     chat_id_2 = uuid4()
 
-    expired_user = User(id=user_id, expires_at=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1))
+    expired_user = User(
+        id=user_id,
+        last_seen_at=datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1),
+    )
     chat_sessions = [
         ChatSession(id=chat_id_1, user_id=user_id),
         ChatSession(id=chat_id_2, user_id=user_id),
