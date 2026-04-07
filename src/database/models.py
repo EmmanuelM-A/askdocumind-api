@@ -59,7 +59,6 @@ class User(Base):
         default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
         index=True,
     )
-    expires_at = Column(DateTime, index=True)
 
     def __repr__(self):
         return f"User(id={self.id}, created_at={self.created_at})"
@@ -73,7 +72,6 @@ class User(Base):
             "id": _serialize_value(self.id),
             "created_at": _serialize_value(self.created_at),
             "last_seen_at": _serialize_value(self.last_seen_at),
-            "expires_at": _serialize_value(self.expires_at),
         }
 
     def to_json(self) -> str:

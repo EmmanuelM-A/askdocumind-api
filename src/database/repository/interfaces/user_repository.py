@@ -22,7 +22,6 @@ class UpdatedUserData(BaseModel):
     """Schema for updating user fields."""
 
     last_seen_at: Optional[str] = None
-    expires_at: Optional[str] = None
 
 
 class UserRepositoryInterface(ABC):

@@ -95,33 +95,17 @@ class TestUserRepositoryCore:
         assert updated.last_seen_at is not None
 
     @pytest.mark.asyncio
-    async def test_update_expires_at(self, user_repo, cleanup_users):
-        """Test updating expires_at timestamp."""
-        user = User(id=uuid4())
-        await user_repo.create(user)
-
-        expire_time = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
-        update_data = UpdatedUserData(expires_at=expire_time)
-        updated = await user_repo.update(user.id, update_data)
-
-        assert updated is not None
-        assert updated.expires_at is not None
-
-    @pytest.mark.asyncio
     async def test_update_both_timestamps(self, user_repo, cleanup_users):
-        """Test updating both last_seen_at and expires_at."""
+        """Test update with supported user timestamp field."""
         user = User(id=uuid4())
         await user_repo.create(user)
 
         new_time = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
-        expire_time = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
-
-        update_data = UpdatedUserData(last_seen_at=new_time, expires_at=expire_time)
+        update_data = UpdatedUserData(last_seen_at=new_time)
         updated = await user_repo.update(user.id, update_data)
 
         assert updated is not None
         assert updated.last_seen_at is not None
-        assert updated.expires_at is not None
 
     @pytest.mark.asyncio
     async def test_update_user_not_found(self, user_repo, cleanup_users):

@@ -117,13 +117,6 @@ class UserRepository(UserRepositoryInterface):
                     existing.last_seen_at = self._to_naive_utc_datetime(
                         new_user_data.last_seen_at
                     )
-                if (
-                    hasattr(new_user_data, "expires_at")
-                    and new_user_data.expires_at is not None
-                ):
-                    existing.expires_at = self._to_naive_utc_datetime(
-                        new_user_data.expires_at
-                    )
 
                 await tx.flush()
                 self._logger.debug(f"User updated: {user_id}")
@@ -142,13 +135,6 @@ class UserRepository(UserRepositoryInterface):
                 ):
                     existing.last_seen_at = self._to_naive_utc_datetime(
                         new_user_data.last_seen_at
-                    )
-                if (
-                    hasattr(new_user_data, "expires_at")
-                    and new_user_data.expires_at is not None
-                ):
-                    existing.expires_at = self._to_naive_utc_datetime(
-                        new_user_data.expires_at
                     )
 
                 await session.flush()
