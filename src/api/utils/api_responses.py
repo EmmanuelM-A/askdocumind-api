@@ -8,6 +8,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field, ConfigDict, field_serializer
 
+from src.utils import format_datetime
+
 
 class ResponseModel(BaseModel):
     """Base Pydantic model for all responses."""
@@ -27,7 +29,7 @@ class ResponseModel(BaseModel):
     @field_serializer("timestamp")
     def serialize_timestamp(self, v: datetime, _info):
         """Serialize timestamp to a human-readable string."""
-        return v.strftime("%Y-%m-%d %H:%M:%S")
+        return format_datetime(v)
 
 
 class SuccessResponseModel(ResponseModel):
@@ -74,6 +76,9 @@ class CustomJSONEncoder(json.JSONEncoder):
         """
         Convert custom objects to a serializable format.
         """
+
+        if isinstance(obj, datetime):
+            return format_datetime(obj)
 
         if hasattr(obj, "to_json"):
             return json.loads(obj.to_json())

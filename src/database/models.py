@@ -21,6 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, declarative_base
 
 from src.config.constants import ChatMessageRole, ProcessingStatus
+from src.utils import format_datetime
 
 Base = declarative_base()
 metadata = Base.metadata
@@ -33,7 +34,7 @@ def _serialize_value(value: Any) -> Any:
     if isinstance(value, uuid.UUID):
         return str(value)
     if isinstance(value, datetime):
-        return value.isoformat()
+        return format_datetime(value)
     # Enum values (SQLAlchemy Enum wrapper) -> get name if available
     try:
         # Many enums are instances of Python Enum and expose .name
