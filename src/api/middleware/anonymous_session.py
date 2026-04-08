@@ -24,10 +24,13 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        api_prefix = settings.server.API_V1_PREFIX.rstrip("/")
-        if not (
-            request.url.path == api_prefix
-            or request.url.path.startswith(f"{api_prefix}/")
+        api_prefixes = (
+            settings.server.API_PREFIX.rstrip("/"),
+            settings.server.API_V1_PREFIX.rstrip("/"),
+        )
+        if not any(
+            request.url.path == prefix or request.url.path.startswith(f"{prefix}/")
+            for prefix in api_prefixes
         ):
             return await call_next(request)
 

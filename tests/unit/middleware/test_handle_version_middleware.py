@@ -1,0 +1,76 @@
+"""Unit tests for header-based API version middleware."""
+
+from collections.abc import Generator
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+import pytest
+
+from src.api.middleware.handle_version import APIVersionMiddleware
+
+
+@pytest.fixture
+def client() -> Generator[TestClient, None, None]:
+    app = FastAPI()
+    app.add_middleware(APIVersionMiddleware)
+
+    @app.get("/api/ping")
+    async def ping():
+        return {"ok": True}
+
+    @app.get("/api/v1/ping")
+    async def ping_legacy():
+        return {"ok": True}
+
+    @app.get("/health")
+    async def health():
+        return {"ok": True}
+
+    with TestClient(app, raise_server_exceptions=False) as test_client:
+        yield test_client
+
+
+def test_defaults_to_configured_version_when_header_missing(client: TestClient):
+    response = client.get("/api/ping")
+
+    assert response.status_code == 200
+    assert response.headers.get("content-version") == "1"
+
+
+def test_accept_version_header_is_honored(client: TestClient):
+    response = client.get("/api/ping", headers={"Accept-Version": "v1"})
+
+    assert response.status_code == 200
+    assert response.headers.get("content-version") == "1"
+
+
+def test_unsupported_header_version_returns_422(client: TestClient):
+    response = client.get("/api/ping", headers={"Accept-Version": "2"})
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Unsupported API version '2'. Supported versions: 1."
+
+
+def test_legacy_v1_path_is_supported_without_header(client: TestClient):
+    response = client.get("/api/v1/ping")
+
+    assert response.status_code == 200
+    assert response.headers.get("content-version") == "1"
+
+
+def test_legacy_v1_path_rejects_conflicting_header(client: TestClient):
+    response = client.get("/api/v1/ping", headers={"Accept-Version": "2"})
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "Accept-Version header conflicts with URL version. "
+        "Use /api routes with Accept-Version or /api/v1 without conflicting header."
+    )
+
+
+def test_non_api_path_bypasses_version_check(client: TestClient):
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.headers.get("content-version") is None
+

@@ -18,6 +18,7 @@ from src.api.routes.rag_chatbot_routes import rag_chatbot_router
 from src.config.configs import settings
 from src.database.connection import get_database_connection
 from src.api.middleware.anonymous_session import AnonymousSessionMiddleware
+from src.api.middleware.handle_version import APIVersionMiddleware
 from src.api.routes.health_check_routes import health_check_router
 from src.api.middleware.exception_handler import setup_exception_handlers
 from src.api.middleware.rate_limiter import limiter
@@ -73,6 +74,7 @@ def create_app():
     app.state.limiter = limiter  # type: ignore[attr-defined]
 
     # --- Middleware ---
+    app.add_middleware(APIVersionMiddleware)
     app.add_middleware(AnonymousSessionMiddleware)
     app.add_middleware(
         CORSMiddleware,
@@ -83,10 +85,15 @@ def create_app():
     )
 
     # --- Routers ---
-    app.include_router(prefix="/api", router=health_check_router)
-    app.include_router(prefix="/api/v1", router=document_upload_router)
-    app.include_router(prefix="/api/v1", router=chat_session_router)
-    app.include_router(prefix="/api/v1", router=rag_chatbot_router)
+    app.include_router(prefix=settings.server.API_PREFIX, router=health_check_router)
+    app.include_router(prefix=settings.server.API_PREFIX, router=document_upload_router)
+    app.include_router(prefix=settings.server.API_PREFIX, router=chat_session_router)
+    app.include_router(prefix=settings.server.API_PREFIX, router=rag_chatbot_router)
+
+    # Legacy URL-based versioning support.
+    app.include_router(prefix=settings.server.API_V1_PREFIX, router=document_upload_router)
+    app.include_router(prefix=settings.server.API_V1_PREFIX, router=chat_session_router)
+    app.include_router(prefix=settings.server.API_V1_PREFIX, router=rag_chatbot_router)
 
     # --- Exception Handlers ---
     app.add_exception_handler(RateLimitExceeded, rate_limit_exception_handler)  # type: ignore[arg-type]

@@ -275,6 +275,7 @@ class APIServerSettings(BaseSettings):
     DOCS_URL: str = Field(default="/docs")
     REDOC_URL: str = Field(default="/redoc")
 
+    API_PREFIX: str = Field(default="/api")
     API_V1_PREFIX: str = Field(default="/api/v1")
     CORS_ORIGINS: List[str] = Field(default=["http://localhost:3000"])
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
