@@ -83,24 +83,6 @@ class AnonymousUserSessionService:
 
         return await self._create_anonymous_user()
 
-    async def cleanup_anonymous_user_sessions(self) -> int:
-        """
-        Deletes all anonymous user sessions that have expired.
-        """
-        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(
-            hours=self.ttl_hours
-        )
-        deleted_count = await self.user_repo.delete_by_criteria(
-            UserSearchCriteria(last_seen_at_lte=cutoff)
-        )
-
-        if deleted_count > 0:
-            self.logger.debug(
-                f"Deleted {deleted_count} expired anonymous user session(s)"
-            )
-
-        return deleted_count
-
     async def update_anonymous_user_activity(self) -> None:
         """
         Updates the last seen timestamp of the current anonymous user session.
