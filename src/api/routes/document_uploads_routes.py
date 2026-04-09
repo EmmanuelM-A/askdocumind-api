@@ -13,20 +13,20 @@ from src.api.services.validation.rag_validation import (
     UploadDocumentsRequest,
 )
 
-document_upload_router = APIRouter(prefix="/uploads", tags=["Document Uploads"])
+documents_router = APIRouter(prefix="/documents", tags=["Documents"])
 
 _controller = DocumentUploadController()
 
 
-@document_upload_router.get("/", summary="Get the metadata of all uploaded documents")
-async def get_document_uploads(chat_id: UUID):
-    """Get all document uploads for a chat session (only metadata)."""
+@documents_router.get("/", summary="List uploaded documents")
+async def list_uploaded_documents(chat_id: UUID):
+    """Get all uploaded document metadata for a chat session."""
     request = FetchDocumentMetadataRequest(chat_id=chat_id)
-    return await _controller.list_uploaded_files_endpoint(request)
+    return await _controller.list_uploaded_documents_endpoint(request)
 
 
-@document_upload_router.post(
-    "/", 
+@documents_router.post(
+    "/",
     summary="Upload documents",
     openapi_extra={
         "requestBody": {
@@ -38,20 +38,20 @@ async def get_document_uploads(chat_id: UUID):
                             "documents": {
                                 "type": "array",
                                 "items": {"type": "string", "format": "binary"},
-                                "description": "Multiple document files to upload (1-10 files, max 10MB each)"
+                                "description": "Multiple document files to upload (1-10 files, max 10MB each)",
                             },
                             "chat_id": {
                                 "type": "string",
                                 "format": "uuid",
-                                "description": "The chat session identifier"
-                            }
+                                "description": "The chat session identifier",
+                            },
                         },
-                        "required": ["documents", "chat_id"]
+                        "required": ["documents", "chat_id"],
                     }
                 }
             }
         }
-    }
+    },
 )
 async def upload_documents(
     documents: list[UploadFile] = File(
@@ -73,10 +73,10 @@ async def upload_documents(
     - **Allowed formats**: .pdf, .docx, .txt, .md
     """
     request = UploadDocumentsRequest(documents=documents, chat_id=chat_id)
-    return await _controller.upload_files_endpoint(request)
+    return await _controller.upload_documents_endpoint(request)
 
 
-# @document_upload_router.post("/metadata", summary="Fetch document metadata")
+# @documents_router.post("/metadata", summary="Fetch document metadata")
 # async def fetch_uploaded_document(request: FetchUploadedDocumentsRequest):
 #     """Fetch metadata for specific document IDs for a given chat."""
 #     return await _controller.fetch_document_endpoint(request)

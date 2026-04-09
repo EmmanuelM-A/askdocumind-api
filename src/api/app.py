@@ -14,7 +14,7 @@ from slowapi.errors import RateLimitExceeded
 
 from src.api.routes.chat_session_routes import chat_session_router
 from src.api.routes.auth_routes import auth_router
-from src.api.routes.document_uploads_routes import document_upload_router
+from src.api.routes.document_uploads_routes import documents_router
 from src.api.routes.rag_chatbot_routes import rag_chatbot_router
 from src.api.services.cleanup.cleanup_resources import init_anon_user_sessions_cleanup
 from src.config.configs import settings
@@ -81,7 +81,7 @@ def create_app():
     # --- Routers ---
     app.include_router(prefix=API_PREFIX, router=health_check_router)
     app.include_router(prefix=API_PREFIX, router=auth_router)
-    app.include_router(prefix=API_PREFIX, router=document_upload_router)
+    app.include_router(prefix=API_PREFIX, router=documents_router)
     app.include_router(prefix=API_PREFIX, router=chat_session_router)
     app.include_router(prefix=API_PREFIX, router=rag_chatbot_router)
 

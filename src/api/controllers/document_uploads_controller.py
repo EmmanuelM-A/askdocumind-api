@@ -28,7 +28,7 @@ class DocumentUploadController:
         if self.upload_service is None:
             self.upload_service = get_upload_service()
 
-    async def upload_files_endpoint(
+    async def upload_documents_endpoint(
         self, request: UploadDocumentsRequest
     ) -> JSONResponse:
         """Receive files and chat_id from FastAPI route, call service and return response."""
@@ -41,10 +41,10 @@ class DocumentUploadController:
             status_code=status.HTTP_201_CREATED, success_response_model=response_model
         )
 
-    async def list_uploaded_files_endpoint(
+    async def list_uploaded_documents_endpoint(
         self, request: FetchDocumentMetadataRequest
     ) -> JSONResponse:
-        """Fetch the metadata for uploaded documents"""
+        """Fetch the metadata for uploaded documents."""
 
         self.lazy_init()
 
@@ -54,6 +54,7 @@ class DocumentUploadController:
         return create_success_response(
             status_code=status.HTTP_200_OK, success_response_model=response_model
         )
+
 
     # async def fetch_document_endpoint(
     #     self, request: FetchDocumentMetadataRequest
