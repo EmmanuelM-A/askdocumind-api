@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -109,7 +109,7 @@ class UserSessionCleanupService:
     async def _get_expired_users(self, batch_size: int) -> list[User]:
         """Fetch inactive users ordered by last seen time."""
 
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = datetime.now()
         cutoff = now - timedelta(hours=settings.auth.ANON_SESSION_TTL_HOURS)
 
         async with self._db.get_session() as session:

@@ -1,15 +1,13 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from uuid import UUID
 
 from src.api.services.auth.anonymous_identity import (
     get_current_anonymous_user_id,
     set_current_anonymous_user_id,
 )
-from src.api.utils.cookie_manager import clear_cookie
 from src.database.models import User
 from src.database.repository.interfaces import (
     UserRepositoryInterface,
-    UserSearchCriteria,
     UpdatedUserData,
 )
 from src.api.utils.session_manager import get_token_manager
@@ -37,7 +35,7 @@ class AnonymousUserSessionService:
         :return: The UUID of the created session.
         """
         anonymous_user = User(
-            last_seen_at=datetime.now(timezone.utc).replace(tzinfo=None)
+            last_seen_at=datetime.now()
         )
 
         anonymous_id = await self.user_repo.create(anonymous_user)
@@ -74,7 +72,7 @@ class AnonymousUserSessionService:
                     await self.user_repo.update(
                         existing_user.id,
                         UpdatedUserData(
-                            last_seen_at=datetime.now(timezone.utc).isoformat()
+                            last_seen_at=datetime.now().isoformat()
                         ),
                     )
                     return existing_user.id
@@ -92,5 +90,5 @@ class AnonymousUserSessionService:
             return
         await self.user_repo.update(
             current_user_id,
-            UpdatedUserData(last_seen_at=datetime.now(timezone.utc).isoformat()),
+            UpdatedUserData(last_seen_at=datetime.now().isoformat()),
         )

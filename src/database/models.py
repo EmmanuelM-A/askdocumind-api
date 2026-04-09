@@ -52,7 +52,7 @@ class User(Base):
     id = Column(UUID, primary_key=True, default=uuid.uuid4)
     created_at = Column(
         DateTime,
-        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        default=lambda: datetime.now(),
         index=True,
     )
     last_seen_at = Column(DateTime, index=True)

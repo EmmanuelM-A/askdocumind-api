@@ -5,7 +5,7 @@ operations and specific queries related to user entities.
 
 from typing import Optional
 from uuid import UUID
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import select, func, delete
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
@@ -41,19 +41,17 @@ class UserRepository(UserRepositoryInterface):
         if criteria.last_seen_at_lte is not None:
             last_seen_cutoff = criteria.last_seen_at_lte
             if last_seen_cutoff.tzinfo is not None:
-                last_seen_cutoff = last_seen_cutoff.astimezone(timezone.utc).replace(
-                    tzinfo=None
-                )
+                last_seen_cutoff = last_seen_cutoff.astimezone().replace(tzinfo=None)
             filters.append(User.last_seen_at <= last_seen_cutoff)
 
         return filters
 
     @staticmethod
-    def _to_naive_utc_datetime(value: str) -> datetime:
-        """Parse ISO datetime text and normalize to naive UTC for DB writes."""
+    def _to_naive_datetime(value: str) -> datetime:
+        """Parse ISO datetime text and normalize to local naive for DB writes."""
         parsed = datetime.fromisoformat(value)
         if parsed.tzinfo is not None:
-            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+            return parsed.astimezone().replace(tzinfo=None)
         return parsed
 
     async def create(self, data: User, tx: Optional[DBTransaction] = None) -> UUID:
@@ -124,7 +122,7 @@ class UserRepository(UserRepositoryInterface):
                     hasattr(new_user_data, "last_seen_at")
                     and new_user_data.last_seen_at is not None
                 ):
-                    existing.last_seen_at = self._to_naive_utc_datetime(
+                    existing.last_seen_at = self._to_naive_datetime(
                         new_user_data.last_seen_at
                     )
 
@@ -143,7 +141,7 @@ class UserRepository(UserRepositoryInterface):
                     hasattr(new_user_data, "last_seen_at")
                     and new_user_data.last_seen_at is not None
                 ):
-                    existing.last_seen_at = self._to_naive_utc_datetime(
+                    existing.last_seen_at = self._to_naive_datetime(
                         new_user_data.last_seen_at
                     )
 

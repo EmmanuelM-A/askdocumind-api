@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
@@ -56,7 +56,7 @@ class CleanupAnonymousUserResources:
     async def _cleanup_expired_anonymous_user_sessions(self) -> int:
         """Delete expired anonymous users and clear related resources."""
 
-        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(
+        cutoff = datetime.now() - timedelta(
             hours=settings.auth.ANON_SESSION_TTL_HOURS
         )
 

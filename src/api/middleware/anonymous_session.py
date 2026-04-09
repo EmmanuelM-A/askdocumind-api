@@ -2,7 +2,7 @@
 Middleware that ensures each API request has a signed anonymous session.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -63,7 +63,7 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
 
         await user_repo.update(
             anonymous_id,
-            UpdatedUserData(last_seen_at=datetime.now(timezone.utc).isoformat()),
+            UpdatedUserData(last_seen_at=datetime.now().isoformat()),
         )
 
         request.state.anonymous_user_id = anonymous_id
