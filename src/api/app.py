@@ -33,6 +33,9 @@ async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded)
     return _rate_limit_exceeded_handler(request, exc)
 
 
+API_PREFIX = settings.server.API_PREFIX
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -85,15 +88,10 @@ def create_app():
     )
 
     # --- Routers ---
-    app.include_router(prefix=settings.server.API_PREFIX, router=health_check_router)
-    app.include_router(prefix=settings.server.API_PREFIX, router=document_upload_router)
-    app.include_router(prefix=settings.server.API_PREFIX, router=chat_session_router)
-    app.include_router(prefix=settings.server.API_PREFIX, router=rag_chatbot_router)
-
-    # Legacy URL-based versioning support.
-    app.include_router(prefix=settings.server.API_V1_PREFIX, router=document_upload_router)
-    app.include_router(prefix=settings.server.API_V1_PREFIX, router=chat_session_router)
-    app.include_router(prefix=settings.server.API_V1_PREFIX, router=rag_chatbot_router)
+    app.include_router(prefix=API_PREFIX, router=health_check_router)
+    app.include_router(prefix=API_PREFIX, router=document_upload_router)
+    app.include_router(prefix=API_PREFIX, router=chat_session_router)
+    app.include_router(prefix=API_PREFIX, router=rag_chatbot_router)
 
     # --- Exception Handlers ---
     app.add_exception_handler(RateLimitExceeded, rate_limit_exception_handler)  # type: ignore[arg-type]
