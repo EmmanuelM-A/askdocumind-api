@@ -2,21 +2,32 @@
 
 from collections.abc import Generator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 import pytest
 
 from src.api.middleware.handle_version import APIVersionMiddleware
+from src.config.configs import settings
 
 
 @pytest.fixture
-def client() -> Generator[TestClient, None, None]:
+def client(monkeypatch: pytest.MonkeyPatch) -> Generator[TestClient, None, None]:
+    # Pin version settings so assertions stay stable across environments.
+    monkeypatch.setattr(settings.server, "API_PREFIX", "/api")
+    monkeypatch.setattr(settings.server, "API_V1_PREFIX", "/api/v1")
+    monkeypatch.setattr(settings.app, "SUPPORTED_VERSIONS", ["1"])
+    monkeypatch.setattr(settings.app, "DEFAULT_VERSION", "1")
+
     app = FastAPI()
     app.add_middleware(APIVersionMiddleware)
 
     @app.get("/api/ping")
     async def ping():
         return {"ok": True}
+
+    @app.get("/api/probe")
+    async def probe(request: Request):
+        return {"api_version": request.state.api_version}
 
     @app.get("/api/v1/ping")
     async def ping_legacy():
@@ -35,6 +46,7 @@ def test_defaults_to_configured_version_when_header_missing(client: TestClient):
 
     assert response.status_code == 200
     assert response.headers.get("content-version") == "1"
+    assert response.headers.get("vary") == "Accept-Version"
 
 
 def test_accept_version_header_is_honored(client: TestClient):
@@ -42,6 +54,13 @@ def test_accept_version_header_is_honored(client: TestClient):
 
     assert response.status_code == 200
     assert response.headers.get("content-version") == "1"
+
+
+def test_version_is_saved_on_request_state_for_api_paths(client: TestClient):
+    response = client.get("/api/probe", headers={"Accept-Version": "v1"})
+
+    assert response.status_code == 200
+    assert response.json() == {"api_version": "1"}
 
 
 def test_unsupported_header_version_returns_422(client: TestClient):
