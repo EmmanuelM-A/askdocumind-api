@@ -9,12 +9,14 @@ from src.database.repository.database_repository_factory import get_tx_factory
 from src.database.storage import get_storage_service
 
 if TYPE_CHECKING:
+    from src.api.services.auth.anonymous_user import AnonymousUserSessionService
     from src.api.services.document_uploads import UploadService
     from src.api.services.rag_chatbot import RAGChatbotService
 
 _rag_chatbot_service: "RAGChatbotService | None" = None
 _upload_service: "UploadService | None" = None
 _chat_service: "ChatSessionService | None" = None
+_anonymous_user_service: "AnonymousUserSessionService | None" = None
 
 
 def get_rag_chatbot_service() -> "RAGChatbotService":
@@ -66,3 +68,19 @@ def get_chat_service() -> "ChatSessionService":
         )
 
     return _chat_service
+
+
+def get_anonymous_user_service() -> "AnonymousUserSessionService":
+    """Return a singleton instance of the anonymous user session service."""
+    global _anonymous_user_service
+
+    if _anonymous_user_service is None:
+        from src.api.services.auth.anonymous_user import AnonymousUserSessionService
+
+        _anonymous_user_service = AnonymousUserSessionService(
+            user_repo=get_database_repository("USER")
+        )
+
+    return _anonymous_user_service
+
+

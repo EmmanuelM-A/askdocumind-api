@@ -29,9 +29,15 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-
         token_manager = get_token_manager()
         cookie_name = settings.auth.ANON_SESSION_USER_COOKIE_NAME
+        api_prefix = settings.server.API_PREFIX.rstrip("/")
+        anonymous_bootstrap_path = f"{api_prefix}/auth/anonymous"
+        normalized_path = request.url.path.rstrip("/")
+
+        if normalized_path == anonymous_bootstrap_path:
+            return await call_next(request)
+
         cookie_value = request.cookies.get(cookie_name)
         user_repo = get_database_repository("USER")
 
@@ -65,8 +71,8 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
         set_cookie(
             response=response,
             cookie_name=cookie_name,
-            cookie_value=context_token,
-            max_age_seconds=settings.auth.ANON_SESSION_COOKIE_AGE,
+            cookie_value=token_manager.create_token(anonymous_id),
+            max_age_seconds=token_manager.ttl_seconds,
         )
 
         return response

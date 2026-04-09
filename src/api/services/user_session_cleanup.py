@@ -46,10 +46,14 @@ class UserSessionCleanupService:
         self.chatbot = chatbot or get_chatbot()
         self._logger = BaseLogger(__name__)
 
-    async def cleanup_expired_user_sessions(self, batch_size: Optional[int] = None) -> int:
+    async def cleanup_expired_user_sessions(
+        self, batch_size: Optional[int] = None
+    ) -> int:
         """Remove inactive user sessions and all related resources."""
 
-        effective_batch_size = batch_size or settings.auth.USER_SESSION_CLEANUP_BATCH_SIZE
+        effective_batch_size = (
+            batch_size or settings.auth.USER_SESSION_CLEANUP_BATCH_SIZE
+        )
         expired_users = await self._get_expired_users(batch_size=effective_batch_size)
 
         if not expired_users:
@@ -90,7 +94,9 @@ class UserSessionCleanupService:
             interval_minutes or settings.auth.USER_SESSION_CLEANUP_INTERVAL_MINUTES
         )
         sleep_seconds = max(effective_interval_minutes * 60, 1)
-        effective_batch_size = batch_size or settings.auth.USER_SESSION_CLEANUP_BATCH_SIZE
+        effective_batch_size = (
+            batch_size or settings.auth.USER_SESSION_CLEANUP_BATCH_SIZE
+        )
 
         while not stop_event.is_set():
             await self.cleanup_expired_user_sessions(batch_size=effective_batch_size)
@@ -170,5 +176,3 @@ async def run_user_session_cleanup_scheduler(
         interval_minutes=interval_minutes,
         batch_size=batch_size,
     )
-
-

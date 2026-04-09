@@ -22,8 +22,8 @@ def set_cookie(
         domain=settings.auth.ANON_SESSION_COOKIE_DOMAIN,
     )
 
-def clear_cookie(
-    response: Response, cookie_name: str) -> None:
+
+def clear_cookie(response: Response, cookie_name: str) -> None:
     """
     Clear the cookie value for the session cookie.
     """
