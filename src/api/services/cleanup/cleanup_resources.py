@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import select
@@ -151,14 +150,11 @@ class CleanupAnonymousUserResources:
     async def run_scheduler(
         self,
         stop_event: asyncio.Event,
-        interval_minutes: Optional[int] = None,
+        interval_minutes: int,
     ) -> None:
         """Run cleanup repeatedly until the stop event is set."""
 
-        effective_interval_minutes = (
-            interval_minutes or settings.auth.USER_SESSION_CLEANUP_INTERVAL_MINUTES
-        )
-        sleep_seconds = max(effective_interval_minutes * 60, 1)
+        sleep_seconds = max(interval_minutes * 60, 1)
 
         while not stop_event.is_set():
             await self._cleanup_expired_anonymous_user_sessions()
@@ -180,9 +176,7 @@ _cleanup_anon_user_resources = CleanupAnonymousUserResources(
 
 async def init_anon_user_sessions_cleanup(
     stop_event: asyncio.Event = asyncio.Event(),
-    interval_minutes: Optional[
-        int
-    ] = settings.auth.USER_SESSION_CLEANUP_INTERVAL_MINUTES,
+    interval_minutes: int = settings.auth.USER_SESSION_CLEANUP_INTERVAL_MINUTES,
 ) -> None:
     """
     Start cleanup repeatedly until the stop event is set.

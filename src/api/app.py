@@ -16,6 +16,7 @@ from src.api.routes.chat_session_routes import chat_session_router
 from src.api.routes.auth_routes import auth_router
 from src.api.routes.document_uploads_routes import document_upload_router
 from src.api.routes.rag_chatbot_routes import rag_chatbot_router
+from src.api.services.cleanup.cleanup_resources import init_anon_user_sessions_cleanup
 from src.config.configs import settings
 from src.database.connection import get_database_connection
 from src.api.middleware.anonymous_session import AnonymousSessionMiddleware
@@ -23,10 +24,6 @@ from src.api.middleware.handle_version import APIVersionMiddleware
 from src.api.routes.health_check_routes import health_check_router
 from src.api.middleware.exception_handler import setup_exception_handlers
 from src.api.middleware.rate_limiter import limiter
-from src.api.services.user_session_cleanup import (
-    UserSessionCleanupService,
-    run_user_session_cleanup_scheduler,
-)
 
 
 async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded):
@@ -47,17 +44,8 @@ async def lifespan(app: FastAPI):
     # Startup
     await get_database_connection().connect()
     cleanup_stop_event = asyncio.Event()
-    cleanup_task = None
 
-    if settings.auth.USER_SESSION_CLEANUP_ENABLED:
-        cleanup_task = asyncio.create_task(
-            run_user_session_cleanup_scheduler(
-                stop_event=cleanup_stop_event,
-                interval_minutes=settings.auth.USER_SESSION_CLEANUP_INTERVAL_MINUTES,
-                batch_size=settings.auth.USER_SESSION_CLEANUP_BATCH_SIZE,
-                cleanup_service=UserSessionCleanupService(),
-            )
-        )
+    cleanup_task = asyncio.create_task(init_anon_user_sessions_cleanup())
 
     yield
 
