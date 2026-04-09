@@ -45,7 +45,9 @@ async def lifespan(app: FastAPI):
     await get_database_connection().connect()
     cleanup_stop_event = asyncio.Event()
 
-    cleanup_task = asyncio.create_task(init_anon_user_sessions_cleanup())
+    cleanup_task = asyncio.create_task(
+        init_anon_user_sessions_cleanup(stop_event=cleanup_stop_event)
+    )
 
     yield
 

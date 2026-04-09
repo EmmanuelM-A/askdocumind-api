@@ -13,7 +13,7 @@ from uuid import UUID
 
 from src.database.repository.interfaces import ChatSessionRepositoryInterface
 from src.database.repository.interfaces import ChatSessionSearchCriteria
-from src.api.utils.session_manager import require_current_anonymous_user_id
+from src.api.services.auth.anonymous_identity import require_current_anonymous_user_id
 
 # Avoid importing RAGChatbot at module import time to prevent circular imports;
 # import it only for type checking.
