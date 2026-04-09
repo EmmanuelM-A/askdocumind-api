@@ -17,8 +17,6 @@ from uuid import UUID
 from src.config.configs import settings
 from src.errors.custom_exceptions import unauthorized_error, unprocessable_entity_error
 
-_current_user_id: ContextVar[UUID | None] = ContextVar("current_user_id", default=None)
-
 
 @dataclass(frozen=True)
 class AnonymousSessionPayload:
@@ -99,36 +97,3 @@ def get_anonymous_session_token_manager() -> TokenManager:
         )
 
     return _token_manager
-
-
-def get_current_user_id() -> UUID | None:
-    """Return the current anonymous user ID, if one is bound to the request."""
-    return _current_user_id.get()
-
-
-def require_current_anonymous_user_id() -> UUID:
-    """Return the current anonymous user ID or raise an authorization error."""
-    user_id = get_current_user_id()
-
-    if user_id is None:
-        raise unauthorized_error(
-            message="Anonymous session is missing.",
-            error_code="ANON_SESSION_MISSING",
-        )
-
-    return user_id
-
-
-def set_current_anonymous_user_id(user_id: UUID) -> Token[UUID | None]:
-    """Bind the current anonymous user ID to the active request context."""
-    return _current_user_id.set(user_id)
-
-
-def reset_current_anonymous_user_id(token: Token[UUID | None]) -> None:
-    """Clear the current anonymous user ID from the active request context."""
-    _current_user_id.reset(token)
-
-
-def utc_now_naive() -> datetime:
-    """Return the current UTC time as a naive datetime for TIMESTAMP columns."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)

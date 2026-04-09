@@ -34,8 +34,18 @@ class UserRepository(UserRepositoryInterface):
     @staticmethod
     def _build_filters(criteria: UserSearchCriteria) -> list:
         filters = []
-        for field, value in criteria.model_dump(exclude_none=True).items():
-            filters.append(getattr(User, field) == value)
+
+        if criteria.id is not None:
+            filters.append(User.id == criteria.id)
+
+        if criteria.last_seen_at_lte is not None:
+            last_seen_cutoff = criteria.last_seen_at_lte
+            if last_seen_cutoff.tzinfo is not None:
+                last_seen_cutoff = last_seen_cutoff.astimezone(timezone.utc).replace(
+                    tzinfo=None
+                )
+            filters.append(User.last_seen_at <= last_seen_cutoff)
+
         return filters
 
     @staticmethod
@@ -193,6 +203,47 @@ class UserRepository(UserRepositoryInterface):
             raise database_error(
                 message="An error occurred while checking if user exists.",
                 error_code="USER_EXISTS_ERROR",
+                stack_trace=str(e),
+            )
+
+    async def delete_by_criteria(
+        self,
+        criteria: UserSearchCriteria,
+        tx: Optional[DBTransaction] = None,
+    ) -> int:
+        try:
+            filters = self._build_filters(criteria)
+
+            if not filters:
+                self._logger.warning(
+                    "Skipping user delete_by_criteria because no filter criteria were provided."
+                )
+                return 0
+
+            stmt = delete(User).where(*filters)
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                deleted_count = result.rowcount or 0
+                if deleted_count > 0:
+                    self._logger.debug(
+                        f"Deleted {deleted_count} user(s) matching criteria."
+                    )
+                return deleted_count
+
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
+                deleted_count = result.rowcount or 0
+                if deleted_count > 0:
+                    self._logger.debug(
+                        f"Deleted {deleted_count} user(s) matching criteria."
+                    )
+                return deleted_count
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise database_error(
+                message="An error occurred while deleting users by criteria.",
+                error_code="USER_DELETE_BY_CRITERIA_ERROR",
                 stack_trace=str(e),
             )
 

@@ -3,6 +3,7 @@ Repository interface for user CRUD operations.
 """
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -16,6 +17,7 @@ class UserSearchCriteria(BaseModel):
     """Criteria for filtering users in list/search operations."""
 
     id: Optional[UUID] = None
+    last_seen_at_lte: Optional[datetime] = None
 
 
 class UpdatedUserData(BaseModel):
@@ -74,9 +76,7 @@ class UserRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def delete(
-        self, user_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> bool:
+    async def delete(self, user_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
         """
         Delete a user by its unique identifier.
 
@@ -87,9 +87,7 @@ class UserRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def exists(
-        self, user_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> bool:
+    async def exists(self, user_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
         """
         Check if a user with the given UUID exists.
 
@@ -99,3 +97,17 @@ class UserRepositoryInterface(ABC):
         """
         raise NotImplementedError
 
+    @abstractmethod
+    async def delete_by_criteria(
+        self,
+        criteria: UserSearchCriteria,
+        tx: Optional[DBTransaction] = None,
+    ) -> int:
+        """
+        Delete users that match the provided criteria.
+
+        :param criteria: Predicate criteria used to target users for deletion.
+        :param tx: Optional db transaction to wrap a db operation in.
+        :return: Number of users deleted.
+        """
+        raise NotImplementedError
