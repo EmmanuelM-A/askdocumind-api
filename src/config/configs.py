@@ -125,7 +125,7 @@ class AuthSettings(BaseSettings):
         json_schema_extra={"env": "USER_SESSION_SECRET"},
     )
     ANON_SESSION_USER_COOKIE_NAME: str = Field(default="docu_chat_user_cookie")
-    ANON_SESSION_TTL_HOURS: int = Field(default=0.5)
+    ANON_SESSION_TTL_HOURS: float = Field(default=0.5)
     ANON_SESSION_COOKIE_HTTP_ONLY: bool = Field(default=True)
     ANON_SESSION_COOKIE_SECURE: bool = Field(default=False)
     ANON_SESSION_COOKIE_SAMESITE: str = Field(default="lax")

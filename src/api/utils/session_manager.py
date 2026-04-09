@@ -27,9 +27,9 @@ class AnonymousSessionPayload:
 class TokenManager:
     """Create and verify signed user tokens."""
 
-    def __init__(self, secret: str, ttl_hours: int) -> None:
+    def __init__(self, secret: str, ttl_hours: float) -> None:
         self._secret = secret.encode("utf-8")
-        self._ttl_seconds = ttl_hours * 60 * 60
+        self._ttl_seconds = max(int(ttl_hours * 60 * 60), 1)
 
     @staticmethod
     def _b64encode(data: bytes) -> str:
