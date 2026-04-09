@@ -31,3 +31,11 @@ class GetChatsSchema(BaseModel):
     """The data needed to get chats."""
 
     chat_ids: List[UUID]
+
+
+class InitChatSessionSchema(BaseModel):
+    """The data needed to initialize a chat session."""
+
+    user_id: UUID
+    title: Optional[str] = None
+

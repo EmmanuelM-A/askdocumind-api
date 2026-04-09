@@ -119,6 +119,43 @@ class ChatSessionService:
 
             return deleted_id
 
+    async def init_or_get_chat_session(
+        self, user_id: UUID, title: str = None
+    ) -> UUID:
+        """
+        Initialize or retrieve a chat session for the given user.
+        First tries to retrieve an existing chat session for the user,
+        otherwise creates a new one.
+        """
+        # Try to retrieve existing chat session for the user
+        existing_chats = await self.chat_session_repo.list_by(
+            ChatSessionSearchCriteria(user_id=user_id)
+        )
+
+        if existing_chats:
+            # Return the most recently created chat
+            most_recent_chat = max(existing_chats, key=lambda c: c.created_at)
+            self._logger.info(
+                f"Retrieved existing chat session {most_recent_chat.id} for user {user_id}"
+            )
+            return most_recent_chat.id
+
+        # No existing chats, create a new one
+        async with self.tx_factory.create() as tx:
+            data = ChatSession(
+                title=title or "New Chat",
+                user_id=user_id,
+            )
+            created_id = await self.chat_session_repo.create(
+                data=data,
+                tx=tx,
+            )
+
+            self.chatbot.create_chat(index_chat_id=str(created_id))
+            self._logger.info(f"Created new chat session {created_id} for user {user_id}")
+
+            return created_id
+
     async def get_chat_messages(
         self, criteria: ChatMessageSearchCriteria
     ) -> List[ChatMessage]:
