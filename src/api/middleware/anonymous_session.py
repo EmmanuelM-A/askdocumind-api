@@ -33,7 +33,13 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
         cookie_name = settings.auth.ANON_SESSION_USER_COOKIE_NAME
         api_prefix = settings.server.API_PREFIX.rstrip("/")
         anonymous_bootstrap_path = f"{api_prefix}/auth/anonymous"
-        normalized_path = request.url.path.rstrip("/")
+        normalized_path = request.url.path.rstrip("/") or "/"
+        is_api_path = normalized_path == api_prefix or normalized_path.startswith(
+            f"{api_prefix}/"
+        )
+
+        if request.method == "OPTIONS" or not is_api_path:
+            return await call_next(request)
 
         if normalized_path == anonymous_bootstrap_path:
             return await call_next(request)
