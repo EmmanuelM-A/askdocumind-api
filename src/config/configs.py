@@ -35,7 +35,7 @@ class CoreAppSettings(BaseSettings):
     ENV: str = Field(default="development", json_schema_extra={"env": "ENV"})
     APP_NAME: str = Field(default="DocuChatAPI")
     PORT: int = Field(default=5000)
-    HOST: str = Field(default="127.0.0.1")
+    HOST: str = Field(default="localhost")
     SUPPORTED_VERSIONS: List[str] = Field(default=["1"])
     DEFAULT_VERSION: str = Field(default="1")
 
@@ -285,8 +285,12 @@ class APIServerSettings(BaseSettings):
         ]
     )
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
-    CORS_ALLOW_METHODS: List[str] = Field(default=["*"])
-    CORS_ALLOW_HEADERS: List[str] = Field(default=["*"])
+    CORS_ALLOW_METHODS: List[str] = Field(
+        default=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    )
+    CORS_ALLOW_HEADERS: List[str] = Field(
+        default=["Content-Type", "Accept-Version", "Authorization", "X-Requested-With"]
+    )
 
     RATE_LIMIT_ENABLED: bool = Field(default=True)
     RATE_LIMIT_REQUESTS: int = Field(default=100)

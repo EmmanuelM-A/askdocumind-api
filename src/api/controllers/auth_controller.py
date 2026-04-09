@@ -10,11 +10,13 @@ from src.api.utils.cookie_manager import set_cookie
 from src.api.utils.response_delivery import create_success_response
 from src.api.utils.session_manager import get_token_manager
 from src.config.configs import settings
+from src.logger.base_logger import BaseLogger
 
 
 class AuthController:
     def __init__(self) -> None:
         self.anonymous_user_service = None
+        self.logger = BaseLogger(__name__)
 
     def lazy_init(self) -> None:
         if self.anonymous_user_service is None:
@@ -26,6 +28,13 @@ class AuthController:
         self.lazy_init()
 
         cookie_name = settings.auth.ANON_SESSION_USER_COOKIE_NAME
+        self.logger.info(
+            "anonymous bootstrap request | "
+            f"origin={request.headers.get('origin')} "
+            f"method={request.method} "
+            f"path={request.url.path} "
+            f"cookie_found={bool(request.cookies.get(cookie_name))}"
+        )
         anonymous_user_id = (
             await self.anonymous_user_service.init_anonymous_user_session(
                 request.cookies.get(cookie_name)
@@ -47,5 +56,12 @@ class AuthController:
             cookie_name=cookie_name,
             cookie_value=token_manager.create_token(anonymous_user_id),
             max_age_seconds=token_manager.ttl_seconds,
+        )
+        self.logger.info(
+            "anonymous bootstrap success | "
+            f"origin={request.headers.get('origin')} "
+            f"method={request.method} "
+            f"path={request.url.path} "
+            f"user_id={anonymous_user_id}"
         )
         return response

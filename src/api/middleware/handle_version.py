@@ -31,6 +31,9 @@ class APIVersionMiddleware(BaseHTTPMiddleware):
 	async def dispatch(
 		self, request: Request, call_next: RequestResponseEndpoint
 	) -> Response:
+		if request.method == "OPTIONS":
+			return await call_next(request)
+
 		api_prefix = settings.server.API_PREFIX.rstrip("/")
 		legacy_v1_prefix = settings.server.API_V1_PREFIX.rstrip("/")
 		path = request.url.path

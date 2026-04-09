@@ -7,6 +7,7 @@ service layer.
 from uuid import UUID
 
 from fastapi import status
+from fastapi import Request
 from starlette.responses import JSONResponse
 
 from src.api.services.service_factory import get_chat_service
@@ -14,6 +15,8 @@ from src.api.services.validation.schemas import CreateChatSchema, UpdateChatMeta
 from src.api.utils.api_responses import SuccessResponseModel
 from src.api.utils.response_delivery import create_success_response
 from src.database.repository.interfaces import ChatMessageSearchCriteria
+from src.config.configs import settings
+from src.logger.base_logger import BaseLogger
 
 
 class ChatSessionController:
@@ -23,6 +26,7 @@ class ChatSessionController:
 
     def __init__(self):
         self.chat_service = None
+        self.logger = BaseLogger(__name__)
 
     def lazy_init(self) -> None:
         """Lazy initialize service dependency."""
@@ -30,14 +34,30 @@ class ChatSessionController:
             self.chat_service = get_chat_service()
 
     async def create_chat_session_endpoint(
-        self, request: CreateChatSchema
+        self, http_request: Request, request: CreateChatSchema
     ) -> JSONResponse:
         self.lazy_init()
+
+        cookie_name = settings.auth.ANON_SESSION_USER_COOKIE_NAME
+        self.logger.info(
+            "chat session create request | "
+            f"origin={http_request.headers.get('origin')} "
+            f"method={http_request.method} "
+            f"path={http_request.url.path} "
+            f"cookie_found={bool(http_request.cookies.get(cookie_name))}"
+        )
 
         created_id = await self.chat_service.create_new_chat(request)
         response_model = SuccessResponseModel(
             message="Chat session created successfully.",
             data={"chat_id": str(created_id)},
+        )
+        self.logger.info(
+            "chat session create success | "
+            f"origin={http_request.headers.get('origin')} "
+            f"method={http_request.method} "
+            f"path={http_request.url.path} "
+            f"chat_id={created_id}"
         )
         return create_success_response(
             status_code=status.HTTP_201_CREATED,
