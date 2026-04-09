@@ -8,7 +8,6 @@ import enum
 class ProcessingStatus(enum.Enum):
     """Enumeration for document processing statuses."""
 
-    PENDING = "PENDING"
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"

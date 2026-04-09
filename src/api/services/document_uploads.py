@@ -138,15 +138,15 @@ class UploadService:
                     f"The key {key} was saved to storage file successfully"
                 )
 
-                # Build DB model instance; initially mark as PENDING until
-                # vectors are verified/persisted to the vector store.
+                # Build DB model instance; initially mark as PROCESSING while
+                # vectors are being verified/persisted to the vector store.
                 entities.append(
                     Document(
                         session_id=request.chat_id,
                         filename=upload.filename,
                         file_size=len(data),
                         vector_id=request.chat_id,
-                        processing_status=ProcessingStatus.PENDING,
+                        processing_status=ProcessingStatus.PROCESSING,
                     )
                 )
 
@@ -195,6 +195,17 @@ class UploadService:
                 str(request.chat_id),
             )
         except Exception as e:
+            # Mark all documents as FAILED due to vector processing error
+            doc_ids = [doc.id for doc in entities]
+            try:
+                await self.document_repo.bulk_update_processing_status(
+                    doc_ids, ProcessingStatus.FAILED
+                )
+            except Exception as update_error:
+                self._logger.error(
+                    f"Failed to update document status to FAILED: {update_error}"
+                )
+            
             # Clean up saved files; vector store may have partially written data
             for k in saved_keys:
                 try:
@@ -238,6 +249,21 @@ class UploadService:
                 message="Failed to store document metadata in the database",
                 error_code="DOCUMENT_METADATA_STORAGE_FAILED",
                 error_details="Mismatch in number of created document entities",
+            )
+
+        # 4) Update status to COMPLETED after successful vector processing and storage
+        doc_ids = [doc.id for doc in created_entities]
+        try:
+            await self.document_repo.bulk_update_processing_status(
+                doc_ids, ProcessingStatus.COMPLETED
+            )
+            self._logger.info(
+                f"Successfully updated {len(doc_ids)} documents to COMPLETED status"
+            )
+        except Exception as e:
+            self._logger.error(
+                f"Failed to update document status to COMPLETED: {e}. "
+                "Documents were stored but status update failed."
             )
 
         return SuccessResponseModel(

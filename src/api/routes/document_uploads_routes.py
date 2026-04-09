@@ -25,12 +25,53 @@ async def get_document_uploads(chat_id: UUID):
     return await _controller.list_uploaded_files_endpoint(request)
 
 
-@document_upload_router.post("/", summary="Upload documents")
+@document_upload_router.post(
+    "/", 
+    summary="Upload documents",
+    openapi_extra={
+        "requestBody": {
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "documents": {
+                                "type": "array",
+                                "items": {"type": "string", "format": "binary"},
+                                "description": "Multiple document files to upload (1-10 files, max 10MB each)"
+                            },
+                            "chat_id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "description": "The chat session identifier"
+                            }
+                        },
+                        "required": ["documents", "chat_id"]
+                    }
+                }
+            }
+        }
+    }
+)
 async def upload_documents(
-    documents: list[UploadFile] = File(...),
-    chat_id: UUID = Form(...),
+    documents: list[UploadFile] = File(
+        ..., description="List of document files to upload (PDF, DOCX, TXT, MD)"
+    ),
+    chat_id: UUID = Form(..., description="The target chat session ID"),
 ):
-    """Upload files to a chat session."""
+    """
+    Upload multiple documents to a chat session.
+
+    **Document Status Flow:**
+    - **PROCESSING**: Initial status when documents are uploaded and ingestion begins
+    - **COMPLETED**: Documents successfully indexed and vectors stored
+    - **FAILED**: Error occurred during processing or vector storage
+
+    **Parameters:**
+    - **documents**: List of files to upload (1-10 files, max 10MB each)
+    - **chat_id**: UUID of the target chat session
+    - **Allowed formats**: .pdf, .docx, .txt, .md
+    """
     request = UploadDocumentsRequest(documents=documents, chat_id=chat_id)
     return await _controller.upload_files_endpoint(request)
 

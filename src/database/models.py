@@ -141,7 +141,7 @@ class Document(Base):
     file_size = Column(BigInteger, nullable=False)
     vector_id = Column(UUID, nullable=True)
     processing_status = Column(
-        Enum(ProcessingStatus), default=ProcessingStatus.PENDING, nullable=False
+        Enum(ProcessingStatus), default=ProcessingStatus.PROCESSING, nullable=False
     )
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
