@@ -5,10 +5,10 @@ Service module
 from typing import List
 from uuid import UUID
 
+from src.api.services.auth.anonymous_identity import require_current_anonymous_user_id
 from src.api.services.validation.schemas import (
     CreateChatSchema,
 )
-from src.api.utils.session_identity import require_current_anonymous_user_id
 from src.components.chatbot.core import RAGChatbot
 from src.config.configs import settings
 from src.database.models import ChatSession, ChatMessage

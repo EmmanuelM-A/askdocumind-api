@@ -104,7 +104,7 @@ class UserSessionCleanupService:
         """Fetch inactive users ordered by last seen time."""
 
         now = datetime.now(timezone.utc).replace(tzinfo=None)
-        cutoff = now - timedelta(hours=settings.auth.USER_SESSION_TTL_HOURS)
+        cutoff = now - timedelta(hours=settings.auth.ANON_SESSION_TTL_HOURS)
 
         async with self._db.get_session() as session:
             stmt = (

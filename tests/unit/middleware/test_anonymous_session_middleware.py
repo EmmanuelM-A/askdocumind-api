@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from src.api.middleware.anonymous_session import AnonymousSessionMiddleware
-from src.api.utils.session_identity import (
+from src.api.utils.session_manager import (
     AnonymousSessionPayload,
     get_current_user_id,
     require_current_anonymous_user_id,
@@ -86,9 +86,13 @@ def middleware_mocks(monkeypatch: pytest.MonkeyPatch, fixed_now: datetime):
         "src.api.middleware.anonymous_session.get_database_connection",
         Mock(return_value=object()),
     )
-    monkeypatch.setattr("src.api.middleware.anonymous_session.utc_now_naive", lambda: fixed_now)
+    monkeypatch.setattr(
+        "src.api.middleware.anonymous_session.utc_now_naive", lambda: fixed_now
+    )
 
-    return SimpleNamespace(repo=repo, token_manager=token_manager, user_repo_ctor=user_repo_ctor)
+    return SimpleNamespace(
+        repo=repo, token_manager=token_manager, user_repo_ctor=user_repo_ctor
+    )
 
 
 def test_creates_anonymous_session_when_cookie_is_missing(
@@ -146,7 +150,9 @@ def test_refreshes_existing_session_when_cookie_is_valid(
     update_data = update_call.args[1]
     assert update_data.last_seen_at == fixed_now.isoformat()
 
-    middleware_mocks.token_manager.create_token.assert_called_once_with(existing_user_id)
+    middleware_mocks.token_manager.create_token.assert_called_once_with(
+        existing_user_id
+    )
 
 
 def test_invalid_cookie_falls_back_to_new_session_and_resets_context(

@@ -86,14 +86,14 @@ class TokenManager:
 _token_manager: TokenManager | None = None
 
 
-def get_anonymous_session_token_manager() -> TokenManager:
+def get_token_manager() -> TokenManager:
     """Return a singleton anonymous session token manager."""
     global _token_manager
 
     if _token_manager is None:
         _token_manager = TokenManager(
             secret=settings.auth.USER_SESSION_SECRET.get_secret_value(),
-            ttl_hours=settings.auth.USER_SESSION_TTL_HOURS,
+            ttl_hours=settings.auth.ANON_SESSION_TTL_HOURS,
         )
 
     return _token_manager

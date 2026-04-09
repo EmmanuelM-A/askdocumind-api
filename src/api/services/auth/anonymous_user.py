@@ -1,3 +1,4 @@
+from contextvars import Token
 from datetime import datetime, timezone, timedelta
 from uuid import UUID
 
@@ -29,7 +30,7 @@ class AnonymousUserSessionService:
         self.ttl_hours = ttl_hours
         self.logger = BaseLogger(__name__)
 
-    async def create_anonymous_user(self) -> UUID:
+    async def _create_anonymous_user(self) -> Token[UUID]:
         """
         Creates a new anonymous user session.
         :return: The UUID of the created session.
@@ -40,19 +41,24 @@ class AnonymousUserSessionService:
 
         anonymous_id = await self.user_repo.create(anonymous_user)
 
-        set_current_anonymous_user_id(anonymous_id)
+        context_token = set_current_anonymous_user_id(anonymous_id)
 
         self.logger.debug("Created new anonymous user session")
 
-        return anonymous_id
+        return context_token
 
-    @staticmethod
-    def get_anonymous_user() -> UUID:
+    async def init_anonymous_user_session(self) -> Token[UUID]:
         """
-        Retrieves the current anonymous user session.
-        :return: The UUID of the current session.
+        Initializes a new anonymous user session. If a session already exists
+        for the current request context, it will be reused instead of creating
+        a new one.
         """
-        return require_current_anonymous_user_id()
+        anonymous_id = require_current_anonymous_user_id()
+
+        if anonymous_id is None:
+            return await self._create_anonymous_user()
+
+        return set_current_anonymous_user_id(anonymous_id)
 
     async def cleanup_anonymous_user_sessions(self) -> int:
         """

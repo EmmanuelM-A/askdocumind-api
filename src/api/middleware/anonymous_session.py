@@ -2,91 +2,71 @@
 Middleware that ensures each API request has a signed anonymous session.
 """
 
+from datetime import datetime, timezone
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
-from src.api.utils.session_identity import (
-    get_anonymous_session_token_manager,
+
+from src.api.services.auth.anonymous_identity import (
     reset_current_anonymous_user_id,
     set_current_anonymous_user_id,
-    utc_now_naive,
 )
+from src.api.utils.cookie_manager import set_cookie
+from src.api.utils.session_manager import get_token_manager
 from src.config.configs import settings
-from src.database.connection import get_database_connection
-from src.database.models import User
-from src.database.repository.sqlalchemy import UserRepository
+from src.database.repository import get_database_repository
 from src.database.repository.interfaces.user_repository import UpdatedUserData
+from src.errors.custom_exceptions import unprocessable_entity_error, not_found_error
 
 
 class AnonymousSessionMiddleware(BaseHTTPMiddleware):
-    """Resolve or create the anonymous session cookie for API requests."""
+    """
+    Check if the cookie value for the session is valid and corresponds to an
+    existing anonymous user.
+    """
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        api_prefixes = (
-            settings.server.API_PREFIX.rstrip("/"),
-            settings.server.API_V1_PREFIX.rstrip("/"),
-        )
-        if not any(
-            request.url.path == prefix or request.url.path.startswith(f"{prefix}/")
-            for prefix in api_prefixes
-        ):
-            return await call_next(request)
 
-        token_manager = get_anonymous_session_token_manager()
-        cookie_name = settings.auth.ANON_SESSION_COOKIE_NAME
+        token_manager = get_token_manager()
+        cookie_name = settings.auth.ANON_SESSION_USER_COOKIE_NAME
         cookie_value = request.cookies.get(cookie_name)
-        user_repo = UserRepository(connection=get_database_connection())
-        now = utc_now_naive()
+        user_repo = get_database_repository("USER")
 
-        refresh_cookie = False
+        if not cookie_value:
+            raise unprocessable_entity_error(
+                message="No cookie value provided", error_code="NO_COOKIE_VALUE"
+            )
 
-        if cookie_value:
-            try:
-                payload = token_manager.decode_token(cookie_value)
-                user_id = payload.user_id
+        anonymous_id = token_manager.decode_token(cookie_value).user_id
 
-                existing_user = await user_repo.get_by_id(user_id)
-                if existing_user is None:
-                    raise ValueError("Anonymous session user no longer exists.")
+        existing_user = await user_repo.get_by_id(anonymous_id)
+        if existing_user is None:
+            raise not_found_error(
+                message="Anonymous session user no longer exists.",
+                error_code="ANONYMOUS_USER_NOT_FOUND",
+            )
 
-                await user_repo.update(
-                    user_id,
-                    UpdatedUserData(
-                        last_seen_at=now.isoformat(),
-                    ),
-                )
-            except Exception:
-                user = User()
-                user_id = await user_repo.create(user)
-                refresh_cookie = True
-        else:
-            user = User()
-            user_id = await user_repo.create(user)
-            refresh_cookie = True
+        await user_repo.update(
+            anonymous_id,
+            UpdatedUserData(last_seen_at=datetime.now(timezone.utc).isoformat()),
+        )
 
-        request.state.anonymous_user_id = user_id
-        context_token = set_current_anonymous_user_id(user_id)
+        request.state.anonymous_user_id = anonymous_id
+        context_token = set_current_anonymous_user_id(anonymous_id)
 
         try:
             response = await call_next(request)
         finally:
             reset_current_anonymous_user_id(context_token)
 
-        if settings.auth.ANON_SESSION_REFRESH_EVERY_REQUEST or refresh_cookie:
-            session_token = token_manager.create_token(user_id)
-            same_site = settings.auth.ANON_SESSION_COOKIE_SAMESITE.lower()
-            secure = settings.auth.ANON_SESSION_COOKIE_SECURE or same_site == "none"
-            response.set_cookie(
-                key=cookie_name,
-                value=session_token,
-                httponly=settings.auth.ANON_SESSION_COOKIE_HTTP_ONLY,
-                secure=secure,
-                samesite=same_site,
-                max_age=token_manager.ttl_seconds,
-                path="/",
-                domain=settings.auth.ANON_SESSION_COOKIE_DOMAIN,
-            )
+        set_cookie(
+            response=response,
+            cookie_name=cookie_name,
+            cookie_value=context_token,
+            max_age_seconds=settings.auth.ANON_SESSION_COOKIE_AGE,
+        )
 
         return response
