@@ -109,7 +109,7 @@ class UploadService:
                     raise unprocessable_entity_error(
                         message=(
                             f"File '{upload.filename}' exceeds the maximum size of "
-                            f"{settings.server.ANON_SESSION_MAX_FILE_SIZE_MB} MB."
+                            f"{settings.files.MAX_FILE_SIZE_MB} MB."
                         ),
                         error_code="FILE_SIZE_LIMIT_EXCEEDED",
                     )
@@ -205,7 +205,7 @@ class UploadService:
                 self._logger.error(
                     f"Failed to update document status to FAILED: {update_error}"
                 )
-            
+
             # Clean up saved files; vector store may have partially written data
             for k in saved_keys:
                 try:
@@ -252,7 +252,7 @@ class UploadService:
             )
 
         # 4) Update status to COMPLETED after successful vector processing and storage
-        doc_ids = [doc.id for doc in created_entities]
+        doc_ids = created_entities
         try:
             await self.document_repo.bulk_update_processing_status(
                 doc_ids, ProcessingStatus.COMPLETED
