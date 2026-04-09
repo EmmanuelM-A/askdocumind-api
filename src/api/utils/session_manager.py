@@ -9,13 +9,11 @@ import hashlib
 import hmac
 import json
 import time
-from contextvars import ContextVar, Token
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from uuid import UUID
 
 from src.config.configs import settings
-from src.errors.custom_exceptions import unauthorized_error, unprocessable_entity_error
+from src.errors.custom_exceptions import unprocessable_entity_error
 
 
 @dataclass(frozen=True)
