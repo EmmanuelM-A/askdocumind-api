@@ -62,6 +62,7 @@ async def test_upload_blocks_when_per_chat_document_limit_is_exceeded(
 
     document_repo = Mock()
     document_repo.count = AsyncMock(return_value=1)
+    document_repo.list_by = AsyncMock(return_value=[])
     document_repo.create_many = AsyncMock()
 
     storage = Mock()
@@ -105,6 +106,7 @@ async def test_upload_blocks_when_file_size_limit_is_exceeded(
 
     document_repo = Mock()
     document_repo.count = AsyncMock(return_value=0)
+    document_repo.list_by = AsyncMock(return_value=[])
     document_repo.create_many = AsyncMock()
 
     storage = Mock()

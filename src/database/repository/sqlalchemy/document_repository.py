@@ -18,7 +18,7 @@ from src.database.repository.interfaces.document_repository import (
     UpdatedDocumentData,
 )
 from src.database.repository.interfaces.db_transaction import DBTransaction
-from src.errors.custom_exceptions import database_error
+from src.errors.custom_exceptions import conflict_error, database_error
 from src.logger.base_logger import BaseLogger
 
 
@@ -38,6 +38,14 @@ class DocumentRepository(DocumentRepositoryInterface):
             filters.append(getattr(Document, field) == value)
         return filters
 
+    @staticmethod
+    def _is_duplicate_filename_error(error: IntegrityError) -> bool:
+        message = str(error).lower()
+        return (
+            "uq_document_session_filename" in message
+            or "unique constraint" in message and "document" in message
+        )
+
     async def create(self, data: Document, tx: Optional[DBTransaction] = None) -> UUID:
         try:
             if tx is not None:
@@ -52,7 +60,19 @@ class DocumentRepository(DocumentRepositoryInterface):
                 self._logger.debug(f"New document created: {data.id}")
                 return data.id
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except IntegrityError as e:
+            if self._is_duplicate_filename_error(e):
+                raise conflict_error(
+                    message="A document with the same filename already exists for this chat.",
+                    error_code="DOCUMENT_ALREADY_EXISTS",
+                    error_details=str(e.orig) if getattr(e, "orig", None) else None,
+                )
+            raise database_error(
+                message="An error occurred while creating a new document.",
+                error_code="DOCUMENT_CREATION_ERROR",
+                stack_trace=str(e),
+            )
+        except (SQLAlchemyError, Exception) as e:
             raise database_error(
                 message="An error occurred while creating a new document.",
                 error_code="DOCUMENT_CREATION_ERROR",
@@ -299,7 +319,19 @@ class DocumentRepository(DocumentRepositoryInterface):
                 self._logger.debug(f"Created {len(created_ids)} document entries")
                 return created_ids
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except IntegrityError as e:
+            if self._is_duplicate_filename_error(e):
+                raise conflict_error(
+                    message="A document with the same filename already exists for this chat.",
+                    error_code="DOCUMENT_ALREADY_EXISTS",
+                    error_details=str(e.orig) if getattr(e, "orig", None) else None,
+                )
+            raise database_error(
+                message="An error occurred while creating multiple documents.",
+                error_code="DOCUMENT_BULK_CREATION_ERROR",
+                stack_trace=str(e),
+            )
+        except (SQLAlchemyError, Exception) as e:
             raise database_error(
                 message="An error occurred while creating multiple documents.",
                 error_code="DOCUMENT_BULK_CREATION_ERROR",

@@ -17,6 +17,7 @@ from sqlalchemy import (
     BigInteger,
     Enum,
     ForeignKey,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship, declarative_base
 
@@ -127,6 +128,9 @@ class Document(Base):
     """Model representing an uploaded document's metadata."""
 
     __tablename__ = "document"
+    __table_args__ = (
+        UniqueConstraint("session_id", "filename", name="uq_document_session_filename"),
+    )
 
     # Columns
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

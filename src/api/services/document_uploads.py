@@ -28,6 +28,7 @@ from src.database.repository.interfaces import (
 from src.database.storage import StorageService
 from src.errors.api_exceptions import ApiException
 from src.errors.custom_exceptions import (
+    conflict_error,
     database_error,
     unprocessable_entity_error,
     not_found_error,
@@ -100,6 +101,8 @@ class UploadService:
                 ),
                 error_code="CHAT_DOCUMENT_LIMIT_REACHED",
             )
+
+        await self._assert_no_duplicate_uploads(request)
 
         saved_keys, entities = await self._persist_files_to_storage(request)
 
@@ -261,6 +264,54 @@ class UploadService:
                 self._logger.warning(
                     f"Failed to clean up storage key {k} after storage error."
                 )
+
+    @staticmethod
+    def _normalize_filename(filename: str) -> str:
+        return filename.strip().lower()
+
+    async def _assert_no_duplicate_uploads(self, request: UploadDocumentsRequest) -> None:
+        incoming_by_normalized: dict[str, str] = {}
+        duplicates_in_request: set[str] = set()
+
+        for upload in request.documents:
+            normalized = self._normalize_filename(upload.filename)
+            if normalized in incoming_by_normalized:
+                duplicates_in_request.add(upload.filename)
+                duplicates_in_request.add(incoming_by_normalized[normalized])
+            else:
+                incoming_by_normalized[normalized] = upload.filename
+
+        if duplicates_in_request:
+            duplicate_list = ", ".join(sorted(duplicates_in_request))
+            raise conflict_error(
+                message=f"Duplicate document names in request: {duplicate_list}.",
+                error_code="DUPLICATE_DOCUMENTS_IN_REQUEST",
+            )
+
+        existing_documents = await self.document_repo.list_by(
+            criteria=DocumentSearchCriteria(session_id=request.chat_id)
+        )
+        existing_names = {
+            self._normalize_filename(document.filename)
+            for document in existing_documents
+            if document.filename
+        }
+
+        duplicates_in_chat = sorted(
+            original_name
+            for normalized, original_name in incoming_by_normalized.items()
+            if normalized in existing_names
+        )
+
+        if duplicates_in_chat:
+            duplicate_list = ", ".join(duplicates_in_chat)
+            raise conflict_error(
+                message=(
+                    "One or more documents already exist for this chat: "
+                    f"{duplicate_list}."
+                ),
+                error_code="DOCUMENT_ALREADY_EXISTS",
+            )
 
     async def _persist_files_to_storage(
         self,

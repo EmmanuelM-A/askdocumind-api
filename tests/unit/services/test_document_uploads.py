@@ -42,6 +42,7 @@ async def test_upload_documents_marks_created_documents_completed(
 
     document_repo = Mock()
     document_repo.count = AsyncMock(return_value=0)
+    document_repo.list_by = AsyncMock(return_value=[])
     document_repo.create_many = AsyncMock(return_value=document_ids)
     document_repo.bulk_update_processing_status = AsyncMock(return_value=len(document_ids))
 
@@ -99,6 +100,7 @@ async def test_upload_documents_marks_documents_failed_when_processing_breaks(
 
     document_repo = Mock()
     document_repo.count = AsyncMock(return_value=0)
+    document_repo.list_by = AsyncMock(return_value=[])
     created_ids = [uuid4()]
     document_repo.create_many = AsyncMock(return_value=created_ids)
     document_repo.bulk_update_processing_status = AsyncMock(return_value=1)
@@ -135,5 +137,83 @@ async def test_upload_documents_marks_documents_failed_when_processing_breaks(
         tx=ANY,
     )
     assert tx_factory.create.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_upload_documents_rejects_duplicate_filenames_in_same_request(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    async def _chat_exists(**kwargs):
+        return None
+
+    monkeypatch.setattr(
+        "src.api.services.document_uploads.check_if_chat_exists", _chat_exists
+    )
+    monkeypatch.setattr(settings.server, "MAX_DOCUMENTS_PER_CHAT", 10)
+
+    document_repo = Mock()
+    document_repo.count = AsyncMock(return_value=0)
+    document_repo.list_by = AsyncMock(return_value=[])
+
+    service = UploadService(
+        storage_service=Mock(),
+        chat_session_repo=Mock(),
+        document_repo=document_repo,
+        chatbot=Mock(),
+        tx_factory=Mock(),
+    )
+
+    request = UploadDocumentsRequest(
+        chat_id=uuid4(),
+        documents=[
+            UploadFile(filename="dup.txt", file=BytesIO(b"a")),
+            UploadFile(filename="DUP.txt", file=BytesIO(b"b")),
+        ],
+    )
+
+    with pytest.raises(ApiException) as exc_info:
+        await service.handle_document_uploads(request)
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.error.code == "DUPLICATE_DOCUMENTS_IN_REQUEST"
+
+
+@pytest.mark.asyncio
+async def test_upload_documents_rejects_filename_that_already_exists_in_chat(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    async def _chat_exists(**kwargs):
+        return None
+
+    monkeypatch.setattr(
+        "src.api.services.document_uploads.check_if_chat_exists", _chat_exists
+    )
+    monkeypatch.setattr(settings.server, "MAX_DOCUMENTS_PER_CHAT", 10)
+
+    existing_doc = Mock()
+    existing_doc.filename = "existing.pdf"
+
+    document_repo = Mock()
+    document_repo.count = AsyncMock(return_value=0)
+    document_repo.list_by = AsyncMock(return_value=[existing_doc])
+
+    service = UploadService(
+        storage_service=Mock(),
+        chat_session_repo=Mock(),
+        document_repo=document_repo,
+        chatbot=Mock(),
+        tx_factory=Mock(),
+    )
+
+    request = UploadDocumentsRequest(
+        chat_id=uuid4(),
+        documents=[UploadFile(filename="Existing.pdf", file=BytesIO(b"a"))],
+    )
+
+    with pytest.raises(ApiException) as exc_info:
+        await service.handle_document_uploads(request)
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.error.code == "DOCUMENT_ALREADY_EXISTS"
 
 
