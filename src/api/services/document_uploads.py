@@ -3,7 +3,7 @@ Service module for handling document uploads.
 """
 
 import asyncio
-from typing import List
+from typing import List, Tuple
 
 from src.api.services.validation.rag_validation import (
     UploadDocumentsRequest,
@@ -20,6 +20,7 @@ from src.database.repository.interfaces import (
     ChatSessionRepositoryInterface,
     DocumentRepositoryInterface,
     DocumentSearchCriteria,
+    DBTransactionFactory,
 )
 
 from src.database.storage import StorageService
@@ -37,11 +38,13 @@ class UploadService:
         chat_session_repo: ChatSessionRepositoryInterface,
         document_repo: DocumentRepositoryInterface,
         chatbot: RAGChatbot,
+        tx_factory: DBTransactionFactory,
     ) -> None:
         self.storage_service = storage_service
         self.chat_session_repo = chat_session_repo
         self.document_repo = document_repo
         self.chatbot = chatbot
+        self.tx_factory = tx_factory
         self._logger = BaseLogger(__name__)
 
     async def handle_document_uploads(
@@ -92,144 +95,15 @@ class UploadService:
                 error_code="CHAT_DOCUMENT_LIMIT_REACHED",
             )
 
-        max_file_size_bytes = settings.files.MAX_FILE_SIZE_MB * 1024 * 1024
+        saved_keys, entities = await self._persist_files_to_storage(request)
 
-        saved_keys: List[str] = []
-        entities: List[Document] = []
-
-        # 1) Persist files to storage and build Document entities
-        for upload in request.documents:
-            key = f"{request.chat_id}/{upload.filename}"
-
-            try:
-                # Offload potentially blocking file read to a thread
-                data = await asyncio.to_thread(upload.file.read)
-
-                if len(data) > max_file_size_bytes:
-                    raise unprocessable_entity_error(
-                        message=(
-                            f"File '{upload.filename}' exceeds the maximum size of "
-                            f"{settings.files.MAX_FILE_SIZE_MB} MB."
-                        ),
-                        error_code="FILE_SIZE_LIMIT_EXCEEDED",
-                    )
-
-                # Persist data in storage (offload to thread if implementation is blocking)
-                try:
-                    await asyncio.to_thread(self.storage_service.save, key, data)
-                except IOError as storage_exc:
-                    # Attempt to clean up any files we already saved
-                    for k in saved_keys:
-                        try:
-                            await asyncio.to_thread(self.storage_service.delete, k)
-                        except (FileNotFoundError, IOError):
-                            # Best-effort cleanup; ignore further errors
-                            pass
-
-                    raise database_error(
-                        message=f"Failed to store document {upload.filename}",
-                        error_code="DOCUMENT_STORAGE_FAILED",
-                        stack_trace=str(storage_exc),
-                    )
-
-                # Track saved keys for cleanup if anything fails later
-                saved_keys.append(key)
-                self._logger.debug(
-                    f"The key {key} was saved to storage file successfully"
-                )
-
-                # Build DB model instance; initially mark as PROCESSING while
-                # vectors are being verified/persisted to the vector store.
-                entities.append(
-                    Document(
-                        session_id=request.chat_id,
-                        filename=upload.filename,
-                        file_size=len(data),
-                        vector_id=request.chat_id,
-                        processing_status=ProcessingStatus.PROCESSING,
-                    )
-                )
-
-                # Reset the file pointer so the downstream processor can re-read
-                # the same upload when creating vectors. Use thread to avoid
-                # blocking the event loop if seek blocks.
-                try:
-                    await asyncio.to_thread(upload.file.seek, 0)
-                # except asyncio.CancelledError:
-                #     raise
-                # except (ValueError, OSError) as e:
-                #     throw_unprocessable_entity_error(
-                #         f"Failed to seek uploaded file to start because {e}",
-                #         "SEEK_FAILED"
-                #     )
-                except (ValueError, OSError):
-                    # If seek is not supported, vector processing may still work if
-                    # the extractor can handle bytes or a fresh UploadFile. We
-                    # continue and let the vector processor surface errors.
-                    pass
-
-            except ApiException:
-                raise
-            except Exception as e:
-                # Attempt to clean up any files we already saved
-                for k in saved_keys:
-                    try:
-                        await asyncio.to_thread(self.storage_service.delete, k)
-                    except Exception:
-                        # Best-effort cleanup; ignore further errors
-                        pass
-
-                raise database_error(
-                    message=f"Failed to process uploaded file {upload.filename}",
-                    error_code="DOCUMENT_READ_FAILED",
-                    stack_trace=str(e),
-                )
-
-        # 2) Process and save document vectors (best-effort cleanup on failure)
-        try:
-            # Offload the synchronous vector processing to a thread so the event loop
-            # isn't blocked by CPU/IO-heavy processing in the embedding pipeline.
-            await asyncio.to_thread(
-                self.chatbot.process_and_save_vectors,
-                request.documents,
-                str(request.chat_id),
-            )
-        except Exception as e:
-            # Mark all documents as FAILED due to vector processing error
-            doc_ids = [doc.id for doc in entities]
-            try:
-                await self.document_repo.bulk_update_processing_status(
-                    doc_ids, ProcessingStatus.FAILED
-                )
-            except Exception as update_error:
-                self._logger.error(
-                    f"Failed to update document status to FAILED: {update_error}"
-                )
-
-            # Clean up saved files; vector store may have partially written data
-            for k in saved_keys:
-                try:
-                    await asyncio.to_thread(self.storage_service.delete, k)
-                except Exception:
-                    pass
-
-            raise database_error(
-                message="Failed to process and save document vectors",
-                error_code="VECTOR_PROCESSING_FAILED",
-                stack_trace=str(e),
-            )
+        await self._process_uploaded_files(request, entities, saved_keys)
 
         # 3) Store document metadata in the database
         try:
             created_entities = await self.document_repo.create_many(entities=entities)
         except Exception as e:
-            # Persisted files are removed (best-effort). We cannot guarantee
-            # vector-store rollback here with the current API.
-            for k in saved_keys:
-                try:
-                    await asyncio.to_thread(self.storage_service.delete, k)
-                except Exception:
-                    pass
+            await self._cleanup_saved_files_if_storage_failed(saved_keys)
 
             raise database_error(
                 message="Failed to store document metadata in the database",
@@ -238,12 +112,7 @@ class UploadService:
             )
 
         if not created_entities or len(created_entities) != len(entities):
-            # Best-effort cleanup of stored files if counts mismatch
-            for k in saved_keys:
-                try:
-                    await asyncio.to_thread(self.storage_service.delete, k)
-                except Exception:
-                    pass
+            await self._cleanup_saved_files_if_storage_failed(saved_keys)
 
             raise database_error(
                 message="Failed to store document metadata in the database",
@@ -252,13 +121,12 @@ class UploadService:
             )
 
         # 4) Update status to COMPLETED after successful vector processing and storage
-        doc_ids = created_entities
         try:
             await self.document_repo.bulk_update_processing_status(
-                doc_ids, ProcessingStatus.COMPLETED
+                created_entities, ProcessingStatus.COMPLETED
             )
             self._logger.info(
-                f"Successfully updated {len(doc_ids)} documents to COMPLETED status"
+                f"Successfully updated {len(created_entities)} documents to COMPLETED status"
             )
         except Exception as e:
             self._logger.error(
@@ -302,3 +170,118 @@ class UploadService:
             message="Document metadata fetched successfully.",
             data=metadata_list,
         )
+
+    # ========================== HELPER METHODS ==========================
+
+    async def _cleanup_saved_files_if_storage_failed(
+        self, saved_keys: List[str]
+    ) -> None:
+        for k in saved_keys:
+            try:
+                await asyncio.to_thread(self.storage_service.delete, k)
+            except (FileNotFoundError, IOError):
+                # Best-effort cleanup; ignore further errors
+                self._logger.warning(
+                    f"Failed to clean up storage key {k} after storage error."
+                )
+
+    async def _persist_files_to_storage(
+        self,
+        request: UploadDocumentsRequest,
+    ) -> Tuple[List[str], List[Document]]:
+        saved_keys: List[str] = []
+        entities: List[Document] = []
+        max_file_size_bytes = settings.files.MAX_FILE_SIZE_MB * 1024 * 1024
+
+        for upload in request.documents:
+            key = f"{request.chat_id}/{upload.filename}"
+
+            try:
+                # Offload potentially blocking file read to a thread
+                data = await asyncio.to_thread(upload.file.read)
+            except (FileNotFoundError, IOError) as e:
+                await self._cleanup_saved_files_if_storage_failed(saved_keys)
+
+                raise database_error(
+                    message=f"Failed to process uploaded file {upload.filename}",
+                    error_code="DOCUMENT_READ_FAILED",
+                    stack_trace=str(e),
+                )
+
+            if len(data) > max_file_size_bytes:
+                raise unprocessable_entity_error(
+                    message=(
+                        f"File '{upload.filename}' exceeds the maximum size of "
+                        f"{settings.files.MAX_FILE_SIZE_MB} MB."
+                    ),
+                    error_code="FILE_SIZE_LIMIT_EXCEEDED",
+                )
+
+            # Persist data in storage (offload to thread if implementation is blocking)
+            try:
+                await asyncio.to_thread(self.storage_service.save, key, data)
+            except IOError as storage_exc:
+                await self._cleanup_saved_files_if_storage_failed(saved_keys)
+
+                raise database_error(
+                    message=f"Failed to store document {upload.filename}",
+                    error_code="DOCUMENT_STORAGE_FAILED",
+                    stack_trace=str(storage_exc),
+                )
+
+            # Track saved keys for cleanup if anything fails later
+            saved_keys.append(key)
+            self._logger.debug(f"The key {key} was saved to storage file successfully")
+
+            # Build DB model instance; initially mark as PROCESSING while
+            # vectors are being verified/persisted to the vector store.
+            entities.append(
+                Document(
+                    session_id=request.chat_id,
+                    filename=upload.filename,
+                    file_size=len(data),
+                    vector_id=request.chat_id,
+                    processing_status=ProcessingStatus.PROCESSING,
+                )
+            )
+
+            # Reset the file pointer so the downstream processor can re-read
+            # the same upload when creating vectors.
+            try:
+                await asyncio.to_thread(upload.file.seek, 0)
+            except (ValueError, OSError):
+                # If seek is not supported, vector processing may still work if
+                # the extractor can handle bytes or a fresh UploadFile. We
+                # continue and let the vector processor surface errors.
+                pass
+
+        return saved_keys, entities
+
+    async def _process_uploaded_files(
+        self,
+        request: UploadDocumentsRequest,
+        entities: List[Document],
+        saved_keys: List[str],
+    ) -> None:
+        # 2) Process and save document vectors (best-effort cleanup on failure)
+        try:
+            # Offload the synchronous vector processing to a thread so the event loop
+            # isn't blocked by CPU/IO-heavy processing in the embedding pipeline.
+            await asyncio.to_thread(
+                self.chatbot.process_and_save_vectors,
+                request.documents,
+                str(request.chat_id),
+            )
+        except Exception as e:
+            # Mark all documents as FAILED due to vector processing error
+            doc_ids = [doc.id for doc in entities]
+            await self.document_repo.bulk_update_processing_status(
+                doc_ids, ProcessingStatus.FAILED
+            )
+            await self._cleanup_saved_files_if_storage_failed(saved_keys)
+
+            raise database_error(
+                message="Failed to process and save document vectors",
+                error_code="VECTOR_PROCESSING_FAILED",
+                stack_trace=str(e),
+            )
