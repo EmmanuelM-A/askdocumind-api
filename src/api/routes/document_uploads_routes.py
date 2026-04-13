@@ -11,6 +11,7 @@ from src.api.controllers.document_uploads_controller import DocumentUploadContro
 from src.api.services.validation.rag_validation import (
     FetchDocumentMetadataRequest,
     UploadDocumentsRequest,
+    DeleteUploadedDocumentRequest,
 )
 
 documents_router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -74,6 +75,14 @@ async def upload_documents(
     """
     request = UploadDocumentsRequest(documents=documents, chat_id=chat_id)
     return await _controller.upload_documents_endpoint(request)
+
+
+@documents_router.delete("/{document_id}", summary="Delete uploaded document")
+async def delete_uploaded_document(document_id: UUID, chat_id: UUID):
+    """Delete an uploaded document by ID within a chat session."""
+
+    request = DeleteUploadedDocumentRequest(chat_id=chat_id, document_id=document_id)
+    return await _controller.delete_uploaded_document_endpoint(request)
 
 
 # @documents_router.post("/metadata", summary="Fetch document metadata")

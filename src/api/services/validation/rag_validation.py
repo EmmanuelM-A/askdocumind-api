@@ -223,6 +223,13 @@ class FetchDocumentMetadataRequest(BaseModel):
     chat_id: UUID = Field(..., description="The chat session identifier")
 
 
+class DeleteUploadedDocumentRequest(BaseModel):
+    """Request model for deleting an uploaded document."""
+
+    chat_id: UUID = Field(..., description="The chat session identifier")
+    document_id: UUID = Field(..., description="The document identifier")
+
+
 class CreateChatSessionRequest(BaseModel):
     """
     Request model for creating a new chat session.

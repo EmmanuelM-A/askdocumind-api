@@ -9,7 +9,11 @@ from fastapi import APIRouter
 from fastapi import Request
 
 from src.api.controllers.chat_session_controller import ChatSessionController
-from src.api.services.validation.schemas import CreateChatSchema, UpdateChatMetadataSchema, InitChatSessionSchema
+from src.api.services.validation.schemas import (
+    CreateChatSchema,
+    UpdateChatMetadataSchema,
+    InitChatSessionSchema,
+)
 
 chat_session_router = APIRouter(prefix="/sessions", tags=["Chat Session"])
 
@@ -21,14 +25,12 @@ _controller = ChatSessionController()
 #     pass
 
 
-@chat_session_router.post("", summary="Create chat session")
-@chat_session_router.post("/", include_in_schema=False)
+@chat_session_router.post("/", summary="Create chat session")
 async def create_chat_session(http_request: Request, request: CreateChatSchema):
     return await _controller.create_chat_session_endpoint(http_request, request)
 
 
 @chat_session_router.post("/init", summary="Initialize or retrieve chat session")
-@chat_session_router.post("/init/", include_in_schema=False)
 async def init_chat_session(http_request: Request, request: InitChatSessionSchema):
     return await _controller.init_chat_session_endpoint(http_request, request)
 

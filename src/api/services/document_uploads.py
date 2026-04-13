@@ -11,6 +11,7 @@ from src.api.services.validation.rag_validation import (
     check_if_chat_exists,
     FetchUploadedDocumentsRequest,
     FetchDocumentMetadataRequest,
+    DeleteUploadedDocumentRequest,
 )
 from src.api.utils.api_responses import SuccessResponseModel
 from src.components.chatbot.core import RAGChatbot
@@ -26,7 +27,11 @@ from src.database.repository.interfaces import (
 
 from src.database.storage import StorageService
 from src.errors.api_exceptions import ApiException
-from src.errors.custom_exceptions import database_error, unprocessable_entity_error
+from src.errors.custom_exceptions import (
+    database_error,
+    unprocessable_entity_error,
+    not_found_error,
+)
 from src.logger.base_logger import BaseLogger
 
 
@@ -177,6 +182,70 @@ class UploadService:
         return SuccessResponseModel(
             message="Document metadata fetched successfully.",
             data=metadata_list,
+        )
+
+    async def delete_uploaded_document(
+        self, request: DeleteUploadedDocumentRequest
+    ) -> SuccessResponseModel:
+        await check_if_chat_exists(
+            chat_id=request.chat_id,
+            chat_session_repo=self.chat_session_repo,
+            chatbot=self.chatbot,
+        )
+
+        document = await self.document_repo.get_by_criteria(
+            criteria=DocumentSearchCriteria(
+                id=request.document_id,
+                session_id=request.chat_id,
+            )
+        )
+
+        if document is None:
+            raise not_found_error(
+                message=(
+                    f"Document with ID {request.document_id} "
+                    f"was not found for chat {request.chat_id}."
+                ),
+                error_code="DOCUMENT_NOT_FOUND",
+            )
+
+        storage_key = f"{request.chat_id}/{document.filename}"
+
+        storage_exists = await asyncio.to_thread(self.storage_service.exists, storage_key)
+        if not storage_exists:
+            raise not_found_error(
+                message=(
+                    f"Document file '{document.filename}' was not found in storage "
+                    f"for chat {request.chat_id}."
+                ),
+                error_code="DOCUMENT_FILE_NOT_FOUND",
+            )
+
+        try:
+            async with self.tx_factory.create() as tx:
+                deleted = await self.document_repo.delete(request.document_id, tx=tx)
+                if not deleted:
+                    raise not_found_error(
+                        message=(
+                            f"Document with ID {request.document_id} "
+                            f"was not found for chat {request.chat_id}."
+                        ),
+                        error_code="DOCUMENT_NOT_FOUND",
+                    )
+
+                await asyncio.to_thread(self.storage_service.delete, storage_key)
+        except ApiException:
+            raise
+        except Exception as e:
+            raise database_error(
+                message="Failed to delete uploaded document.",
+                error_code="DOCUMENT_DELETE_FAILED",
+                stack_trace=str(e),
+            )
+
+        return SuccessResponseModel(
+            message="Document deleted successfully.",
+            data={"document_id": str(request.document_id)},
         )
 
     # ========================== HELPER METHODS ==========================

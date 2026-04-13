@@ -10,6 +10,7 @@ from starlette.responses import JSONResponse
 from src.api.services.service_factory import get_upload_service
 from src.api.services.validation.rag_validation import (
     FetchDocumentMetadataRequest,
+    DeleteUploadedDocumentRequest,
 )
 from src.api.utils.response_delivery import create_success_response
 from src.api.services.validation.rag_validation import UploadDocumentsRequest
@@ -53,6 +54,19 @@ class DocumentUploadController:
         )
         return create_success_response(
             status_code=status.HTTP_200_OK, success_response_model=response_model
+        )
+
+    async def delete_uploaded_document_endpoint(
+        self, request: DeleteUploadedDocumentRequest
+    ) -> JSONResponse:
+        """Delete uploaded document metadata and storage file for a chat."""
+
+        self.lazy_init()
+
+        response_model = await self.upload_service.delete_uploaded_document(request)
+        return create_success_response(
+            status_code=status.HTTP_200_OK,
+            success_response_model=response_model,
         )
 
 
