@@ -4,7 +4,7 @@ Responsible for defining all the database models used in the application.
 
 import uuid
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
@@ -88,9 +88,7 @@ class ChatSession(Base):
     )
     title = Column(Text, nullable=True)
     total_messages = Column(Integer, default=0, nullable=False)
-    created_at = Column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
-    )
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now())
 
     # Relationships
     messages = relationship(
@@ -143,13 +141,11 @@ class Document(Base):
     processing_status = Column(
         Enum(ProcessingStatus), default=ProcessingStatus.PROCESSING, nullable=False
     )
-    created_at = Column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
-    )
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now())
     updated_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(),
+        onupdate=lambda: datetime.now(),
     )
 
     # Relationship
@@ -193,9 +189,7 @@ class ChatMessage(Base):
     )
     role = Column(Enum(ChatMessageRole), nullable=False)
     content = Column(Text, nullable=False)
-    created_at = Column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
-    )
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now())
 
     # Relationship
     session = relationship("ChatSession", back_populates="messages")
