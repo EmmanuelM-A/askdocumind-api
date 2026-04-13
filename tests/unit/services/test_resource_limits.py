@@ -70,6 +70,7 @@ async def test_upload_blocks_when_per_chat_document_limit_is_exceeded(
         chat_session_repo=Mock(),
         document_repo=document_repo,
         chatbot=Mock(),
+        tx_factory=Mock(),
     )
 
     request = UploadDocumentsRequest(
@@ -112,6 +113,7 @@ async def test_upload_blocks_when_file_size_limit_is_exceeded(
         chat_session_repo=Mock(),
         document_repo=document_repo,
         chatbot=Mock(),
+        tx_factory=Mock(),
     )
 
     oversized_bytes = b"x" * (1024 * 1024 + 1)
