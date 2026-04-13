@@ -47,6 +47,7 @@ def get_upload_service() -> "UploadService":
             get_database_repository("CHAT_SESSION"),
             get_database_repository("DOCUMENT"),
             get_chatbot(),
+            get_tx_factory(),
         )
 
     return _upload_service

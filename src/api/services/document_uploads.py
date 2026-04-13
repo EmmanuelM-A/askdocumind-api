@@ -4,6 +4,7 @@ Service module for handling document uploads.
 
 import asyncio
 from typing import List, Tuple
+from uuid import UUID
 
 from src.api.services.validation.rag_validation import (
     UploadDocumentsRequest,
@@ -97,42 +98,49 @@ class UploadService:
 
         saved_keys, entities = await self._persist_files_to_storage(request)
 
-        await self._process_uploaded_files(request, entities, saved_keys)
-
-        # 3) Store document metadata in the database
+        # Persist metadata first so vector-processing failures can be marked as FAILED.
         try:
-            created_entities = await self.document_repo.create_many(entities=entities)
+            async with self.tx_factory.create() as tx:
+                created_entities = await self.document_repo.create_many(
+                    entities=entities,
+                    tx=tx,
+                )
+
+                if not created_entities or len(created_entities) != len(entities):
+                    raise database_error(
+                        message="Failed to store document metadata in the database",
+                        error_code="DOCUMENT_METADATA_STORAGE_FAILED",
+                        error_details="Mismatch in number of created document entities",
+                    )
+
+        except ApiException:
+            await self._cleanup_saved_files_if_storage_failed(saved_keys)
+            raise
         except Exception as e:
             await self._cleanup_saved_files_if_storage_failed(saved_keys)
-
             raise database_error(
                 message="Failed to store document metadata in the database",
                 error_code="DOCUMENT_METADATA_STORAGE_FAILED",
                 stack_trace=str(e),
             )
 
-        if not created_entities or len(created_entities) != len(entities):
-            await self._cleanup_saved_files_if_storage_failed(saved_keys)
-
-            raise database_error(
-                message="Failed to store document metadata in the database",
-                error_code="DOCUMENT_METADATA_STORAGE_FAILED",
-                error_details="Mismatch in number of created document entities",
-            )
-
-        # 4) Update status to COMPLETED after successful vector processing and storage
         try:
-            await self.document_repo.bulk_update_processing_status(
-                created_entities, ProcessingStatus.COMPLETED
+            await self._process_uploaded_files(request, saved_keys)
+        except ApiException:
+            await self._update_document_statuses(
+                document_ids=created_entities,
+                status=ProcessingStatus.FAILED,
             )
-            self._logger.info(
-                f"Successfully updated {len(created_entities)} documents to COMPLETED status"
-            )
-        except Exception as e:
-            self._logger.error(
-                f"Failed to update document status to COMPLETED: {e}. "
-                "Documents were stored but status update failed."
-            )
+            raise
+
+        await self._update_document_statuses(
+            document_ids=created_entities,
+            status=ProcessingStatus.COMPLETED,
+        )
+
+        self._logger.info(
+            f"Successfully updated {len(created_entities)} documents to COMPLETED status"
+        )
 
         return SuccessResponseModel(
             message="Documents uploaded and processed successfully.",
@@ -260,7 +268,6 @@ class UploadService:
     async def _process_uploaded_files(
         self,
         request: UploadDocumentsRequest,
-        entities: List[Document],
         saved_keys: List[str],
     ) -> None:
         # 2) Process and save document vectors (best-effort cleanup on failure)
@@ -273,11 +280,6 @@ class UploadService:
                 str(request.chat_id),
             )
         except Exception as e:
-            # Mark all documents as FAILED due to vector processing error
-            doc_ids = [doc.id for doc in entities]
-            await self.document_repo.bulk_update_processing_status(
-                doc_ids, ProcessingStatus.FAILED
-            )
             await self._cleanup_saved_files_if_storage_failed(saved_keys)
 
             raise database_error(
@@ -285,3 +287,36 @@ class UploadService:
                 error_code="VECTOR_PROCESSING_FAILED",
                 stack_trace=str(e),
             )
+
+    async def _update_document_statuses(
+        self,
+        document_ids: List[UUID],
+        status: ProcessingStatus,
+    ) -> None:
+        if not document_ids:
+            return
+
+        try:
+            async with self.tx_factory.create() as tx:
+                updated_count = await self.document_repo.bulk_update_processing_status(
+                    document_ids,
+                    status,
+                    tx=tx,
+                )
+
+                if updated_count != len(document_ids):
+                    raise database_error(
+                        message=f"Failed to update all document statuses to {status.value}",
+                        error_code="DOCUMENT_STATUS_UPDATE_FAILED",
+                        error_details=(
+                            f"Expected to update {len(document_ids)} documents, "
+                            f"but updated {updated_count}."
+                        ),
+                    )
+        except Exception as e:
+            raise database_error(
+                message=f"Failed to update document statuses to {status.value}",
+                error_code="DOCUMENT_STATUS_UPDATE_FAILED",
+                stack_trace=str(e),
+            )
+
