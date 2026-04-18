@@ -3,6 +3,8 @@ Responsible for handling user queries and generating their corresponding
 response.
 """
 
+from typing import List, Any
+
 import numpy as np
 from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
@@ -39,7 +41,7 @@ class QueryHandler:
         self.embedder = embedder
         self.llm_model_name = settings.llm.LLM_MODEL_NAME
 
-    def search_for_vector(self, query: str, index, metadata):
+    def search_for_vector(self, query: str, index, metadata) -> List[Any]:
         """
         Embeds query, searches vector DB, returns top_k results.
         """
@@ -55,7 +57,6 @@ class QueryHandler:
                 error_code="INVALID_METADATA",
             )
 
-
         query = sanitize_query(query=query, logger=logger)
 
         logger.debug("Embedding queries now...")
@@ -69,9 +70,9 @@ class QueryHandler:
             np.array([query_vector]).astype("float32"), settings.llm.RETRIEVAL_TOP_K
         )
 
-        if not indices.any():
+        if not indices.any() or len(indices[0]) == 0:
             logger.error(f"No indices found for the query vector: {query_vector}")
-            return None
+            return []
 
         results = []
 
@@ -83,7 +84,9 @@ class QueryHandler:
                 continue
 
             if not isinstance(entry, dict):
-                logger.warning(f"Invalid metadata entry type at index {i}: {type(entry)}")
+                logger.warning(
+                    f"Invalid metadata entry type at index {i}: {type(entry)}"
+                )
                 continue
 
             text = entry.get("text")
@@ -97,7 +100,7 @@ class QueryHandler:
 
         if not results:
             logger.error(f"No results found for the query: {query}")
-            return None
+            return []
 
         logger.info(f"Results found for the query: {query}")
 
@@ -128,13 +131,13 @@ class QueryHandler:
             logger.warning(f"Error extracting source from metadata: {e}")
             return None
 
-    def generate_responses(self, query: str, retrieved_chunks):
+    def generate_responses(self, query: str, retrieved_chunks: List[Any]):
         """
         Formats a prompt with the query and retrieved chunks, then passes it
         to an LLM.
         """
 
-        if not retrieved_chunks:
+        if len(retrieved_chunks) == 0:
             logger.warning("No retrieved chunks provided for response generation.")
             return None
 

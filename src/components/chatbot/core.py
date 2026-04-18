@@ -153,47 +153,6 @@ class RAGChatbot:
             f"the query '{sanitized_query}'."
         )
 
-        if results:
-            response_data = self.query_handler.generate_responses(
-                query=sanitized_query, retrieved_chunks=results
-            )
-
-            if response_data:
-                response_data["source_type"] = Source.UPLOAD
-                self._logger.info(f"Generated response for query: '{sanitized_query}'.")
-                return response_data
-
-        elif web_search_enabled:
-            self._logger.info(
-                f"No results found in vector store for query: '{sanitized_query}'. "
-                "Attempting web search..."
-            )
-
-            if not settings.web.IS_WEB_SEARCH_ENABLED:
-                raise server_error(
-                    message="Web search is disabled in the system settings.",
-                    error_code="WEB_SEARCH_DISABLED",
-                )
-
-            web_results = self.web_searcher.process_query_via_web_search(
-                query=sanitized_query, index_id=index_id
-            )
-
-            response_data = None
-
-            if web_results:
-                response_data = self.query_handler.generate_responses(
-                    query=sanitized_query, retrieved_chunks=web_results
-                )
-
-            if response_data:
-                response_data["source_type"] = Source.WEB_SEARCH
-                self._logger.info(
-                    f"Generated response from web search for the query: "
-                    f"'{sanitized_query}'."
-                )
-                return response_data
-
         # No results found anywhere
         response_data = {
             "answer": "I couldn't find relevant information to answer your "
@@ -203,6 +162,43 @@ class RAGChatbot:
             "sources": [],
             "source_type": "none",
         }
+
+        if results is None or len(results) == 0:
+            return response_data
+
+        if settings.web.IS_WEB_SEARCH_ENABLED and web_search_enabled:
+            self._logger.info(
+                f"No results found in vector store for query: '{sanitized_query}'. "
+                "Attempting web search..."
+            )
+
+            web_results = self.web_searcher.process_query_via_web_search(
+                query=sanitized_query, index_id=index_id
+            )
+
+            if len(web_results) == 0:
+                return response_data
+
+            response_data = self.query_handler.generate_responses(
+                query=sanitized_query, retrieved_chunks=web_results
+            )
+
+            if response_data:
+                response_data["source_type"] = Source.WEB_SEARCH
+                self._logger.info(
+                    f"Generated response from web search for the query: "
+                    f"'{sanitized_query}'."
+                )
+                return response_data
+
+        response_data = self.query_handler.generate_responses(
+            query=sanitized_query, retrieved_chunks=results
+        )
+
+        if response_data:
+            response_data["source_type"] = Source.UPLOAD
+            self._logger.info(f"Generated response for query: '{sanitized_query}'.")
+            return response_data
 
         self._logger.info(
             f"No relevant information found for the query: '{sanitized_query}'."
