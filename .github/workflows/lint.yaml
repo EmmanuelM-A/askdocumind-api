@@ -1,31 +1,6 @@
 name: Lint
 
 on:
-  push:
-    branches:
-      - develop
-      - main
-    paths:
-      - "src/**"
-      - "tests/**"
-      - "requirements.txt"
-      - "pyproject.toml"
-      - ".github/workflows/**"
-  pull_request:
-    branches:
-      - develop
-      - main
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-    paths:
-      - "src/**"
-      - "tests/**"
-      - "requirements.txt"
-      - "pyproject.toml"
-      - ".github/workflows/**"
   workflow_dispatch:
   workflow_call:
     inputs:
