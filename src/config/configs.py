@@ -32,27 +32,25 @@ _DEFAULT_MODEL_CONFIG = SettingsConfigDict(
 class CoreAppSettings(BaseSettings):
     """Core application configuration settings."""
 
-    ENV: str = Field(default="development", json_schema_extra={"env": "ENV"})
+    ENV: str = Field(default="development", validation_alias="ENV")
     APP_NAME: str = Field(default="DocuChatAPI")
     PORT: int = Field(default=5000)
     HOST: str = Field(default="localhost")
     SUPPORTED_VERSIONS: List[str] = Field(default=["1"])
     DEFAULT_VERSION: str = Field(default="1")
 
-    MIN_QUERY_LENGTH: int = Field(
-        default=10, json_schema_extra={"env": "MIN_QUERY_LENGTH"}
-    )
+    MIN_QUERY_LENGTH: int = Field(default=10, validation_alias="MIN_QUERY_LENGTH")
     MAX_QUERY_LENGTH: int = Field(
-        default=2000, json_schema_extra={"env": "MAX_QUERY_LENGTH"}
+        default=2000, validation_alias="MAX_QUERY_LENGTH"
     )  # TODO: ADD TO ENV
     IS_TRUNCATION_ENABLED: bool = Field(
-        default=False, json_schema_extra={"env": "IS_QUERY_TRUNCATION_ENABLED"}
+        default=False, validation_alias="IS_QUERY_TRUNCATION_ENABLED"
     )  # TODO: ADD TO ENV
     MIN_DOCUMENT_CONTENT_LENGTH: int = Field(
-        default=10, json_schema_extra={"env": "MIN_DOCUMENT_CONTENT_LENGTH"}
+        default=10, validation_alias="MIN_DOCUMENT_CONTENT_LENGTH"
     )  # TODO: ADD TO ENV
     MAX_DOCUMENT_CONTENT_LENGTH: int = Field(
-        default=1000000, json_schema_extra={"env": "MAX_DOCUMENT_CONTENT_LENGTH"}
+        default=1000000, validation_alias="MAX_DOCUMENT_CONTENT_LENGTH"
     )  # TODO: ADD TO ENV
 
     model_config = _DEFAULT_MODEL_CONFIG
@@ -64,17 +62,15 @@ class CoreAppSettings(BaseSettings):
 class DatabaseSettings(BaseSettings):
     """Database configuration settings."""
 
-    DATABASE_URL: SecretStr = Field(
-        default=..., json_schema_extra={"env": "DATABASE_URL"}
-    )
+    DATABASE_URL: SecretStr = Field(default=..., validation_alias="DATABASE_URL")
     DB_LOG_DIR: str = Field(default=f"{PROJECT_ROOT}/logs/database")
-    DB_HOST: str = Field(default="localhost", json_schema_extra={"env": "DB_HOST"})
-    DB_PORT: int = Field(default=5432, json_schema_extra={"env": "DB_PORT"})
-    DB_NAME: str = Field(default="docu_chat", json_schema_extra={"env": "DB_NAME"})
-    DB_USER: str = Field(default="postgres", json_schema_extra={"env": "DB_USER"})
-    DB_PASSWORD: SecretStr = Field(default="", json_schema_extra={"env": "DB_PASSWORD"})
+    DB_HOST: str = Field(default="localhost", validation_alias="DB_HOST")
+    DB_PORT: int = Field(default=5432, validation_alias="DB_PORT")
+    DB_NAME: str = Field(default="docu_chat", validation_alias="DB_NAME")
+    DB_USER: str = Field(default="postgres", validation_alias="DB_USER")
+    DB_PASSWORD: SecretStr = Field(default="", validation_alias="DB_PASSWORD")
 
-    PGADMIN_PORT: int = Field(default=..., json_schema_extra={"env": "PGADMIN_PORT"})
+    PGADMIN_PORT: int = Field(default=..., validation_alias="PGADMIN_PORT")
 
     DB_POOL_SIZE: int = Field(default=10)
     DB_MAX_OVERFLOW: int = Field(default=20)
@@ -95,12 +91,10 @@ class CacheSettings(BaseSettings):
     Cache configuration settings.
     """
 
-    REDIS_HOST: str = Field(default=..., json_schema_extra={"env": "REDIS_HOST"})
-    REDIS_PORT: int = Field(default=6379, json_schema_extra={"env": "REDIS_PORT"})
-    REDIS_PASSWORD: SecretStr = Field(
-        default="", json_schema_extra={"env": "REDIS_PASSWORD"}
-    )
-    REDIS_DB: int = Field(default=0, json_schema_extra={"env": "REDIS_DB"})
+    REDIS_HOST: str = Field(default=..., validation_alias="REDIS_HOST")
+    REDIS_PORT: int = Field(default=6379, validation_alias="REDIS_PORT")
+    REDIS_PASSWORD: SecretStr = Field(default="", validation_alias="REDIS_PASSWORD")
+    REDIS_DB: int = Field(default=0, validation_alias="REDIS_DB")
     REDIS_TTL_SECONDS: int = Field(default=3600)
     REDIS_ENABLED: bool = Field(default=True)
 
@@ -122,7 +116,7 @@ class AuthSettings(BaseSettings):
 
     USER_SESSION_SECRET: SecretStr = Field(
         default="dev-anon-session-secret-change-me",
-        json_schema_extra={"env": "USER_SESSION_SECRET"},
+        validation_alias="USER_SESSION_SECRET",
     )
     ANON_SESSION_USER_COOKIE_NAME: str = Field(default="docu_chat_user_cookie")
     ANON_SESSION_TTL_HOURS: float = Field(default=0.5)
@@ -171,9 +165,7 @@ class LLMIntegrationSettings(BaseSettings):
 
     LLM_TEMPERATURE: float = Field(default=0.7)
     MAX_TOKENS: int = Field(default=4096)
-    RETRIEVAL_TOP_K: int = Field(
-        default=3, json_schema_extra={"env": "RETRIEVAL_TOP_K"}
-    )
+    RETRIEVAL_TOP_K: int = Field(default=3, validation_alias="RETRIEVAL_TOP_K")
 
     OPENAI_API_RATE_LIMIT: int = Field(default=60)
     OPENAI_API_TIMEOUT_SEC: int = Field(default=30)
@@ -219,11 +211,9 @@ class WebSearchSettings(BaseSettings):
     """Web search configuration settings."""
 
     IS_WEB_SEARCH_ENABLED: bool = Field(default=False)
-    SEARCH_API_KEY: SecretStr = Field(
-        default=..., json_schema_extra={"env": "SEARCH_API_KEY"}
-    )
+    SEARCH_API_KEY: SecretStr = Field(default=..., validation_alias="SEARCH_API_KEY")
     SEARCH_ENGINE_ID: SecretStr = Field(
-        default=..., json_schema_extra={"env": "SEARCH_ENGINE_ID"}
+        default=..., validation_alias="SEARCH_ENGINE_ID"
     )
 
     MAX_WEB_SEARCH_RESULTS: int = Field(default=3)
@@ -248,18 +238,10 @@ class AWSSettings(BaseSettings):
     """AWS configuration settings."""
 
     # General AWS settings
-    ACCESS_KEY_ID: SecretStr = Field(
-        default=..., json_schema_extra={"env": "AWS_ACCESS_KEY_ID"}
-    )
-    SECRET_ACCESS_KEY: SecretStr = Field(
-        default=..., json_schema_extra={"env": "AWS_SECRET_ACCESS_KEY"}
-    )
-    REGION: SecretStr = Field(default=..., json_schema_extra={"env": "AWS_REGION"})
+    REGION: str = Field(default=..., validation_alias="AWS_REGION")
 
     # S3 Buckets
-    S3_BUCKET_NAME: SecretStr = Field(
-        default=..., json_schema_extra={"env": "AWS_S3_BUCKET_NAME"}
-    )
+    S3_BUCKET_NAME: str = Field(default=..., validation_alias="AWS_S3_BUCKET_NAME")
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -325,26 +307,6 @@ class APIServerSettings(BaseSettings):
 
 
 # ------------------------------------------------------------------
-# Monitoring
-# ------------------------------------------------------------------
-class MonitoringSettings(BaseSettings):
-    """Monitoring and metrics configuration settings."""
-
-    ENABLE_METRICS: bool = Field(default=True)
-    METRICS_ENDPOINT: str = Field(default="/metrics")
-
-    # SENTRY_DSN: Optional[SecretStr] = Field(default=None, env="SENTRY_DSN")
-    SENTRY_ENVIRONMENT: str = Field(default="development")
-
-    QA_SQLITE_DB_PATH: str = Field(default="../data/db/qa_log.db")
-    ENABLE_EVALUATION_LOGGING: bool = Field(default=False)
-
-    HEALTH_CHECK_TIMEOUT: int = Field(default=30)
-
-    model_config = _DEFAULT_MODEL_CONFIG
-
-
-# ------------------------------------------------------------------
 # Main Settings Container
 # ------------------------------------------------------------------
 class Settings(BaseSettings):
@@ -361,7 +323,6 @@ class Settings(BaseSettings):
     logging: LoggingSettings = LoggingSettings()
     server: APIServerSettings = APIServerSettings()
     aws: AWSSettings = AWSSettings()
-    monitoring: MonitoringSettings = MonitoringSettings()
 
     model_config = _DEFAULT_MODEL_CONFIG
 
