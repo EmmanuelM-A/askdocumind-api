@@ -244,6 +244,26 @@ class WebSearchSettings(BaseSettings):
     model_config = _DEFAULT_MODEL_CONFIG
 
 
+class AWSSettings(BaseSettings):
+    """AWS configuration settings."""
+
+    # General AWS settings
+    ACCESS_KEY_ID: SecretStr = Field(
+        default=..., json_schema_extra={"env": "AWS_ACCESS_KEY_ID"}
+    )
+    SECRET_ACCESS_KEY: SecretStr = Field(
+        default=..., json_schema_extra={"env": "AWS_SECRET_ACCESS_KEY"}
+    )
+    REGION: SecretStr = Field(default=..., json_schema_extra={"env": "AWS_REGION"})
+
+    # S3 Buckets
+    S3_BUCKET_NAME: SecretStr = Field(
+        default=..., json_schema_extra={"env": "AWS_S3_BUCKET_NAME"}
+    )
+
+    model_config = _DEFAULT_MODEL_CONFIG
+
+
 # ------------------------------------------------------------------
 # Logging
 # ------------------------------------------------------------------
@@ -268,8 +288,9 @@ class LoggingSettings(BaseSettings):
 class APIServerSettings(BaseSettings):
     """API server configuration settings."""
 
-    HOST: str = Field(default="0.0.0.0")
-    PORT: int = Field(default=8000)
+    #
+    # HOST: str = Field(default="0.0.0.0")
+    # PORT: int = Field(default=8000)
     WORKERS: int = Field(default=1)
 
     DOCS_URL: str = Field(default="/docs")
@@ -339,6 +360,7 @@ class Settings(BaseSettings):
     web: WebSearchSettings = WebSearchSettings()
     logging: LoggingSettings = LoggingSettings()
     server: APIServerSettings = APIServerSettings()
+    aws: AWSSettings = AWSSettings()
     monitoring: MonitoringSettings = MonitoringSettings()
 
     model_config = _DEFAULT_MODEL_CONFIG
