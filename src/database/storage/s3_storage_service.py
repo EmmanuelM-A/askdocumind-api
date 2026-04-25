@@ -1,22 +1,22 @@
 from typing import Optional
 
 from botocore.exceptions import ClientError
+import boto3
 
 from src.config.configs import settings
 from src.database.storage.storage_service import StorageService
-import boto3
 
 
 class S3StorageService(StorageService):
-
     def __init__(self) -> None:
+        if not settings.aws.S3_BUCKET_NAME:
+            raise ValueError("AWS S3 bucket name is not configured.")
+
+        if not settings.aws.REGION:
+            raise ValueError("AWS region is not configured.")
+
         self.bucket = settings.aws.S3_BUCKET_NAME
-        self.s3_client = boto3.client(
-            "s3",
-            region_name=settings.aws.REGION,
-            # aws_access_key_id=settings.aws.ACCESS_KEY_ID,
-            # aws_secret_access_key=settings.aws.SECRET_ACCESS_KEY,
-        )
+        self.s3_client = boto3.client("s3", region_name=settings.aws.REGION)
 
     def save(self, key: str, data: bytes) -> None:
         self.s3_client.put_object(Bucket=self.bucket, Key=key, Body=data)
