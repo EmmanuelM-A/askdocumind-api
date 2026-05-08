@@ -5,10 +5,6 @@ Base interface for a vector store operations.
 from abc import ABC, abstractmethod
 from typing import Sequence, Dict, Optional, Any, List, Tuple
 
-from src.logger.base_logger import BaseLogger
-
-logger = BaseLogger(__name__)
-
 # TODO ADD A WAY TO DELETE INDIVIDUAL VECTORS (OR VECTORS RELATED TO A DOCUMENT)
 
 
