@@ -15,8 +15,7 @@ from fastapi import UploadFile
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from src.components.ingestion.document import FileDocument
-from src.components.extraction.text_extraction_factory import get_extractor
+from src.components.extraction.text_extraction_factory import get_text_extractor
 from src.errors.custom_exceptions import unprocessable_entity_error
 from src.config.configs import settings
 from src.logger.base_logger import BaseLogger
@@ -53,8 +52,8 @@ class DocumentProcessor:
 
     def process(
         self,
-        files: List[UploadFile | FileDocument],
-    ) -> Iterator[FileDocument]:
+        files: List[UploadFile],
+    ) -> Iterator[str]:
         """
         Stream processed document chunks from uploaded files.
 
@@ -78,7 +77,7 @@ class DocumentProcessor:
                 If no valid chunks are produced from all files.
         """
 
-        if not files:
+        if not files or len(files) == 0:
             raise unprocessable_entity_error(
                 message="No files provided for document processing.",
                 error_code="NO_FILES_PROVIDED",
@@ -89,17 +88,11 @@ class DocumentProcessor:
         for upload in files:
             self._logger.debug(f"Processing uploaded file: {upload.filename}")
 
-            try:
-                extractor = get_extractor(upload.filename)
-            except ValueError:
-                self._logger.warning(
-                    f"Unsupported file type skipped: {upload.filename}"
-                )
-                continue
+            extractor = get_text_extractor(upload.filename)
 
             # 1. Extract document (single document in memory)
             try:
-                document = extractor.load_document(upload)
+                document_content = extractor.extract_text_from(upload)
             except Exception as exc:
                 self._logger.warning(
                     f"Failed to extract document {upload.filename}: {exc}"
@@ -108,12 +101,12 @@ class DocumentProcessor:
 
             # 2. Validate & clean
             success, cleaned_content = self._validate_document_content(
-                document=document
+                content=document_content, filename=upload.filename
             )
 
             if not success or not cleaned_content:
                 self._logger.warning(f"Document validation failed: {upload.filename}")
-                del document
+                del document_content
                 continue
 
             # 3. Chunk & stream
@@ -125,13 +118,10 @@ class DocumentProcessor:
 
                 self._logger.debug(f"Yielding document chunk from {upload.filename}")
 
-                yield FileDocument(
-                    content=chunk_text,
-                    metadata=document.metadata,
-                )
+                yield document_content
 
             # 4. Explicit cleanup
-            del document
+            del document_content
             del cleaned_content
 
         if not yielded_any_chunk:
@@ -141,41 +131,41 @@ class DocumentProcessor:
             )
 
     def _validate_document_content(
-        self, document: FileDocument
+        self, content: str, filename: Optional[str] = None
     ) -> Tuple[bool, Optional[str]]:
         """
         Validate document content before processing.
 
         Args:
-            document: The FileDocument instance to validate.
+            content: Raw text content extracted from the document.
 
         Returns:
             A tuple containing a boolean indicating if the document is valid,
             and the cleaned content or None.
         """
 
-        if not document or not document.content:
+        if not content:
             return False, None
 
-        content = document.content.strip()
+        content = content.strip()
         if len(content) < settings.app.MIN_DOCUMENT_CONTENT_LENGTH:
             self._logger.warning(
-                f"Document {document.metadata.filename} too short, skipping"
+                f"Document {filename} too short, skipping"
             )
             return False, None
 
         if len(content) > settings.app.MAX_DOCUMENT_CONTENT_LENGTH:
             if settings.app.IS_TRUNCATION_ENABLED:
                 self._logger.warning(
-                    f"Document {document.metadata.filename} too large, truncating"
+                    f"Document {filename} too large, truncating"
                 )
-                document.content = (
+                content = (
                     content[: settings.app.MAX_DOCUMENT_CONTENT_LENGTH]
                     + "... [TRUNCATED]"
                 )
             else:
                 self._logger.warning(
-                    f"Document {document.metadata.filename} too large, skipping"
+                    f"Document {filename} too large, skipping"
                 )
                 return False, None
 
