@@ -14,12 +14,10 @@ import pymupdf
 from fastapi import UploadFile
 
 from src.components.extraction.base_extractor import TextDocumentExtractor
-from src.components.ingestion.document import FileDocumentMetadata
-from src.config.constants import Source
 from src.errors.custom_exceptions import server_error
 from src.logger.base_logger import BaseLogger
 
-logger = BaseLogger(__name__)
+_logger = BaseLogger(__name__)
 
 
 class TxtDocumentExtractor(TextDocumentExtractor):
@@ -29,7 +27,7 @@ class TxtDocumentExtractor(TextDocumentExtractor):
         try:
             content = document.file.read().decode("utf-8")
         except UnicodeDecodeError:
-            logger.warning(
+            _logger.warning(
                 f"UTF-8 decoding failed, trying Latin-1 decoding for the file {document.filename}"
             )
             document.file.seek(0)
@@ -44,14 +42,6 @@ class TxtDocumentExtractor(TextDocumentExtractor):
 
         return content
 
-    def extract_metadata_from(self, document: UploadFile) -> FileDocumentMetadata:
-        return FileDocumentMetadata(
-            filename=document.filename,
-            file_extension=".txt",
-            author=None,
-            source=Source.UPLOAD,
-        )
-
 
 class MarkdownDocumentExtractor(TextDocumentExtractor):
     """Text extractor for Markdown documents."""
@@ -60,7 +50,7 @@ class MarkdownDocumentExtractor(TextDocumentExtractor):
         try:
             content = document.file.read().decode("utf-8")
         except UnicodeDecodeError:
-            logger.warning(
+            _logger.warning(
                 f"UTF-8 decoding failed, trying Latin-1 decoding for the file {document.filename}"
             )
             document.file.seek(0)
@@ -74,14 +64,6 @@ class MarkdownDocumentExtractor(TextDocumentExtractor):
             )
 
         return content
-
-    def extract_metadata_from(self, document: UploadFile) -> FileDocumentMetadata:
-        return FileDocumentMetadata(
-            filename=document.filename,
-            file_extension=".md",
-            author=None,
-            source=Source.UPLOAD,
-        )
 
 
 class PDFDocumentExtractor(TextDocumentExtractor):
@@ -106,7 +88,7 @@ class PDFDocumentExtractor(TextDocumentExtractor):
                     if page_text.strip():
                         content += f"\n--- Page {page_num + 1} ---\n{page_text}"
                 except Exception:
-                    logger.warning(
+                    _logger.warning(
                         f"Error extracting page {page_num + 1} of {document.filename}"
                     )
                     continue
@@ -121,14 +103,6 @@ class PDFDocumentExtractor(TextDocumentExtractor):
 
         finally:
             document.file.seek(0)
-
-    def extract_metadata_from(self, document: UploadFile) -> FileDocumentMetadata:
-        return FileDocumentMetadata(
-            filename=document.filename,
-            file_extension=".pdf",
-            author=None,
-            source=Source.UPLOAD,
-        )
 
 
 class DocxDocumentExtractor(TextDocumentExtractor):
@@ -164,11 +138,3 @@ class DocxDocumentExtractor(TextDocumentExtractor):
                 error_code="DOCX_EXTRACTION_ERROR",
                 stack_trace=str(e),
             )
-
-    def extract_metadata_from(self, document: UploadFile) -> FileDocumentMetadata:
-        return FileDocumentMetadata(
-            filename=document.filename,
-            file_extension=".docx",
-            author=None,
-            source=Source.UPLOAD,
-        )
