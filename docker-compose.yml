@@ -1,6 +1,6 @@
 services:
   database:
-    image: postgres:15
+    image: pgvector/pgvector:pg15
     container_name: docu_chat_postgres
     env_file: .env
     environment:

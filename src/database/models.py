@@ -20,6 +20,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship, declarative_base
+from pgvector.sqlalchemy import Vector
 
 from src.config.constants import ChatMessageRole, ProcessingStatus
 from src.utils import format_datetime
@@ -154,6 +155,9 @@ class Document(Base):
 
     # Relationship
     session = relationship("ChatSession", back_populates="documents")
+    chunks = relationship(
+        "DocumentChunk", back_populates="document", cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"Document(filename={self.filename}, size={self.file_size})"
@@ -177,6 +181,28 @@ class Document(Base):
     def to_json(self) -> str:
         """Return a JSON string representation of the Document."""
         return json.dumps(self.to_dict(), indent=4)
+
+
+class DocumentChunk(Base):
+    """Model representing a document vector chunk embedding"""
+
+    __tablename__ = "document_chunk"
+
+    # Columns
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("document.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    chunk_index = Column(Integer, default=0, nullable=False)
+    chunk_text = Column(Text, nullable=False)
+    embedding = Column(Vector(1536), nullable=False)
+
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now())
+
+    # Relationship
+    document = relationship("Document", back_populates="chunks")
 
 
 class ChatMessage(Base):
