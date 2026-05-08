@@ -14,9 +14,12 @@ from src.database.repository.sqlalchemy import (
     UserRepository,
     SQLAlchemyDBTransactionFactory,
 )
+from src.database.repository.sqlalchemy.document_chunk_repository import \
+    DocumentChunkRepository
 
 _database_repositories = {
     "DOCUMENT": DocumentRepository(connection=get_database_connection()),
+    "DOCUMENT_CHUNK": DocumentChunkRepository(connection=get_database_connection()),
     "CHAT_SESSION": ChatSessionRepository(connection=get_database_connection()),
     "CHAT_MESSAGE": ChatMessageRepository(connection=get_database_connection()),
     "USER": UserRepository(connection=get_database_connection()),
@@ -24,12 +27,12 @@ _database_repositories = {
 
 _db_transaction_factory: Optional[DBTransactionFactory] = None
 
-RepositoryModelKey: TypeAlias = Literal["DOCUMENT", "CHAT_SESSION", "CHAT_MESSAGE", "USER"]
+RepositoryModelKey: TypeAlias = Literal["DOCUMENT", "CHAT_SESSION", "CHAT_MESSAGE", "USER", "DOCUMENT_CHUNK"]
 
 
 def get_database_repository(
     model: RepositoryModelKey,
-) -> DocumentRepository | ChatSessionRepository | ChatMessageRepository | UserRepository:
+) -> DocumentRepository | ChatSessionRepository | ChatMessageRepository | UserRepository | DocumentChunkRepository:
     """
     Factory method to get the appropriate database repository instance
     for a given model.
