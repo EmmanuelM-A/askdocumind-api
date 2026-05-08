@@ -17,6 +17,7 @@ from sqlalchemy import (
     BigInteger,
     Enum,
     ForeignKey,
+    Sequence,
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship, declarative_base
@@ -203,6 +204,49 @@ class DocumentChunk(Base):
 
     # Relationship
     document = relationship("Document", back_populates="chunks")
+
+    def __repr__(self) -> str:
+        return (
+            f"DocumentChunk(id={self.id}, document_id={self.document_id}, "
+            f"chunk_index={self.chunk_index})"
+        )
+
+    def __str__(self) -> str:
+        return f"Chunk {self.chunk_index} of document {self.document_id}"
+
+    def to_dict(self) -> dict:
+        """Return a JSON-serializable dict representation of the chunk.
+
+        Note: embeddings may be binary/array types; we attempt to convert
+        them to a list when possible, otherwise they are represented as
+        None to avoid serialization errors.
+        """
+        def _serialize_embedding(val: object) -> object:
+            if val is None:
+                return None
+            try:
+                # numpy arrays and similar expose tolist()
+                if hasattr(val, "tolist"):
+                    return val.tolist()
+                # sequences (lists/tuples)
+                if isinstance(val, (list, tuple)):
+                    return list(val)
+            except Exception:
+                pass
+            return None
+
+        return {
+            "id": _serialize_value(self.id),
+            "document_id": _serialize_value(self.document_id),
+            "chunk_index": self.chunk_index,
+            "chunk_text": self.chunk_text,
+            "embedding": _serialize_embedding(self.embedding),
+            "created_at": _serialize_value(self.created_at),
+        }
+
+    def to_json(self) -> str:
+        """Return a JSON string representation of the chunk."""
+        return json.dumps(self.to_dict(), indent=4)
 
 
 class ChatMessage(Base):
