@@ -136,14 +136,13 @@ class Document(Base):
 
     # Columns
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    session_id = Column(
+    chat_session_id = Column(
         UUID(as_uuid=True),
         ForeignKey("chat_session.id", ondelete="CASCADE"),
         nullable=False,
     )
     filename = Column(String(255), nullable=False)
     file_size = Column(BigInteger, nullable=False)
-    vector_id = Column(UUID, nullable=True)
     processing_status = Column(
         Enum(ProcessingStatus), default=ProcessingStatus.PROCESSING, nullable=False
     )
@@ -170,10 +169,9 @@ class Document(Base):
         """Return JSON-serializable dict representation of the Document."""
         return {
             "id": _serialize_value(self.id),
-            "session_id": _serialize_value(self.session_id),
+            "chat_session_id": _serialize_value(self.chat_session_id),
             "filename": self.filename,
             "file_size": self.file_size,
-            "vector_id": self.vector_id,
             "processing_status": _serialize_value(self.processing_status),
             "created_at": _serialize_value(self.created_at),
             "updated_at": _serialize_value(self.updated_at),
@@ -221,6 +219,7 @@ class DocumentChunk(Base):
         them to a list when possible, otherwise they are represented as
         None to avoid serialization errors.
         """
+
         def _serialize_embedding(val: object) -> object:
             if val is None:
                 return None

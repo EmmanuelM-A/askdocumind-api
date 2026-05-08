@@ -43,7 +43,8 @@ class DocumentRepository(DocumentRepositoryInterface):
         message = str(error).lower()
         return (
             "uq_document_session_filename" in message
-            or "unique constraint" in message and "document" in message
+            or "unique constraint" in message
+            and "document" in message
         )
 
     async def create(self, data: Document, tx: Optional[DBTransaction] = None) -> UUID:
@@ -281,7 +282,7 @@ class DocumentRepository(DocumentRepositoryInterface):
         try:
             stmt = select(func.count(Document.id)).select_from(Document)
             if filter_id:
-                stmt = stmt.where(Document.session_id == filter_id)
+                stmt = stmt.where(Document.chat_session_id == filter_id)
 
             if tx is not None:
                 result = await tx.execute(stmt)

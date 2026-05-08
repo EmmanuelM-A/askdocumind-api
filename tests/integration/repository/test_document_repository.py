@@ -85,7 +85,10 @@ class TestDocumentRepositoryCore:
     ):
         """Test retrieving a document by ID."""
         doc = Document(
-            id=uuid4(), session_id=test_chat_session.id, filename="test.pdf", file_size=123
+            id=uuid4(),
+            session_id=test_chat_session.id,
+            filename="test.pdf",
+            file_size=123,
         )
         await document_repo.create(doc)
 
@@ -155,7 +158,7 @@ class TestDocumentRepositoryCore:
         results = await document_repo.list_by(criteria)
 
         assert len(results) == 2
-        assert all(d.session_id == test_chat_session.id for d in results)
+        assert all(d.chat_session_id == test_chat_session.id for d in results)
 
     @pytest.mark.asyncio
     async def test_list_by_processing_status(
@@ -246,7 +249,10 @@ class TestDocumentRepositoryCore:
     ):
         """Test deleting a document."""
         doc = Document(
-            id=uuid4(), session_id=test_chat_session.id, filename="test.pdf", file_size=123
+            id=uuid4(),
+            session_id=test_chat_session.id,
+            filename="test.pdf",
+            file_size=123,
         )
         await document_repo.create(doc)
 
@@ -264,10 +270,15 @@ class TestDocumentRepositoryCore:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_exists_true(self, document_repo, test_chat_session, cleanup_documents):
+    async def test_exists_true(
+        self, document_repo, test_chat_session, cleanup_documents
+    ):
         """Test exists returns True for existing document."""
         doc = Document(
-            id=uuid4(), session_id=test_chat_session.id, filename="test.pdf", file_size=123
+            id=uuid4(),
+            session_id=test_chat_session.id,
+            filename="test.pdf",
+            file_size=123,
         )
         await document_repo.create(doc)
 

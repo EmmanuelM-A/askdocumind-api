@@ -20,7 +20,6 @@ from src.database.repository.sqlalchemy.document_chunk_repository import (
     DocumentChunkRepository,
 )
 
-
 pytestmark = pytest.mark.anyio
 
 
@@ -70,7 +69,9 @@ async def test_chat_session(db_connection, test_user):
     yield chat_session
 
     async with db_connection.get_session() as session:
-        await session.execute(delete(ChatSession).where(ChatSession.id == chat_session.id))
+        await session.execute(
+            delete(ChatSession).where(ChatSession.id == chat_session.id)
+        )
         await session.commit()
 
 
@@ -183,7 +184,9 @@ class TestDocumentChunkRepositoryCore:
         assert retrieved.document_id == test_document.id
         assert retrieved.chunk_text == "Lookup chunk"
 
-    async def test_get_by_id_not_found(self, document_chunk_repo, cleanup_document_chunks):
+    async def test_get_by_id_not_found(
+        self, document_chunk_repo, cleanup_document_chunks
+    ):
         result = await document_chunk_repo.get_by_id(uuid4())
 
         assert result is None
@@ -220,7 +223,7 @@ class TestDocumentChunkRepositoryCore:
     ):
         other_document = Document(
             id=uuid4(),
-            session_id=test_document.session_id,
+            session_id=test_document.chat_session_id,
             filename="other.pdf",
             file_size=1024,
             processing_status=ProcessingStatus.COMPLETED,
@@ -259,7 +262,9 @@ class TestDocumentChunkRepositoryCore:
             assert all(chunk.document_id == test_document.id for chunk in results)
         finally:
             async with db_connection.get_session() as session:
-                await session.execute(delete(Document).where(Document.id == other_document.id))
+                await session.execute(
+                    delete(Document).where(Document.id == other_document.id)
+                )
                 await session.commit()
 
     async def test_get_by_criteria_chunk_and_document(
@@ -316,7 +321,7 @@ class TestDocumentChunkRepositoryCore:
     ):
         other_document = Document(
             id=uuid4(),
-            session_id=test_document.session_id,
+            session_id=test_document.chat_session_id,
             filename="count-other.pdf",
             file_size=512,
             processing_status=ProcessingStatus.COMPLETED,
@@ -353,7 +358,9 @@ class TestDocumentChunkRepositoryCore:
             assert await document_chunk_repo.count(document_id=test_document.id) == 2
         finally:
             async with db_connection.get_session() as session:
-                await session.execute(delete(Document).where(Document.id == other_document.id))
+                await session.execute(
+                    delete(Document).where(Document.id == other_document.id)
+                )
                 await session.commit()
 
     async def test_delete_success_and_not_found(
@@ -395,7 +402,9 @@ class TestDocumentChunkRepositoryCore:
         ]
         await _create_chunks(document_chunk_repo, chunks)
 
-        deleted_count = await document_chunk_repo.delete_by_document_id(test_document.id)
+        deleted_count = await document_chunk_repo.delete_by_document_id(
+            test_document.id
+        )
 
         assert deleted_count == 3
         assert await document_chunk_repo.count(document_id=test_document.id) == 0
@@ -459,6 +468,3 @@ class TestDocumentChunkRepositoryCore:
         assert len(results) == 2
         assert results[0].id == chunk_a.id
         assert results[1].id == chunk_b.id
-
-
-
