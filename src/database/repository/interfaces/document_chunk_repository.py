@@ -176,6 +176,7 @@ class DocumentChunkRepositoryInterface(ABC):
     @abstractmethod
     async def search_similar(
         self,
+        chat_session_id: UUID,
         vector: List[float],
         top_k: int = 10,
         threshold: Optional[float] = None,
@@ -189,6 +190,7 @@ class DocumentChunkRepositoryInterface(ABC):
         provide scores can attach them to the returned entities or expose a
         different API.
 
+        :param chat_session_id: The chat session ID.
         :param vector: Query embedding vector.
         :param top_k: Maximum number of results to return.
         :param threshold: Optional similarity/distance threshold to filter results.
@@ -196,3 +198,22 @@ class DocumentChunkRepositoryInterface(ABC):
         :return: List of matching DocumentChunk entities.
         """
         raise NotImplementedError
+
+    @abstractmethod
+    async def get_filenames_for_chunks(
+        self,
+        chunks: List[DocumentChunk],
+        chat_session_id: UUID,
+        tx: Optional[DBTransaction] = None,
+    ) -> List[str]:
+        """
+        Retrieves unique filenames for all documents associated with the given chunks.
+        Results are filtered to only include documents from the specified chat_session_id.
+
+        :param chunks: List of DocumentChunk objects to extract document_ids from.
+        :param chat_session_id: The chat session ID to filter documents by.
+        :param tx: Optional database transaction.
+        :return: List of unique filenames (no duplicates) from the specified chat session.
+        """
+        raise NotImplementedError
+

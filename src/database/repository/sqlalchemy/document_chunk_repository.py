@@ -14,11 +14,10 @@ from sqlalchemy import select, func, delete
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 from src.database.connection import DatabaseConnection
-from src.database.models import DocumentChunk
+from src.database.models import DocumentChunk, Document
 from src.database.repository.interfaces.document_chunk_repository import (
     DocumentChunkRepositoryInterface,
     DocumentChunkSearchCriteria,
-    UpdatedDocumentChunkData,
 )
 from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.errors.custom_exceptions import database_error
@@ -39,7 +38,9 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
             filters.append(getattr(DocumentChunk, field) == value)
         return filters
 
-    async def create(self, data: DocumentChunk, tx: Optional[DBTransaction] = None) -> UUID:
+    async def create(
+        self, data: DocumentChunk, tx: Optional[DBTransaction] = None
+    ) -> UUID:
         try:
             if tx is not None:
                 await tx.add(data)
@@ -61,7 +62,9 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
             )
 
     async def list_by(
-        self, criteria: Optional[DocumentChunkSearchCriteria] = None, tx: Optional[DBTransaction] = None
+        self,
+        criteria: Optional[DocumentChunkSearchCriteria] = None,
+        tx: Optional[DBTransaction] = None,
     ) -> List[DocumentChunk]:
         try:
             stmt = select(DocumentChunk)
@@ -84,7 +87,9 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def get_by_id(self, chunk_id: UUID, tx: Optional[DBTransaction] = None) -> Optional[DocumentChunk]:
+    async def get_by_id(
+        self, chunk_id: UUID, tx: Optional[DBTransaction] = None
+    ) -> Optional[DocumentChunk]:
         try:
             stmt = select(DocumentChunk).where(DocumentChunk.id == chunk_id)
 
@@ -103,7 +108,9 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def get_by_criteria(self, criteria: DocumentChunkSearchCriteria, tx: Optional[DBTransaction] = None) -> Optional[DocumentChunk]:
+    async def get_by_criteria(
+        self, criteria: DocumentChunkSearchCriteria, tx: Optional[DBTransaction] = None
+    ) -> Optional[DocumentChunk]:
         try:
             filters = self._build_filters(criteria)
 
@@ -127,10 +134,16 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def list_by_document_id(self, document_id: UUID, tx: Optional[DBTransaction] = None) -> List[DocumentChunk]:
-        return await self.list_by(DocumentChunkSearchCriteria(document_id=document_id), tx=tx)
+    async def list_by_document_id(
+        self, document_id: UUID, tx: Optional[DBTransaction] = None
+    ) -> List[DocumentChunk]:
+        return await self.list_by(
+            DocumentChunkSearchCriteria(document_id=document_id), tx=tx
+        )
 
-    async def upsert_many(self, chunks: List[DocumentChunk], tx: Optional[DBTransaction] = None) -> List[UUID]:
+    async def upsert_many(
+        self, chunks: List[DocumentChunk], tx: Optional[DBTransaction] = None
+    ) -> List[UUID]:
         if not chunks:
             return []
 
@@ -171,7 +184,9 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def delete_by_document_id(self, document_id: UUID, tx: Optional[DBTransaction] = None) -> int:
+    async def delete_by_document_id(
+        self, document_id: UUID, tx: Optional[DBTransaction] = None
+    ) -> int:
         try:
             stmt = delete(DocumentChunk).where(DocumentChunk.document_id == document_id)
 
@@ -192,7 +207,11 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
 
     async def exists(self, chunk_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
         try:
-            stmt = select(func.count()).select_from(DocumentChunk).where(DocumentChunk.id == chunk_id)
+            stmt = (
+                select(func.count())
+                .select_from(DocumentChunk)
+                .where(DocumentChunk.id == chunk_id)
+            )
 
             if tx is not None:
                 result = await tx.execute(stmt)
@@ -209,7 +228,9 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def count(self, document_id: Optional[UUID] = None, tx: Optional[DBTransaction] = None) -> int:
+    async def count(
+        self, document_id: Optional[UUID] = None, tx: Optional[DBTransaction] = None
+    ) -> int:
         try:
             stmt = select(func.count(DocumentChunk.id)).select_from(DocumentChunk)
             if document_id:
@@ -230,8 +251,30 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 stack_trace=str(e),
             )
 
+    async def _get_similarity_candidates(
+        self,
+        chat_session_id: UUID,
+        tx: Optional[DBTransaction] = None,
+    ) -> List[DocumentChunk]:
+        stmt = select(DocumentChunk).where(
+            DocumentChunk.chat_session_id == chat_session_id
+        )
+
+        if tx is not None:
+            result = await tx.execute(stmt)
+            return result.scalars().all()
+
+        async with self._db.get_session() as session:
+            result = await session.execute(stmt)
+            return result.scalars().all()
+
     async def search_similar(
-        self, vector: List[float], top_k: int = 10, threshold: Optional[float] = None, tx: Optional[DBTransaction] = None
+        self,
+        chat_session_id: UUID,
+        vector: List[float],
+        top_k: int = 10,
+        threshold: Optional[float] = None,
+        tx: Optional[DBTransaction] = None,
     ) -> List[DocumentChunk]:
         """
         Fallback similarity search implementation.
@@ -241,62 +284,88 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
         tests this is acceptable; for production use pgvector/FAISS-backed
         implementations should override this for efficiency.
         """
+        candidates = await self._get_similarity_candidates(
+            chat_session_id=chat_session_id,
+            tx=tx,
+        )
+
+        if vector is None:
+            return []
+
+        vector_norm = math.sqrt(sum(x * x for x in vector))
+        if vector_norm == 0:
+            return []
+
+        scored = []
+        for c in candidates:
+            emb = c.embedding
+            if emb is None:
+                continue
+
+            try:
+                if hasattr(emb, "tolist"):
+                    emb_list = emb.tolist()
+                elif isinstance(emb, (list, tuple)):
+                    emb_list = list(emb)
+                else:
+                    continue
+            except Exception:
+                continue
+
+            emb_norm = math.sqrt(sum(x * x for x in emb_list))
+            if emb_norm == 0:
+                continue
+
+            score = sum(x * y for x, y in zip(vector, emb_list)) / (
+                vector_norm * emb_norm
+            )
+
+            if threshold is not None and score < threshold:
+                continue
+            scored.append((score, c))
+
+        scored.sort(key=lambda t: t[0], reverse=True)
+        return [t[1] for t in scored[:top_k]]
+
+    async def get_filenames_for_chunks(
+        self,
+        chunks: List[DocumentChunk],
+        chat_session_id: UUID,
+        tx: Optional[DBTransaction] = None,
+    ) -> List[str]:
+        """
+        Retrieves unique filenames for all documents associated with the given chunks.
+        Results are filtered to only include documents from the specified chat_session_id.
+        """
+        if not chunks:
+            return []
+
         try:
-            # Retrieve candidates
+            # Extract unique document IDs from chunks
+            document_ids = set(chunk.document_id for chunk in chunks)
+
+            # Query documents where id IN (extracted IDs) AND session_id matches
+            stmt = select(Document.filename).where(
+                (Document.id.in_(document_ids)) & (Document.session_id == chat_session_id)
+            )
+
             if tx is not None:
-                result = await tx.execute(select(DocumentChunk))
-                candidates = result.scalars().all()
-            else:
-                async with self._db.get_session() as session:
-                    result = await session.execute(select(DocumentChunk))
-                    candidates = result.scalars().all()
+                result = await tx.execute(stmt)
+                filenames = result.scalars().unique().all()
+                self._logger.debug(f"Retrieved {len(filenames)} unique filenames for chunks")
+                return filenames
 
-            # Prepare vector
-            if vector is None:
-                return []
-
-            def _dot(a, b):
-                return sum(x * y for x, y in zip(a, b))
-
-            def _norm(a):
-                return math.sqrt(sum(x * x for x in a))
-
-            scored = []
-            for c in candidates:
-                emb = c.embedding
-                if emb is None:
-                    continue
-                # try to coerce embedding to list
-                try:
-                    if hasattr(emb, "tolist"):
-                        emb_list = emb.tolist()
-                    elif isinstance(emb, (list, tuple)):
-                        emb_list = list(emb)
-                    else:
-                        continue
-                except Exception:
-                    continue
-
-                # compute cosine similarity
-                try:
-                    denom = _norm(vector) * _norm(emb_list)
-                    if denom == 0:
-                        continue
-                    score = _dot(vector, emb_list) / denom
-                except Exception:
-                    continue
-
-                if threshold is not None and score < threshold:
-                    continue
-                scored.append((score, c))
-
-            scored.sort(key=lambda t: t[0], reverse=True)
-            return [t[1] for t in scored[:top_k]]
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
+                filenames = result.scalars().unique().all()
+                self._logger.debug(f"Retrieved {len(filenames)} unique filenames for chunks")
+                return filenames
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise database_error(
-                message="An error occurred during similarity search.",
-                error_code="DOCUMENT_CHUNK_SEARCH_ERROR",
+                message="An error occurred while retrieving filenames for chunks.",
+                error_code="DOCUMENT_CHUNK_FILENAMES_ERROR",
                 stack_trace=str(e),
             )
+
 
