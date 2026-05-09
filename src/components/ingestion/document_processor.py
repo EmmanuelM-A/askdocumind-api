@@ -20,8 +20,60 @@ from src.errors.custom_exceptions import unprocessable_entity_error
 from src.config.configs import settings
 from src.logger.base_logger import BaseLogger
 
+_logger = BaseLogger(__name__)
+
 
 class DocumentProcessor:
+    """
+    Base class for document processors.
+    """
+
+    def __init__(self) -> None:
+        """
+        Initialize the streaming document processor with a recursive
+        character-based text splitter.
+        """
+        self.splitter = RecursiveCharacterTextSplitter(
+            chunk_size=settings.vector.CHUNK_SIZE,
+            chunk_overlap=settings.vector.CHUNK_OVERLAP,
+        )
+
+    @staticmethod
+    def _validate_content(
+        content: str, filename: Optional[str] = None
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Validate document content before processing, returning a tuple
+        containing a boolean indicating if the document is valid and the
+        cleaned content or None.
+        """
+
+        if not content:
+            return False, None
+
+        content = content.strip()
+        if len(content) < settings.app.MIN_DOCUMENT_CONTENT_LENGTH:
+            _logger.warning(f"Document {filename} too short, skipping")
+            return False, None
+
+        if len(content) > settings.app.MAX_DOCUMENT_CONTENT_LENGTH:
+            if settings.app.IS_TRUNCATION_ENABLED:
+                _logger.warning(f"Document {filename} too large, truncating")
+                content = (
+                    content[: settings.app.MAX_DOCUMENT_CONTENT_LENGTH]
+                    + "... [TRUNCATED]"
+                )
+            else:
+                _logger.warning(f"Document {filename} too large, skipping")
+                return False, None
+
+        return True, content
+
+    def _split_content(self, clean_content: str) -> list[str]:
+        return self.splitter.split_text(clean_content)
+
+
+class UploadedDocumentProcessor(DocumentProcessor):
     """
     Document processor for memory-efficient RAG ingestion.
 
@@ -40,15 +92,7 @@ class DocumentProcessor:
     """
 
     def __init__(self) -> None:
-        """
-        Initialize the streaming document processor with a recursive
-        character-based text splitter.
-        """
-        self.splitter = RecursiveCharacterTextSplitter(
-            chunk_size=settings.vector.CHUNK_SIZE,
-            chunk_overlap=settings.vector.CHUNK_OVERLAP,
-        )
-        self._logger = BaseLogger(__name__)
+        super().__init__()
 
     def process(
         self,
@@ -63,18 +107,6 @@ class DocumentProcessor:
             3. Validate and clean content
             4. Split text into chunks
             5. Yield chunks immediately
-
-        Args:
-            files: List of uploaded files from the API request.
-
-        Yields:
-            FileDocument:
-                - content: text chunk
-                - metadata: inherited document metadata
-
-        Raises:
-            UnprocessableEntityError:
-                If no valid chunks are produced from all files.
         """
 
         if not files or len(files) == 0:
@@ -86,43 +118,34 @@ class DocumentProcessor:
         yielded_any_chunk = False
 
         for upload in files:
-            self._logger.debug(f"Processing uploaded file: {upload.filename}")
+            _logger.debug(f"Processing uploaded file: {upload.filename}")
 
             extractor = get_text_extractor(upload.filename)
 
-            # 1. Extract document (single document in memory)
             try:
                 document_content = extractor.extract_text_from(upload)
             except Exception as exc:
-                self._logger.warning(
-                    f"Failed to extract document {upload.filename}: {exc}"
-                )
+                _logger.warning(f"Failed to extract document {upload.filename}: {exc}")
                 continue
 
-            # 2. Validate & clean
-            success, cleaned_content = self._validate_document_content(
+            success, cleaned_content = self._validate_content(
                 content=document_content, filename=upload.filename
             )
 
             if not success or not cleaned_content:
-                self._logger.warning(f"Document validation failed: {upload.filename}")
+                _logger.warning(f"Document validation failed: {upload.filename}")
                 del document_content
                 continue
 
-            # 3. Chunk & stream
-            for chunk_text in self.splitter.split_text(cleaned_content):
+            for chunk_text in self._split_content(cleaned_content):
                 if not chunk_text.strip():
                     continue
 
                 yielded_any_chunk = True
 
-                self._logger.debug(f"Yielding document chunk from {upload.filename}")
+                _logger.debug(f"Yielding document chunk from {upload.filename}")
 
-                yield document_content
-
-            # 4. Explicit cleanup
-            del document_content
-            del cleaned_content
+                yield chunk_text
 
         if not yielded_any_chunk:
             raise unprocessable_entity_error(
@@ -130,37 +153,48 @@ class DocumentProcessor:
                 error_code="NO_VALID_DOCUMENT_CHUNKS",
             )
 
-    def _validate_document_content(
-        self, content: str, filename: Optional[str] = None
-    ) -> Tuple[bool, Optional[str]]:
+
+class WebDocumentProcessor(DocumentProcessor):
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def process(
+        self,
+        raw_web_contents: List[str],
+    ) -> Iterator[str]:
         """
-        Validate document content before processing.
-
-        Args:
-            content: Raw text content extracted from the document.
-
-        Returns:
-            A tuple containing a boolean indicating if the document is valid,
-            and the cleaned content or None.
+        Processes raw web contents.
         """
 
-        if not content:
-            return False, None
+        if not raw_web_contents or len(raw_web_contents) == 0:
+            raise unprocessable_entity_error(
+                message="No raw web contents provided for document processing.",
+                error_code="NO_WEB_CONTENTS_PROVIDED",
+            )
 
-        content = content.strip()
-        if len(content) < settings.app.MIN_DOCUMENT_CONTENT_LENGTH:
-            self._logger.warning(f"Document {filename} too short, skipping")
-            return False, None
+        yielded_any_chunk = False
 
-        if len(content) > settings.app.MAX_DOCUMENT_CONTENT_LENGTH:
-            if settings.app.IS_TRUNCATION_ENABLED:
-                self._logger.warning(f"Document {filename} too large, truncating")
-                content = (
-                    content[: settings.app.MAX_DOCUMENT_CONTENT_LENGTH]
-                    + "... [TRUNCATED]"
-                )
-            else:
-                self._logger.warning(f"Document {filename} too large, skipping")
-                return False, None
+        for raw_web_content in raw_web_contents:
+            success, cleaned_web_content = self._validate_content(content=raw_web_content)
 
-        return True, content
+            if not success or not cleaned_web_content:
+                _logger.warning(f"Raw web content validation failed")
+                continue
+
+            for chunked_text in self._split_content(cleaned_web_content):
+                if not chunked_text.strip():
+                    continue
+
+                yielded_any_chunk = True
+
+                _logger.debug(f"Yielding web content chunk")
+
+                yield chunked_text
+
+        if not yielded_any_chunk:
+            raise unprocessable_entity_error(
+                message="No valid document chunks produced.",
+                error_code="NO_VALID_DOCUMENT_CHUNKS",
+            )
+
