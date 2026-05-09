@@ -3,6 +3,7 @@ Responsible for wrapping the embedding model client to encode text into
 vectors.
 """
 
+import hashlib
 from typing import Dict, Any, List, Tuple, Iterable, Iterator
 
 from langchain_openai import OpenAIEmbeddings
@@ -11,9 +12,7 @@ from src.config.configs import settings
 from src.config.constants import CacheNamespace
 from src.errors.custom_exceptions import server_error
 from src.logger.base_logger import BaseLogger
-from src.components.ingestion.document import FileDocument
 from src.api.services.caching.cache_factory import CacheFactory
-from src.utils.helper import generate_content_hash
 
 
 class Embedder:
@@ -46,20 +45,21 @@ class Embedder:
                 stack_trace=str(e),
             )
 
-    def embed_documents(
-        self, documents: Iterable[FileDocument]
-    ) -> Iterator[Tuple[list[list[float]], list[dict]]]:
+    def embed_documents(self, documents: Iterable[str]) -> Iterator[List[List[float]]]:
         """
         Incrementally embed documents in batches.
 
         This method is designed for memory-efficient pipelines where
         documents are streamed (e.g. from a generator).
 
+        Args:
+            documents: Iterable of document text strings.
+
         Yields:
-            Tuple of (vectors, metadata_batch)
+            Batch of embedding vectors (List[List[float]]).
         """
 
-        buffer_docs: list[FileDocument] = []
+        buffer_docs: list[str] = []
 
         for doc in documents:
             buffer_docs.append(doc)
@@ -127,13 +127,16 @@ class Embedder:
 
     def _embed_batch(
         self,
-        documents: list[FileDocument],
-    ) -> Tuple[list[list[float]], list[dict]]:
+        documents: list[str],
+    ) -> List[List[float]]:
         """
         Embeds a single batch of documents.
 
-        :param documents: The list of documents to embed.
-        :return: Tuple of (vectors, metadata)
+        Args:
+            documents: The list of document text strings to embed.
+
+        Returns:
+            List of embedding vectors.
         """
 
         # Separate cached and uncached content
@@ -144,23 +147,14 @@ class Embedder:
         # Get new embeddings for uncached items
         new_embeddings = self._get_new_document_embeddings(uncached_items)
 
-        # Combine cached and new embeddings
+        # Combine cached and new embeddings in correct order
         vectors = self._combine_embeddings(
             cached_embeddings,
             new_embeddings,
             len(documents),
         )
 
-        # Persist chunk text alongside metadata so retrieval can build context directly.
-        metadata = [
-            {
-                "text": doc.content,
-                "meta": doc.metadata.to_dict(),
-            }
-            for doc in documents
-        ]
-
-        return vectors, metadata
+        return vectors
 
     @staticmethod
     def _get_cache_key(content: str) -> str:
@@ -173,35 +167,33 @@ class Embedder:
         Returns:
             Cache key string.
         """
-        return f"{generate_content_hash(content)}"
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
     def _get_cached_document_embeddings(
-        self, documents: List[FileDocument]
-    ) -> Tuple[List[Tuple[int, List[float]]], List[Tuple[int, str, str]]]:
+        self, documents: List[str]
+    ) -> Tuple[List[Tuple[int, List[float]]], List[Tuple[int, str]]]:
         """
         Get cached document embeddings and identify uncached items.
 
         Args:
-            documents: List of documents to check cache for.
+            documents: List of document text strings to check cache for.
 
         Returns:
             Tuple of:
                 - List of (index, embedding) for cached items.
-                - List of (index, content, source) for uncached items.
+                - List of (index, text) for uncached items.
         """
         cached_doc_embeddings = []
         uncached_items = []
 
         for i, doc in enumerate(documents):
-            cache_key = self._get_cache_key(doc.content)
+            cache_key = self._get_cache_key(doc)
             cached = self.documents_cache.get(cache_key)
 
             if cached is not None:
                 cached_doc_embeddings.append((i, cached))
             else:
-                uncached_items.append(
-                    (i, doc.content, doc.metadata.source or "unknown")
-                )
+                uncached_items.append((i, doc))
 
         cache_hit_rate = (
             len(cached_doc_embeddings) / len(documents) * 100 if documents else 0
@@ -214,13 +206,13 @@ class Embedder:
         return cached_doc_embeddings, uncached_items
 
     def _get_new_document_embeddings(
-        self, uncached_items: List[Tuple[int, str, str]]
+        self, uncached_items: List[Tuple[int, str]]
     ) -> List[Tuple[int, List[float]]]:
         """
         Get embeddings for uncached items and store them in cache.
 
         Args:
-            uncached_items: List of (index, content, source) tuples.
+            uncached_items: List of (index, text) tuples.
 
         Returns:
             List of (index, embedding) tuples.
@@ -239,9 +231,7 @@ class Embedder:
 
             # Store in cache and create result list
             result = []
-            for (original_idx, text, _), embedding in zip(
-                uncached_items, new_embeddings
-            ):
+            for (original_idx, text), embedding in zip(uncached_items, new_embeddings):
                 # Cache the embedding
                 cache_key = self._get_cache_key(text)
                 self.documents_cache.set(
@@ -266,7 +256,7 @@ class Embedder:
         cached_embeddings: List[Tuple[int, List[float]]],
         new_embeddings: List[Tuple[int, List[float]]],
         total_count: int,
-    ) -> List[List[float]] | List[None]:
+    ) -> List[List[float]]:
         """
         Combine cached and new embeddings in correct order.
 

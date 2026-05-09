@@ -149,24 +149,18 @@ class DocumentProcessor:
 
         content = content.strip()
         if len(content) < settings.app.MIN_DOCUMENT_CONTENT_LENGTH:
-            self._logger.warning(
-                f"Document {filename} too short, skipping"
-            )
+            self._logger.warning(f"Document {filename} too short, skipping")
             return False, None
 
         if len(content) > settings.app.MAX_DOCUMENT_CONTENT_LENGTH:
             if settings.app.IS_TRUNCATION_ENABLED:
-                self._logger.warning(
-                    f"Document {filename} too large, truncating"
-                )
+                self._logger.warning(f"Document {filename} too large, truncating")
                 content = (
                     content[: settings.app.MAX_DOCUMENT_CONTENT_LENGTH]
                     + "... [TRUNCATED]"
                 )
             else:
-                self._logger.warning(
-                    f"Document {filename} too large, skipping"
-                )
+                self._logger.warning(f"Document {filename} too large, skipping")
                 return False, None
 
         return True, content
