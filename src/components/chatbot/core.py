@@ -2,18 +2,19 @@
 Handles chatbot interactions using Retrieval-Augmented Generation (RAG).
 """
 
-from typing import List, Any, Sequence, Optional
-
-from fastapi import UploadFile
+from uuid import UUID
 
 from src.components.chatbot.query_handler import QueryHandler
-from src.components.ingestion.document_processor import DocumentProcessor
+from src.components.ingestion.document_processor import (
+    UploadedDocumentProcessor,
+)
 from src.components.retrieval.embedder import Embedder
-from src.components.retrieval.vector_store import VectorStore
 from src.components.retrieval.web_searcher import WebSearcher
 from src.config.configs import settings
 from src.config.constants import Source
-from src.errors.custom_exceptions import not_found_error, server_error
+from src.database.repository.interfaces.document_chunk_repository import (
+    DocumentChunkRepositoryInterface,
+)
 from src.logger.base_logger import BaseLogger
 
 
@@ -22,135 +23,41 @@ class RAGChatbot:
 
     def __init__(
         self,
-        vector_store: VectorStore,
-        document_processor: DocumentProcessor,
+        document_processor: UploadedDocumentProcessor,
         embedder: Embedder,
         query_handler: QueryHandler,
         web_searcher: WebSearcher,
+        document_chunk_repo: DocumentChunkRepositoryInterface,
     ) -> None:
         """
         Initializes the RAGChatbot with its components.
 
-        :param vector_store: The vector store instance.
         :param document_processor: The document processor instance.
         :param embedder: The embedder instance.
         :param query_handler: The query handler instance.
         :param web_searcher: The web searcher instance.
         """
-        self.vector_store = vector_store
         self.document_processor = document_processor
         self.embedder = embedder
         self.query_handler = query_handler
         self.web_searcher = web_searcher
+        self.document_chunk_repo = document_chunk_repo
         self._logger = BaseLogger(__name__)
-
-    # ========================== CHATBOT METHODS ==========================
-
-    def create_chat(self, index_chat_id: Optional[str]) -> str:
-        """
-        Creates a new chat by creating a new vector index.
-
-        :param index_chat_id: The ID of the index to create.
-        :return: The ID of the created index.
-        """
-        return self.vector_store.create_vector_index(index_chat_id)
-
-    def get_chat(self, index_chat_id: str) -> Any:
-        """
-        Retrieves a chat by its index ID.
-
-        :param index_chat_id: The ID of the index to retrieve.
-        :return: The index object.
-        """
-        return self.vector_store.get_vector_index(index_chat_id)
-
-    def get_chats(self, index_chat_ids: Optional[List[str]] = None) -> List[Any]:
-        """
-        Retrieves multiple chats by their index IDs.
-
-        :param index_chat_ids: A list of index IDs to retrieve. If None,
-            retrieves all indexes.
-        :return: A list of index objects.
-        """
-        return self.vector_store.get_vector_indexes(index_chat_ids)
-
-    def delete_chat(self, index_chat_id: str) -> None:
-        """Deletes a chat by its index ID."""
-
-        self.vector_store.delete_vector_index(index_chat_id)
-
-    def delete_chats(self, index_chat_ids: Optional[List[str]] = None) -> None:
-        """Deletes multiple chats by their index IDs."""
-
-        self.vector_store.delete_vector_indexes(index_chat_ids)
-
-    def chat_exists(self, index_chat_id: str) -> bool:
-        """Checks if a chat exists by its index ID."""
-
-        return self.vector_store.vector_index_exists(index_chat_id)
-
-    # ========================== VECTOR METHODS ==========================
-
-    def process_and_save_vectors(self, files: List[UploadFile], index_id: str) -> None:
-        """Processes documents, creates embeddings, and saves them to the vector store."""
-
-        self._check_if_index_exist(index_id)
-
-        total_chunks = 0
-
-        # Stream document chunks → stream embedding batches
-        for vectors, metadata in self.embedder.embed_documents(
-            documents=self.document_processor.process(files)
-        ):
-            self.vector_store.add_vectors(
-                index_id=index_id,
-                vectors=vectors,
-                metadata=metadata,
-            )
-            total_chunks += len(vectors)
-
-        self._logger.info(
-            f"{total_chunks} document chunks processed and saved to "
-            f"the index '{index_id}'."
-        )
-
-    def get_current_vectors(self, index_id: str) -> tuple[Sequence, list[dict]] | Any:
-        """Gets current vectors and metadata from the vector store based on index ID."""
-
-        self._check_if_index_exist(index_id)
-
-        return self.vector_store.load_vectors(index_id)
-
-    def delete_current_vectors(self, index_chat_id: str) -> None:
-        """Deletes vectors from the vector store."""
-
-        self.vector_store.delete_vectors(index_chat_id)
 
     # ========================== QUERY METHODS ==========================
 
-    def process_query(
-        self, sanitized_query: str, index_id: str, web_search_enabled: bool = False
+    async def process_query(
+        self, query: str, chat_session_id: UUID, web_search_enabled: bool = False
     ) -> dict:
         """
         Processes a user query by searching the vector store and optionally
         performing a web search if no relevant results are found.
-
-        :param sanitized_query: The user query string (assumed to be sanitized).
-        :param index_id: The ID of the index to search.
-        :param web_search_enabled: The flag to enable web search if no results
-            are found in the vector store.
-        :return: A dictionary containing the answer, sources, and source type.
         """
 
-        self._check_if_index_exist(index_id)
+        web_enabled = settings.web.IS_WEB_SEARCH_ENABLED
 
-        index, metadata = self.vector_store.load_vectors(index_id)
-
-        results = self.query_handler.search_for_vector(sanitized_query, index, metadata)
-
-        self._logger.debug(
-            f"Search returned {len(results) if results else 0} results for "
-            f"the query '{sanitized_query}'."
+        results, sources = await self.query_handler.search_for_vector(
+            query, chat_session_id
         )
 
         # No results found anywhere
@@ -160,73 +67,52 @@ class RAGChatbot:
             "try rephrasing your question or ask about a different "
             "topic.",
             "sources": [],
-            "source_type": "none",
         }
 
-        if results is None or len(results) == 0:
+        self._logger.debug(
+            f"Search returned {len(results) if results else 0} results for "
+            f"the query '{query}'."
+        )
+
+        if len(results) == 0 and not web_enabled:
             return response_data
 
-        if settings.web.IS_WEB_SEARCH_ENABLED and web_search_enabled:
+        if web_search_enabled:
             self._logger.info(
-                f"No results found in vector store for query: '{sanitized_query}'. "
+                f"No results found in vector store for query: '{query}'. "
                 "Attempting web search..."
             )
 
-            web_results = self.web_searcher.process_query_via_web_search(
-                query=sanitized_query, index_id=index_id
+            web_results, web_sources = (
+                await self.web_searcher.search_for_vectors_via_web_search(
+                    query=query, chat_session_id=chat_session_id
+                )
             )
 
             if len(web_results) == 0:
                 return response_data
 
-            response_data = self.query_handler.generate_responses(
-                query=sanitized_query, retrieved_chunks=web_results
+            web_response = self.query_handler.generate_responses(
+                query=query, retrieved_chunks=web_results, from_web_search=True
             )
 
-            if response_data:
-                response_data["source_type"] = Source.WEB_SEARCH
+            if web_response:
                 self._logger.info(
-                    f"Generated response from web search for the query: "
-                    f"'{sanitized_query}'."
+                    f"Generated response from web search for the query: " f"'{query}'."
                 )
+                response_data["answer"] = web_response
+                response_data["sources"] = web_sources
                 return response_data
 
-        response_data = self.query_handler.generate_responses(
-            query=sanitized_query, retrieved_chunks=results
+        response = self.query_handler.generate_responses(
+            query=query, retrieved_chunks=results
         )
 
-        if response_data:
-            response_data["source_type"] = Source.UPLOAD
-            self._logger.info(f"Generated response for query: '{sanitized_query}'.")
+        if response:
+            response_data["answer"] = response
+            response_data["sources"] = sources
+            self._logger.info(f"Generated response for query: '{query}'.")
             return response_data
 
-        self._logger.info(
-            f"No relevant information found for the query: '{sanitized_query}'."
-        )
+        self._logger.info(f"No relevant information found for the query: '{query}'.")
         return response_data
-
-    # ======================= HELPER METHODS =======================
-
-    def _check_if_index_exist(self, index_id: str) -> None:
-        """
-        Checks if the specified index exists in the vector store.
-
-        Args:
-            index_id (str): The ID of the index to check.
-
-        Raises:
-            NotFoundError: If the index does not exist.
-        """
-
-        exists = self.vector_store.vector_index_exists(index_id)
-
-        if not exists:
-            raise not_found_error(
-                message=f"Index with ID {index_id} not found.",
-                error_code="INDEX_NOT_FOUND",
-            )
-
-        self._logger.debug(f"Index with ID {index_id} exists.")
-
-    def _search_web(self):
-        pass
