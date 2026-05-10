@@ -10,8 +10,10 @@ This module is responsible for:
 This implementation is optimized for large files and high concurrency.
 """
 
-from typing import Iterator, List, Optional, Tuple
-from fastapi import UploadFile
+from dataclasses import dataclass
+from io import BytesIO
+from typing import Any, Iterator, List, Optional, Tuple, cast
+from uuid import UUID
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -21,6 +23,14 @@ from src.config.configs import settings
 from src.logger.base_logger import BaseLogger
 
 _logger = BaseLogger(__name__)
+
+
+@dataclass(slots=True)
+class _InMemoryUploadFile:
+    """Minimal file-like shim for bytes-backed extraction."""
+
+    filename: str
+    file: BytesIO
 
 
 class DocumentProcessor:
@@ -75,14 +85,15 @@ class DocumentProcessor:
 
 class UploadedDocumentProcessor(DocumentProcessor):
     """
-    Document processor for memory-efficient RAG ingestion.
+    Document processor for memory-efficient RAG ingestion from bytes.
 
     This processor extracts, cleans, and chunks uploaded documents
     while yielding chunks incrementally instead of storing them in memory.
 
     Intended usage:
-        for chunk in processor.process(files):
-            embed(chunk.content)
+        documents = [(filename, byte_data), ...]
+        for chunk in processor.process(documents):
+            embed(chunk)
             store(chunk)
 
     Guarantees:
@@ -96,20 +107,26 @@ class UploadedDocumentProcessor(DocumentProcessor):
 
     def process(
         self,
-        files: List[UploadFile],
-    ) -> Iterator[str]:
+        documents: List[Tuple[UUID, str, bytes]],
+    ) -> Iterator[Tuple[UUID, str]]:
         """
-        Stream processed document chunks from uploaded files.
+        Stream processed document chunks from bytes.
 
-        Pipeline (per file):
-            1. Select appropriate extractor
-            2. Extract raw text + metadata
+        Pipeline (per document):
+            1. Select appropriate extractor based on filename
+            2. Extract raw text from bytes
             3. Validate and clean content
             4. Split text into chunks
             5. Yield chunks immediately
+
+        Args:
+            documents: List of (document_id, filename, bytes) tuples
+
+        Yields:
+            (document_id, cleaned chunk text) tuples
         """
 
-        if not files or len(files) == 0:
+        if not documents or len(documents) == 0:
             raise unprocessable_entity_error(
                 message="No files provided for document processing.",
                 error_code="NO_FILES_PROVIDED",
@@ -117,23 +134,28 @@ class UploadedDocumentProcessor(DocumentProcessor):
 
         yielded_any_chunk = False
 
-        for upload in files:
-            _logger.debug(f"Processing uploaded file: {upload.filename}")
+        for document_id, filename, data in documents:
+            _logger.debug(f"Processing file: {filename}")
 
-            extractor = get_text_extractor(upload.filename)
+            extractor = get_text_extractor(filename)
+            upload = _InMemoryUploadFile(filename=filename, file=BytesIO(data))
+            extractor_any = cast(Any, extractor)
 
             try:
-                document_content = extractor.extract_text_from(upload)
+                try:
+                    document_content = extractor_any.extract_text_from(data, filename)
+                except TypeError:
+                    document_content = extractor_any.extract_text_from(upload)
             except Exception as exc:
-                _logger.warning(f"Failed to extract document {upload.filename}: {exc}")
+                _logger.warning(f"Failed to extract document {filename}: {exc}")
                 continue
 
             success, cleaned_content = self._validate_content(
-                content=document_content, filename=upload.filename
+                content=document_content, filename=filename
             )
 
             if not success or not cleaned_content:
-                _logger.warning(f"Document validation failed: {upload.filename}")
+                _logger.warning(f"Document validation failed: {filename}")
                 del document_content
                 continue
 
@@ -143,9 +165,9 @@ class UploadedDocumentProcessor(DocumentProcessor):
 
                 yielded_any_chunk = True
 
-                _logger.debug(f"Yielding document chunk from {upload.filename}")
+                _logger.debug(f"Yielding document chunk from {filename}")
 
-                yield chunk_text
+                yield document_id, chunk_text
 
         if not yielded_any_chunk:
             raise unprocessable_entity_error(
@@ -176,7 +198,9 @@ class WebDocumentProcessor(DocumentProcessor):
         yielded_any_chunk = False
 
         for raw_web_content in raw_web_contents:
-            success, cleaned_web_content = self._validate_content(content=raw_web_content)
+            success, cleaned_web_content = self._validate_content(
+                content=raw_web_content
+            )
 
             if not success or not cleaned_web_content:
                 _logger.warning(f"Raw web content validation failed")
@@ -197,4 +221,3 @@ class WebDocumentProcessor(DocumentProcessor):
                 message="No valid document chunks produced.",
                 error_code="NO_VALID_DOCUMENT_CHUNKS",
             )
-
