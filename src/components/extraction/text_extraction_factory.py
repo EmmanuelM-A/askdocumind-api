@@ -4,12 +4,11 @@ Factory for creating text document extractors based on file type.
 
 from pathlib import Path
 
-from src.components.extraction.base_extractor import TextDocumentExtractor
 from src.components.extraction.text_extractor import (
     PDFDocumentExtractor,
     DocxDocumentExtractor,
     MarkdownDocumentExtractor,
-    TxtDocumentExtractor,
+    TxtDocumentExtractor, TextDocumentExtractor,
 )
 
 _extractors: dict[str, type[TextDocumentExtractor]] = {
