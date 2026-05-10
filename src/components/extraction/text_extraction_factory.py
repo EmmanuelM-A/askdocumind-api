@@ -8,7 +8,8 @@ from src.components.extraction.text_extractor import (
     PDFDocumentExtractor,
     DocxDocumentExtractor,
     MarkdownDocumentExtractor,
-    TxtDocumentExtractor, TextDocumentExtractor,
+    TxtDocumentExtractor,
+    TextDocumentExtractor,
 )
 
 _extractors: dict[str, type[TextDocumentExtractor]] = {

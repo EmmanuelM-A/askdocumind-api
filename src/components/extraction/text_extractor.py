@@ -1,6 +1,7 @@
 """
 Module for text extraction from various file formats.
 """
+
 from abc import ABC, abstractmethod
 from importlib.metadata import PackageNotFoundError
 import zipfile
@@ -17,6 +18,7 @@ from src.errors.custom_exceptions import server_error
 from src.logger.base_logger import BaseLogger
 
 _logger = BaseLogger(__name__)
+
 
 class TextDocumentExtractor(ABC):
     """
