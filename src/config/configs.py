@@ -109,11 +109,6 @@ class AuthSettings(BaseSettings):
     Authentication and authorization configuration settings.
     """
 
-    # ACCESS_SECRET: SecretStr = Field(..., env="ACCESS_TOKEN_SECRET")
-    # REFRESH_SECRET: SecretStr = Field(..., env="REFRESH_TOKEN_SECRET")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=5)
-    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7)
-
     USER_SESSION_SECRET: SecretStr = Field(
         default="dev-anon-session-secret-change-me",
         validation_alias="USER_SESSION_SECRET",
@@ -140,8 +135,8 @@ class FileProcessingSettings(BaseSettings):
     """File processing configuration settings."""
 
     ALLOWED_FILE_EXTENSIONS: List[str] = Field(default=[".pdf", ".docx", ".txt", ".md"])
-    MAX_FILE_SIZE_MB: int = Field(default=10)  # TODO: ADD TOTAL FOR USER PER CHAT
-    MAX_FILES_PER_UPLOAD: int = Field(default=10)
+    MAX_FILE_SIZE_MB: int = Field(default=0.5)
+    MAX_FILES_PER_CHAT_MB: int = Field(default=1)
 
     LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{PROJECT_ROOT}/data/local/documents")
 
@@ -270,9 +265,6 @@ class LoggingSettings(BaseSettings):
 class APIServerSettings(BaseSettings):
     """API server configuration settings."""
 
-    #
-    # HOST: str = Field(default="0.0.0.0")
-    # PORT: int = Field(default=8000)
     WORKERS: int = Field(default=1)
 
     DOCS_URL: str = Field(default="/docs")
