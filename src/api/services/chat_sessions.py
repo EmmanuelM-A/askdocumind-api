@@ -88,7 +88,7 @@ class ChatSessionService:
         self, chat_id: UUID, data: UpdatedChatSessionData
     ) -> ChatSession:
         """Update chat metadata after verifying ownership.
-        
+
         The None check for updated_chat handles the rare race condition where the chat
         is deleted between the ownership check and the update operation.
         """
@@ -112,7 +112,7 @@ class ChatSessionService:
 
     async def delete_chat(self, chat_id: UUID) -> UUID:
         """Delete a chat session and all associated files.
-        
+
         Database deletion happens first within a transaction. Storage deletion
         happens afterward to ensure consistency, with logging for any failures.
         """
@@ -136,18 +136,16 @@ class ChatSessionService:
 
         return deleted_id
 
-    async def init_or_get_chat_session(
-        self, user_id: UUID, title: str = None
-    ) -> UUID:
+    async def init_or_get_chat_session(self, user_id: UUID, title: str = None) -> UUID:
         """Initialize or retrieve a chat session for the given user.
-        
+
         Verifies that the provided user_id matches the current authenticated user,
         then either retrieves the most recent chat or creates a new one.
-        
+
         Args:
             user_id: The user ID to get/create chat for (must match current user)
             title: Optional title for newly created chat sessions
-            
+
         Returns:
             UUID of an existing or newly created chat session
         """
