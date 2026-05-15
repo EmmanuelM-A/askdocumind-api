@@ -405,10 +405,12 @@ class UploadService:
         try:
             if tx is None:
                 async with self.tx_factory.create() as tx:
-                    updated_count = await self.document_repo.bulk_update_processing_status(
-                        document_ids,
-                        status,
-                        tx=tx,
+                    updated_count = (
+                        await self.document_repo.bulk_update_processing_status(
+                            document_ids,
+                            status,
+                            tx=tx,
+                        )
                     )
 
                     if updated_count != len(document_ids):
