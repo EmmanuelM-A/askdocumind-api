@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 from fastapi import UploadFile
 
-from src.api.services.document_uploads import UploadService
+from src.api.services.documents.document_uploads import UploadService
 from src.api.services.validation.rag_validation import UploadDocumentsRequest
 from src.config.configs import settings
 from src.config.constants import ProcessingStatus

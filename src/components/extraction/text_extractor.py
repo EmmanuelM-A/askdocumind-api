@@ -14,6 +14,7 @@ except ImportError:
 
 import pymupdf
 
+from src.errors.api_exceptions import ApiException
 from src.errors.custom_exceptions import server_error
 from src.logger.base_logger import BaseLogger
 
@@ -117,7 +118,7 @@ class PDFDocumentExtractor(TextDocumentExtractor):
 
             return content.strip()
 
-        except server_error:
+        except ApiException:
             raise
         except Exception as e:
             raise server_error(

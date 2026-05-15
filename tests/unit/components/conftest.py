@@ -3,7 +3,7 @@ Fixtures for component tests (extractors, document processor, etc.)
 """
 
 import io
-from unittest.mock import patch, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from fastapi import UploadFile
@@ -127,6 +127,16 @@ def sample_embedding():
     """Returns a sample embedding vector."""
     return [0.1, 0.2, 0.3, 0.4, 0.5]
 
+
+@pytest.fixture
+def sample_documents():
+    """Returns sample text documents for embedder tests."""
+    return [
+        "Document one content.",
+        "Document two content.",
+        "Document three content.",
+    ]
+
 # ================== VECTOR STORE FIXTURES ==================
 
 
@@ -162,12 +172,30 @@ def mock_embedder():
 
 
 @pytest.fixture
-def query_handler(mock_embedder):
+def mock_document_chunk_repo():
+    """Creates a mock DocumentChunk repository for query handler tests."""
+    mock_repo = Mock()
+    mock_repo.search_similar = AsyncMock(return_value=[])
+    mock_repo.get_filenames_for_chunks = AsyncMock(return_value=[])
+    return mock_repo
+
+
+@pytest.fixture
+def query_handler(mock_embedder, mock_document_chunk_repo):
     """Provides a QueryHandler instance with mocked embedder."""
     from src.components.chatbot.query_handler import QueryHandler
 
-    handler = QueryHandler(embedder=mock_embedder)
-    return handler
+    with patch("src.components.chatbot.query_handler.ChatOpenAI") as mock_llm, patch(
+        "src.components.chatbot.query_handler.create_prompt_template"
+    ) as mock_prompt:
+        mock_llm.return_value = MagicMock()
+        mock_prompt.return_value = MagicMock()
+
+        handler = QueryHandler(
+            embedder=mock_embedder,
+            document_chunk_repo=mock_document_chunk_repo,
+        )
+        return handler
 
 
 @pytest.fixture
@@ -222,7 +250,15 @@ def mock_vector_store():
 
 
 @pytest.fixture
-def web_searcher(mock_embedder, mock_document_processor, mock_vector_store):
+def mock_vector_processor():
+    """Creates a mock VectorProcessor instance."""
+    mock_processor = Mock()
+    mock_processor.process_and_save_vectors_from_web = AsyncMock(return_value=0)
+    return mock_processor
+
+
+@pytest.fixture
+def web_searcher(mock_embedder, mock_vector_processor):
     """Provides a WebSearcher instance with mocked dependencies."""
     from src.components.retrieval.web_searcher import WebSearcher
 
@@ -234,8 +270,7 @@ def web_searcher(mock_embedder, mock_document_processor, mock_vector_store):
 
         searcher = WebSearcher(
             embedder=mock_embedder,
-            document_processor=mock_document_processor,
-            vector_store=mock_vector_store,
+            vector_processor=mock_vector_processor,
         )
 
         yield searcher
