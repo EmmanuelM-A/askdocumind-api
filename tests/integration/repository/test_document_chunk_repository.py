@@ -11,7 +11,6 @@ import pytest
 from sqlalchemy import delete
 
 from src.config.constants import ProcessingStatus
-from src.database.connection import DatabaseConnection
 from src.database.models import ChatSession, Document, DocumentChunk, User
 from src.database.repository.interfaces.document_chunk_repository import (
     DocumentChunkSearchCriteria,
@@ -29,50 +28,9 @@ def anyio_backend():
 
 
 @pytest.fixture
-async def db_connection():
-    """Provide a real database connection for this test file only."""
-    conn = DatabaseConnection()
-    await conn.connect()
-    yield conn
-    await conn.disconnect()
-
-
-@pytest.fixture
 def document_chunk_repo(db_connection):
     """Provide a DocumentChunkRepository instance."""
     return DocumentChunkRepository(connection=db_connection)
-
-
-@pytest.fixture
-async def test_user(db_connection):
-    """Create a test user for document ownership."""
-    user = User(id=uuid4())
-    async with db_connection.get_session() as session:
-        session.add(user)
-        await session.commit()
-
-    yield user
-
-    async with db_connection.get_session() as session:
-        await session.execute(delete(User).where(User.id == user.id))
-        await session.commit()
-
-
-@pytest.fixture
-async def test_chat_session(db_connection, test_user):
-    """Create a test chat session."""
-    chat_session = ChatSession(id=uuid4(), user_id=test_user.id)
-    async with db_connection.get_session() as session:
-        session.add(chat_session)
-        await session.commit()
-
-    yield chat_session
-
-    async with db_connection.get_session() as session:
-        await session.execute(
-            delete(ChatSession).where(ChatSession.id == chat_session.id)
-        )
-        await session.commit()
 
 
 @pytest.fixture
@@ -117,7 +75,7 @@ def chunk_factory():
     def _create_chunk(
         document_id,
         *,
-        chunk_index: int,
+        chat_session_id,
         chunk_text: str,
         head: tuple[float, float, float],
     ) -> DocumentChunk:
@@ -125,7 +83,7 @@ def chunk_factory():
         return DocumentChunk(
             id=uuid4(),
             document_id=document_id,
-            chunk_index=chunk_index,
+            chat_session_id=chat_session_id,
             chunk_text=chunk_text,
             embedding=embedding,
         )
@@ -152,7 +110,7 @@ class TestDocumentChunkRepositoryCore:
     ):
         chunk = chunk_factory(
             test_document.id,
-            chunk_index=0,
+            chat_session_id=test_document.session_id,
             chunk_text="Chunk text one",
             head=(1.0, 0.0, 0.0),
         )
@@ -171,7 +129,7 @@ class TestDocumentChunkRepositoryCore:
     ):
         chunk = chunk_factory(
             test_document.id,
-            chunk_index=1,
+            chat_session_id=test_document.session_id,
             chunk_text="Lookup chunk",
             head=(1.0, 0.0, 0.0),
         )
@@ -201,7 +159,7 @@ class TestDocumentChunkRepositoryCore:
         chunks = [
             chunk_factory(
                 test_document.id,
-                chunk_index=i,
+                chat_session_id=test_document.session_id,
                 chunk_text=f"Chunk {i}",
                 head=(1.0, 0.0, 0.0),
             )
@@ -223,7 +181,7 @@ class TestDocumentChunkRepositoryCore:
     ):
         other_document = Document(
             id=uuid4(),
-            session_id=test_document.chat_session_id,
+            session_id=test_document.session_id,
             filename="other.pdf",
             file_size=1024,
             processing_status=ProcessingStatus.COMPLETED,
@@ -237,19 +195,19 @@ class TestDocumentChunkRepositoryCore:
             chunks = [
                 chunk_factory(
                     test_document.id,
-                    chunk_index=0,
+                    chat_session_id=test_document.session_id,
                     chunk_text="A",
                     head=(1.0, 0.0, 0.0),
                 ),
                 chunk_factory(
                     test_document.id,
-                    chunk_index=1,
+                    chat_session_id=test_document.session_id,
                     chunk_text="B",
                     head=(0.5, 0.5, 0.0),
                 ),
                 chunk_factory(
                     other_document.id,
-                    chunk_index=0,
+                    chat_session_id=test_document.session_id,
                     chunk_text="C",
                     head=(-1.0, 0.0, 0.0),
                 ),
@@ -276,22 +234,19 @@ class TestDocumentChunkRepositoryCore:
     ):
         chunk = chunk_factory(
             test_document.id,
-            chunk_index=2,
+            chat_session_id=test_document.session_id,
             chunk_text="Target chunk",
             head=(1.0, 0.0, 0.0),
         )
         await document_chunk_repo.create(chunk)
 
-        criteria = DocumentChunkSearchCriteria(
-            document_id=test_document.id,
-            chunk_index=2,
-        )
+        criteria = DocumentChunkSearchCriteria(id=chunk.id)
         result = await document_chunk_repo.get_by_criteria(criteria)
 
         assert result is not None
         assert result.id == chunk.id
         assert result.document_id == test_document.id
-        assert result.chunk_index == 2
+        assert result.chunk_text == "Target chunk"
 
     async def test_exists_true_false(
         self,
@@ -302,7 +257,7 @@ class TestDocumentChunkRepositoryCore:
     ):
         chunk = chunk_factory(
             test_document.id,
-            chunk_index=3,
+            chat_session_id=test_document.session_id,
             chunk_text="Existence chunk",
             head=(1.0, 0.0, 0.0),
         )
@@ -321,7 +276,7 @@ class TestDocumentChunkRepositoryCore:
     ):
         other_document = Document(
             id=uuid4(),
-            session_id=test_document.chat_session_id,
+            session_id=test_document.session_id,
             filename="count-other.pdf",
             file_size=512,
             processing_status=ProcessingStatus.COMPLETED,
@@ -335,19 +290,19 @@ class TestDocumentChunkRepositoryCore:
             chunks = [
                 chunk_factory(
                     test_document.id,
-                    chunk_index=0,
+                    chat_session_id=test_document.session_id,
                     chunk_text="A",
                     head=(1.0, 0.0, 0.0),
                 ),
                 chunk_factory(
                     test_document.id,
-                    chunk_index=1,
+                    chat_session_id=test_document.session_id,
                     chunk_text="B",
                     head=(0.5, 0.5, 0.0),
                 ),
                 chunk_factory(
                     other_document.id,
-                    chunk_index=0,
+                    chat_session_id=test_document.session_id,
                     chunk_text="C",
                     head=(-1.0, 0.0, 0.0),
                 ),
@@ -372,7 +327,7 @@ class TestDocumentChunkRepositoryCore:
     ):
         chunk = chunk_factory(
             test_document.id,
-            chunk_index=4,
+            chat_session_id=test_document.session_id,
             chunk_text="Delete me",
             head=(1.0, 0.0, 0.0),
         )
@@ -394,7 +349,7 @@ class TestDocumentChunkRepositoryCore:
         chunks = [
             chunk_factory(
                 test_document.id,
-                chunk_index=i,
+                    chat_session_id=test_document.session_id,
                 chunk_text=f"Chunk {i}",
                 head=(1.0, 0.0, 0.0),
             )
@@ -419,7 +374,7 @@ class TestDocumentChunkRepositoryCore:
         chunks = [
             chunk_factory(
                 test_document.id,
-                chunk_index=i,
+                chat_session_id=test_document.session_id,
                 chunk_text=f"Chunk {i}",
                 head=(1.0, 0.0, 0.0),
             )
@@ -441,25 +396,26 @@ class TestDocumentChunkRepositoryCore:
     ):
         chunk_a = chunk_factory(
             test_document.id,
-            chunk_index=0,
+            chat_session_id=test_document.session_id,
             chunk_text="Best match",
             head=(1.0, 0.0, 0.0),
         )
         chunk_b = chunk_factory(
             test_document.id,
-            chunk_index=1,
+            chat_session_id=test_document.session_id,
             chunk_text="Second match",
             head=(0.5, 0.5, 0.0),
         )
         chunk_c = chunk_factory(
             test_document.id,
-            chunk_index=2,
+            chat_session_id=test_document.session_id,
             chunk_text="Low match",
             head=(-1.0, 0.0, 0.0),
         )
         await _create_chunks(document_chunk_repo, [chunk_a, chunk_b, chunk_c])
 
         results = await document_chunk_repo.search_similar(
+            chat_session_id=test_document.session_id,
             vector=[1.0, 0.0, 0.0] + [0.0] * 1533,
             top_k=2,
             threshold=0.6,

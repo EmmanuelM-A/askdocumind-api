@@ -22,7 +22,6 @@ class DocumentChunkSearchCriteria(BaseModel):
 
     id: Optional[UUID] = None
     document_id: Optional[UUID] = None
-    chunk_index: Optional[int] = None
 
 
 class UpdatedDocumentChunkData(BaseModel):

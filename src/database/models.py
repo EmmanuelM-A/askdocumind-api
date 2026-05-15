@@ -17,7 +17,6 @@ from sqlalchemy import (
     BigInteger,
     Enum,
     ForeignKey,
-    Sequence,
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship, declarative_base
@@ -209,12 +208,11 @@ class DocumentChunk(Base):
 
     def __repr__(self) -> str:
         return (
-            f"DocumentChunk(id={self.id}, document_id={self.document_id}, "
-            f"chunk_index={self.chunk_index})"
+            f"DocumentChunk(id={self.id}, document_id={self.document_id})"
         )
 
     def __str__(self) -> str:
-        return f"Chunk {self.chunk_index} of document {self.document_id}"
+        return f"Chunk of document {self.document_id}"
 
     def to_dict(self) -> dict:
         """Return a JSON-serializable dict representation of the chunk.
@@ -241,7 +239,6 @@ class DocumentChunk(Base):
         return {
             "id": _serialize_value(self.id),
             "document_id": _serialize_value(self.document_id),
-            "chunk_index": self.chunk_index,
             "chunk_text": self.chunk_text,
             "embedding": _serialize_embedding(self.embedding),
             "created_at": _serialize_value(self.created_at),
