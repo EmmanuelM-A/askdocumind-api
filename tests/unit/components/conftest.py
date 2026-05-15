@@ -144,9 +144,9 @@ def sample_vectors():
 def sample_metadata():
     """Returns sample metadata for testing."""
     return [
-        {"filename": "doc1.txt", "source": "upload", "chunk_index": 0},
-        {"filename": "doc2.txt", "source": "upload", "chunk_index": 0},
-        {"filename": "doc3.txt", "source": "upload", "chunk_index": 0},
+        {"filename": "doc1.txt", "source": "upload"},
+        {"filename": "doc2.txt", "source": "upload"},
+        {"filename": "doc3.txt", "source": "upload"},
     ]
 
 
