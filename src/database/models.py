@@ -57,7 +57,11 @@ class User(Base):
         default=lambda: datetime.now(),
         index=True,
     )
-    last_seen_at = Column(DateTime, index=True)
+    last_seen_at = Column(
+        DateTime,
+        default=lambda: datetime.now(),
+        index=True,
+    )
 
     def __repr__(self):
         return f"User(id={self.id}, created_at={self.created_at})"
