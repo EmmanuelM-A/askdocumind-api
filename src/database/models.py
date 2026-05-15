@@ -192,14 +192,13 @@ class DocumentChunk(Base):
     document_id = Column(
         UUID(as_uuid=True),
         ForeignKey("document.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
     chat_session_id = Column(
         UUID(as_uuid=True),
         ForeignKey("chat_session.id", ondelete="CASCADE"),
         nullable=False,
     )
-    chunk_index = Column(Integer, default=0, nullable=False)
     chunk_text = Column(Text, nullable=False)
     embedding = Column(Vector(1536), nullable=False)
 
