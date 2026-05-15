@@ -135,7 +135,7 @@ class FileProcessingSettings(BaseSettings):
     """File processing configuration settings."""
 
     ALLOWED_FILE_EXTENSIONS: List[str] = Field(default=[".pdf", ".docx", ".txt", ".md"])
-    MAX_FILE_SIZE_MB: int = Field(default=0.5)
+    MAX_FILE_SIZE_MB: float = Field(default=0.5)
     MAX_FILES_PER_CHAT_MB: int = Field(default=1)
 
     LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{PROJECT_ROOT}/data/local/documents")
