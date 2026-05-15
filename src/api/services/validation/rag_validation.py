@@ -30,7 +30,7 @@ from src.logger.base_logger import BaseLogger
 # TODO: USE PYDANTIC FOR VALIDATION?
 
 
-def sanitize_query(query: str, logger: BaseLogger) -> str:
+def validate_and_sanitize_query(query: str, logger: BaseLogger) -> str:
     """Sanitize user query and return the sanitized string.
 
     The function is idempotent: repeated calls produce the same output. It
@@ -129,9 +129,7 @@ def validate_url(url: str) -> bool:
 
 
 async def check_if_chat_exists(
-    chat_id: UUID,
-    chat_session_repo: ChatSessionRepositoryInterface,
-    chatbot: "RAGChatbot",
+    chat_id: UUID, chat_session_repo: ChatSessionRepositoryInterface
 ) -> None:
     """
     Check if the chat session and corresponding chat vector store exist.
@@ -157,12 +155,6 @@ async def check_if_chat_exists(
             error_code="CHAT_SESSION_NOT_FOUND",
         )
 
-    if not chatbot.chat_exists(index_chat_id=str(chat_id)):
-        raise not_found_error(
-            message=f"Chat with ID {chat_id} not found in vector store.",
-            error_code="CHAT_NOT_FOUND_IN_VECTOR_STORE",
-        )
-
 
 class ChatRequest(BaseModel):
     """
@@ -184,7 +176,7 @@ class ChatRequest(BaseModel):
     def validate_query(cls, value: str) -> str:
         """Ensure query is not just whitespace."""
 
-        return sanitize_query(query=value, logger=BaseLogger(__name__))
+        return validate_and_sanitize_query(query=value, logger=BaseLogger(__name__))
 
 
 class UploadDocumentsRequest(BaseModel):
@@ -196,7 +188,7 @@ class UploadDocumentsRequest(BaseModel):
         ...,
         description="List of file documents to be uploaded",
         min_length=1,
-        max_length=settings.files.MAX_FILES_PER_UPLOAD,
+        max_length=5,
     )
     chat_id: UUID = Field(..., description="The chat session identifier")
 
