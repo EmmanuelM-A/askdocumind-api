@@ -4,10 +4,27 @@ Any implementation of CachingService should pass this suite.
 """
 
 import time
+import uuid
+
+import pytest
+
+from src.api.services.caching.redis_cache import RedisCache
+
+
+@pytest.fixture
+def cache():
+    """
+    Provides a fresh cache instance per test using a unique namespace.
+    Uses RedisCache for testing without requiring Redis to be running.
+    """
+    namespace = f"test:{uuid.uuid4().hex}"
+    c = RedisCache(namespace=namespace)
+    yield c
+    c.clear()
+    c.close()
+
 
 # ==================== BASIC SET / GET ====================
-
-# TODO: ADD DOCUMENTATION TO THESE TESTS
 
 
 def test_successful_cache_set_operation(cache):
