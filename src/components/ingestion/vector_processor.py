@@ -3,7 +3,8 @@ from uuid import UUID
 
 from src.config.configs import settings
 from src.components.ingestion.document_processor import (
-    UploadedDocumentProcessor, WebDocumentProcessor,
+    UploadedDocumentProcessor,
+    WebDocumentProcessor,
 )
 from src.components.retrieval.embedder import Embedder
 from src.database.models import DocumentChunk
@@ -94,19 +95,17 @@ class VectorProcessor:
 
         for raw_content in raw_web_contents:
             # Ensure processor gets a list of contents (it yields chunk strings)
-            chunk_texts = list(
-                self._web_document_processor.process([raw_content]))
+            chunk_texts = list(self._web_document_processor.process([raw_content]))
 
             if not chunk_texts:
                 continue
 
             # embed in batches
             for start in range(0, len(chunk_texts), batch_size):
-                batch_texts = chunk_texts[start: start + batch_size]
+                batch_texts = chunk_texts[start : start + batch_size]
 
                 # embed_documents is an iterator of batches; we call it on the batch list
-                batch_vectors_iter = list(
-                    self._embedder.embed_documents(batch_texts))
+                batch_vectors_iter = list(self._embedder.embed_documents(batch_texts))
                 if not batch_vectors_iter:
                     continue
 
@@ -125,6 +124,5 @@ class VectorProcessor:
         if not entities:
             return 0
 
-        saved_chunks = await self._document_chunk_repository.upsert_many(
-            entities, tx)
+        saved_chunks = await self._document_chunk_repository.upsert_many(entities, tx)
         return len(saved_chunks)
