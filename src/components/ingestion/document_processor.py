@@ -25,14 +25,6 @@ from src.logger.base_logger import BaseLogger
 _logger = BaseLogger(__name__)
 
 
-@dataclass(slots=True)
-class _InMemoryUploadFile:
-    """Minimal file-like shim for bytes-backed extraction."""
-
-    filename: str
-    file: BytesIO
-
-
 class DocumentProcessor:
     """
     Base class for document processors.
@@ -138,14 +130,13 @@ class UploadedDocumentProcessor(DocumentProcessor):
             _logger.debug(f"Processing file: {filename}")
 
             extractor = get_text_extractor(filename)
-            upload = _InMemoryUploadFile(filename=filename, file=BytesIO(data))
             extractor_any = cast(Any, extractor)
 
             try:
                 try:
                     document_content = extractor_any.extract_text_from(data, filename)
                 except TypeError:
-                    document_content = extractor_any.extract_text_from(upload)
+                    document_content = extractor_any.extract_text_from(data, filename)
             except Exception as exc:
                 _logger.warning(f"Failed to extract document {filename}: {exc}")
                 continue
