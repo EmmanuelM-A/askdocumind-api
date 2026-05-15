@@ -8,9 +8,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from src.components.retrieval.embedder import Embedder
-from src.components.ingestion.document import FileDocument, FileDocumentMetadata
 from src.errors.api_exceptions import ApiException
-
 
 # ==================== INITIALIZATION ====================
 
@@ -117,7 +115,6 @@ def test_embed_query_api_failure(embedder):
 
 def test_embed_documents_single_batch(embedder, sample_documents):
     """Test embedding documents that fit in a single batch."""
-    # All cache misses
     embedder.documents_cache.get.return_value = None
     embedder.embedding_model.embed_documents.return_value = [
         [0.1, 0.2],
@@ -131,21 +128,24 @@ def test_embed_documents_single_batch(embedder, sample_documents):
         results = list(embedder.embed_documents(sample_documents))
 
     assert len(results) == 1
-    vectors, metadata = results[0]
-    assert len(vectors) == 3
-    assert len(metadata) == 3
+    assert results[0] == [
+        [0.1, 0.2],
+        [0.3, 0.4],
+        [0.5, 0.6],
+    ]
+    embedder.embedding_model.embed_documents.assert_called_once_with(sample_documents)
 
 
 def test_embed_documents_multiple_batches(embedder):
     """Test embedding documents across multiple batches."""
-    # Create 5 documents
-    docs = []
-    for i in range(5):
-        metadata = FileDocumentMetadata(filename=f"doc_{i}.txt", file_extension=".txt")
-        docs.append(FileDocument(content=f"Content {i}", metadata=metadata))
+    docs = [f"Content {i}" for i in range(5)]
 
     embedder.documents_cache.get.return_value = None
-    embedder.embedding_model.embed_documents.return_value = [[0.1, 0.2], [0.3, 0.4]]
+    embedder.embedding_model.embed_documents.side_effect = [
+        [[0.1, 0.2], [0.3, 0.4]],
+        [[0.5, 0.6], [0.7, 0.8]],
+        [[0.9, 1.0]],
+    ]
 
     with patch("src.components.retrieval.embedder.settings") as mock_settings:
         mock_settings.vector.VECTOR_BATCH_SIZE = 2
@@ -154,14 +154,15 @@ def test_embed_documents_multiple_batches(embedder):
 
     # Should have 3 batches: [2, 2, 1]
     assert len(results) == 3
+    assert [len(batch) for batch in results] == [2, 2, 1]
+    assert results[0] == [[0.1, 0.2], [0.3, 0.4]]
+    assert results[1] == [[0.5, 0.6], [0.7, 0.8]]
+    assert results[2] == [[0.9, 1.0]]
 
 
 def test_embed_documents_with_cache_hit(embedder):
     """Test document embedding uses cache for previously seen content."""
-    doc = FileDocument(
-        content="cached content",
-        metadata=FileDocumentMetadata(filename="test.txt", file_extension=".txt"),
-    )
+    doc = "cached content"
 
     # First call - cache miss, second call - cache hit
     cached_embedding = [0.1, 0.2, 0.3]
@@ -177,8 +178,8 @@ def test_embed_documents_with_cache_hit(embedder):
         results = list(embedder.embed_documents([doc]))
 
     # Verify cached result used
-    vectors, _ = results[0]
-    assert vectors[0] == cached_embedding
+    assert results[0] == [cached_embedding]
+    embedder.embedding_model.embed_documents.assert_called_once_with([doc])
 
 
 def test_embed_documents_api_failure(embedder, sample_documents):
