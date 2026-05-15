@@ -8,6 +8,7 @@ from src.components.ingestion.document_processor import (
 )
 from src.components.retrieval.embedder import Embedder
 from src.database.models import DocumentChunk
+from src.database.repository.interfaces import DBTransaction
 from src.database.repository.interfaces.document_chunk_repository import (
     DocumentChunkRepositoryInterface,
 )
@@ -29,7 +30,10 @@ class VectorProcessor:
         self._logger = BaseLogger(__name__)
 
     async def process_and_save_vectors_from_uploads(
-        self, chat_session_id: UUID, documents: List[Tuple[UUID, str, bytes]]
+        self,
+        chat_session_id: UUID,
+        documents: List[Tuple[UUID, str, bytes]],
+        tx: DBTransaction,
     ) -> int:
         if not documents:
             return 0
@@ -53,9 +57,7 @@ class VectorProcessor:
 
                 vectors = batch_vectors[0]
 
-                for (document_id, chunk_text), embedding in zip(
-                    batch_records, vectors
-                ):
+                for (document_id, chunk_text), embedding in zip(batch_records, vectors):
                     entities.append(
                         DocumentChunk(
                             document_id=document_id,
@@ -68,7 +70,7 @@ class VectorProcessor:
         if not entities:
             return 0
 
-        saved_chunks = await self.document_chunk_repository.upsert_many(entities)
+        saved_chunks = await self.document_chunk_repository.upsert_many(entities, tx)
 
         return len(saved_chunks)
 

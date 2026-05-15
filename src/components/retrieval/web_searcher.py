@@ -3,18 +3,25 @@ Web search module for retrieving information from the internet when no
 relevant documents are found.
 """
 
+from dataclasses import dataclass
+
 import requests
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from urllib.parse import quote_plus
 from bs4 import BeautifulSoup
 
-from src.components.ingestion.document_processor import DocumentProcessor
+
+from src.components.ingestion.vector_processor import VectorProcessor
 from src.components.retrieval.embedder import Embedder
-from src.components.retrieval.vector_store import VectorStore
 from src.config.configs import settings
-from src.components.ingestion.document import FileDocument, FileDocumentMetadata
 from src.logger.base_logger import BaseLogger
+
+
+@dataclass
+class WebContent:
+    content: str
+    sources: List[str]
 
 
 class WebSearcher:
@@ -25,8 +32,7 @@ class WebSearcher:
     def __init__(
         self,
         embedder: Embedder,
-        document_processor: DocumentProcessor,
-        vector_store: VectorStore,
+        vector_processor: VectorProcessor,
     ) -> None:
         """
         Initializes the WebSearcher instance.
@@ -38,10 +44,15 @@ class WebSearcher:
         self.search_engine_id = settings.web.SEARCH_ENGINE_ID.get_secret_value()
 
         self.embedder = embedder
-        self.document_processor = document_processor
-        self.vector_store = vector_store
+        self.vector_processor = vector_processor
 
     # ======================== WEB SEARCH METHODS ========================
+
+    def search_and_ingest_web_content(self):
+        pass
+
+    def search_for_vector(self):
+        pass
 
     def process_query_via_web_search(
         self, query: str, index_id: str
@@ -93,7 +104,7 @@ class WebSearcher:
 
     # ========================== HELPER METHODS ==========================
 
-    def _search_and_retrieve_content_from_web(self, query: str) -> List[FileDocument]:
+    def _search_and_retrieve_content_from_web(self, query: str) -> List[WebContent]:
         """Enhanced web search with better error handling."""
 
         if not query or not query.strip():
@@ -130,7 +141,7 @@ class WebSearcher:
                     if i > 0:
                         time.sleep(settings.web.WEB_REQUEST_DELAY_SECS)
 
-                    document = self._fetch_and_create_document(result)
+                    document = self._fetch_and_full_content(result)
                     if document:
                         documents.append(document)
                         successful_fetches += 1
@@ -242,10 +253,14 @@ class WebSearcher:
                 snippet_elem = element.find("div", class_="result__snippet")
 
                 if title_elem and snippet_elem:
+                    full_content = f"Title: {
+                        title_elem.get_text(strip=True)
+                    }\n\nSummary: {
+                        snippet_elem.get_text(strip=True)
+                    }"
                     results.append(
                         {
-                            "title": title_elem.get_text(strip=True),
-                            "snippet": snippet_elem.get_text(strip=True),
+                            "content": full_content,
                             "url": title_elem.get("href", ""),
                             "source": "duckduckgo_search",
                         }
@@ -258,15 +273,11 @@ class WebSearcher:
             self._logger.error(f"Error in fallback search: {e}")
             return []
 
-    def _fetch_and_create_document(self, result: dict) -> Optional[FileDocument]:
+    def _fetch_and_full_content(self, result: dict) -> Tuple[str, str] | None:
         """
-        Safely fetch and create document from search result.
-
-        Args:
-            result: A single search result dictionary
-
-        Returns:
-            FileDocument object or None if failed
+        Safely fetch and extract content from a web page given a search result,
+        with robust error handling and fallback to snippet if content retrieval
+        fails.
         """
 
         try:
@@ -285,14 +296,7 @@ class WebSearcher:
                 full_content = f"Title: {title}\n\nSummary: {snippet}"
                 self._logger.debug(f"Using snippet fallback for {url}")
 
-            metadata = FileDocumentMetadata(
-                filename=title or "web_content",
-                file_extension=".html",
-                author=None,
-                source=url,
-            )
-
-            return FileDocument(full_content, metadata)
+            return full_content, url
 
         except Exception as e:
             self._logger.error(f"Error creating document from search result: {e}")
@@ -300,13 +304,8 @@ class WebSearcher:
 
     def _fetch_page_content(self, url: str) -> Optional[str]:
         """
-        Fetch and extract text content from a web page.
-
-        Args:
-            url: URL to fetch
-
-        Returns:
-            Extracted text content or None if failed
+        Fetch and extract text content from a web page at the given URL or
+        return None if any error occurs.
         """
 
         try:
