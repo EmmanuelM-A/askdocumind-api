@@ -29,7 +29,7 @@ class RAGChatbotController:
         if self.rag_chatbot_service is None:
             self.rag_chatbot_service = get_rag_chatbot_service()
 
-        chat_response = await self.rag_chatbot_service.handle_chat(request)
+        chat_response = await self.rag_chatbot_service.handle_chat_request(request)
 
         return create_success_response(
             status_code=status.HTTP_200_OK, success_response_model=chat_response

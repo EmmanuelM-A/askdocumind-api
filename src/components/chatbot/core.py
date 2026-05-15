@@ -2,6 +2,9 @@
 Handles chatbot interactions using Retrieval-Augmented Generation (RAG).
 """
 
+import json
+from dataclasses import dataclass
+from typing import List
 from uuid import UUID
 
 from src.components.chatbot.query_handler import QueryHandler
@@ -16,6 +19,23 @@ from src.database.repository.interfaces.document_chunk_repository import (
     DocumentChunkRepositoryInterface,
 )
 from src.logger.base_logger import BaseLogger
+
+
+@dataclass
+class ChatbotResponse:
+    answer: str
+    sources: List[str]
+
+    def to_dict(self) -> dict:
+        """Return a JSON-serializable dictionary representation."""
+        return {
+            "answer": self.answer,
+            "sources": self.sources,
+        }
+
+    def to_json(self) -> str:
+        """Return a JSON string representation."""
+        return json.dumps(self.to_dict(), indent=4)
 
 
 class RAGChatbot:
@@ -50,7 +70,7 @@ class RAGChatbot:
 
     async def process_query(
         self, query: str, chat_session_id: UUID, web_search_enabled: bool = False
-    ) -> dict:
+    ) -> ChatbotResponse:
         """
         Processes a user query by searching the vector store and optionally
         performing a web search if no relevant results are found.
@@ -62,14 +82,14 @@ class RAGChatbot:
             query, chat_session_id
         )
 
-        # No results found anywhere
-        response_data = {
-            "answer": "I couldn't find relevant information to answer your "
+        # Default response object (AT THE START)
+        response_data = ChatbotResponse(
+            answer="I couldn't find relevant information to answer your "
             "question in my documents or through web search. Please "
             "try rephrasing your question or ask about a different "
             "topic.",
-            "sources": [],
-        }
+            sources=[],
+        )
 
         self._logger.debug(
             f"Search returned {len(results) if results else 0} results for "
@@ -106,8 +126,8 @@ class RAGChatbot:
                     f"Generated response from web search for the query: "
                     + f"'{query}'."
                 )
-                response_data["answer"] = web_response
-                response_data["sources"] = web_sources
+                response_data.answer = web_response
+                response_data.sources = web_sources
                 return response_data
 
         response = self.query_handler.generate_responses(
@@ -115,8 +135,8 @@ class RAGChatbot:
         )
 
         if response:
-            response_data["answer"] = response
-            response_data["sources"] = sources
+            response_data.answer = response
+            response_data.sources = sources
             self._logger.info(f"Generated response for query: '{query}'.")
             return response_data
 
