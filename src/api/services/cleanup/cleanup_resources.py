@@ -56,12 +56,11 @@ class CleanupAnonymousUserResources:
     async def _cleanup_expired_anonymous_user_sessions(self) -> int:
         """Delete expired anonymous users and clear related resources."""
 
-        cutoff = datetime.now() - timedelta(
-            hours=settings.auth.ANON_SESSION_TTL_HOURS
-        )
+        cutoff = datetime.now() - timedelta(hours=settings.auth.ANON_SESSION_TTL_HOURS)
 
         expired_user_ids = await self._get_expired_user_ids(cutoff)
         if not expired_user_ids:
+            self.logger.debug("No expired anonymous user sessions found for cleanup.")
             return 0
 
         deleted_count = 0
@@ -86,21 +85,26 @@ class CleanupAnonymousUserResources:
 
                     if await self.user_repo.delete(user_id, tx=tx):
                         deleted_count += 1
+                        self.logger.info(f"Purged expired user session: {user_id}")
 
             except Exception as exc:
                 self.logger.warning(
-                    f"Failed cleanup transaction for expired user {user_id}: {exc}"
+                    f"Failed cleanup transaction for expired user {user_id}: {exc}",
+                    exc_info=True,
                 )
 
         if deleted_count > 0:
-            self.logger.debug(
+            self.logger.info(
                 f"Deleted {deleted_count} expired anonymous user session(s)"
             )
 
         return deleted_count
 
     def _clear_caches(self, chat_ids: list[str]) -> None:
-        """Clear chat-scoped cache entries for deleted sessions."""
+        """Clear chat-scoped cache entries for deleted sessions.
+
+        Continues clearing all namespaces even if individual operations fail.
+        """
 
         if not chat_ids:
             return
@@ -110,14 +114,19 @@ class CleanupAnonymousUserResources:
             CacheNamespace.QUERIES,
             CacheNamespace.DOCUMENTS,
         ):
-            cache = CacheFactory.get_cache(namespace)
-            for chat_id in chat_ids:
-                try:
-                    cache.clear_namespace(chat_id)
-                except Exception as exc:
-                    self.logger.warning(
-                        f"Failed to clear cache for namespace={namespace} chat_id={chat_id}: {exc}"
-                    )
+            try:
+                cache = CacheFactory.get_cache(namespace)
+                for chat_id in chat_ids:
+                    try:
+                        cache.clear_namespace(chat_id)
+                    except Exception as exc:
+                        self.logger.warning(
+                            f"Failed to clear cache for namespace={namespace} chat_id={chat_id}: {exc}"
+                        )
+            except Exception as exc:
+                self.logger.warning(
+                    f"Failed to get cache for namespace={namespace}: {exc}"
+                )
 
     def _clear_additional_resources(self, chat_ids: list[str]) -> bool:
         """Clear storage files and vector indexes for deleted sessions."""
@@ -134,15 +143,6 @@ class CleanupAnonymousUserResources:
                 success = False
                 self.logger.warning(
                     f"Failed to delete storage resources for chat {chat_id}: {exc}"
-                )
-
-            try:
-                if self.chatbot.chat_exists(chat_id):
-                    self.chatbot.delete_chat(chat_id)
-            except Exception as exc:
-                success = False
-                self.logger.warning(
-                    f"Failed to delete vector resources for chat {chat_id}: {exc}"
                 )
 
         return success
@@ -165,27 +165,36 @@ class CleanupAnonymousUserResources:
                 continue
 
 
-_cleanup_anon_user_resources = CleanupAnonymousUserResources(
-    user_repo=get_database_repository("USER"),
-    chat_repo=get_database_repository("CHAT_SESSION"),
-    tx_factory=get_tx_factory(),
-    chatbot=get_chatbot(),
-    storage_service=get_storage_service(),
-)
-
-
 async def init_anon_user_sessions_cleanup(
-    stop_event: asyncio.Event = asyncio.Event(),
-    interval_minutes: int = settings.auth.USER_SESSION_CLEANUP_INTERVAL_MINUTES,
+    stop_event: asyncio.Event | None = None,
+    interval_minutes: int | None = None,
 ) -> None:
-    """
-    Start cleanup repeatedly until the stop event is set.
+    """Start cleanup repeatedly until the stop event is set.
+
+    Args:
+        stop_event: Event to signal when cleanup should stop. If None, creates a new event.
+        interval_minutes: Minutes between cleanup runs. If None, uses configured default.
     """
 
     if not settings.auth.USER_SESSION_CLEANUP_ENABLED:
         return
 
-    await _cleanup_anon_user_resources.run_scheduler(
-        stop_event=stop_event,
-        interval_minutes=interval_minutes,
+    # Use provided event or create new one
+    effective_stop_event = stop_event or asyncio.Event()
+    # Use provided interval or fall back to settings
+    effective_interval_minutes = (
+        interval_minutes or settings.auth.USER_SESSION_CLEANUP_INTERVAL_MINUTES
+    )
+
+    cleanup_service = CleanupAnonymousUserResources(
+        user_repo=get_database_repository("USER"),
+        chat_repo=get_database_repository("CHAT_SESSION"),
+        tx_factory=get_tx_factory(),
+        chatbot=get_chatbot(),
+        storage_service=get_storage_service(),
+    )
+
+    await cleanup_service.run_scheduler(
+        stop_event=effective_stop_event,
+        interval_minutes=effective_interval_minutes,
     )
