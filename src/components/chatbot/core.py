@@ -11,7 +11,7 @@ from src.components.ingestion.document_processor import (
 from src.components.retrieval.embedder import Embedder
 from src.components.retrieval.web_searcher import WebSearcher
 from src.config.configs import settings
-from src.config.constants import Source
+from src.database.repository.interfaces import DBTransactionFactory
 from src.database.repository.interfaces.document_chunk_repository import (
     DocumentChunkRepositoryInterface,
 )
@@ -27,6 +27,7 @@ class RAGChatbot:
         embedder: Embedder,
         query_handler: QueryHandler,
         web_searcher: WebSearcher,
+        tx_factory: DBTransactionFactory,
         document_chunk_repo: DocumentChunkRepositoryInterface,
     ) -> None:
         """
@@ -41,6 +42,7 @@ class RAGChatbot:
         self.embedder = embedder
         self.query_handler = query_handler
         self.web_searcher = web_searcher
+        self._tx_factory = tx_factory
         self.document_chunk_repo = document_chunk_repo
         self._logger = BaseLogger(__name__)
 
@@ -83,10 +85,13 @@ class RAGChatbot:
                 "Attempting web search..."
             )
 
-            web_results, web_sources = (
-                await self.web_searcher.search_for_vectors_via_web_search(
-                    query=query, chat_session_id=chat_session_id
+            async with self._tx_factory.create() as tx:
+                await self.web_searcher.search_and_ingest_web_content(
+                    query=query, chat_session_id=chat_session_id, tx=tx
                 )
+
+            web_results, web_sources = await self.query_handler.search_for_vector(
+                query, chat_session_id
             )
 
             if len(web_results) == 0:
@@ -98,7 +103,8 @@ class RAGChatbot:
 
             if web_response:
                 self._logger.info(
-                    f"Generated response from web search for the query: " f"'{query}'."
+                    f"Generated response from web search for the query: "
+                    + f"'{query}'."
                 )
                 response_data["answer"] = web_response
                 response_data["sources"] = web_sources
