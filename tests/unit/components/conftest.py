@@ -231,6 +231,33 @@ def sample_retrieved_chunks():
     ]
 
 
+# ================== VECTOR PROCESSOR FIXTURES ==================
+
+
+@pytest.fixture
+def mock_upload_document_processor():
+    """Creates a mock UploadedDocumentProcessor instance."""
+    mock_proc = Mock()
+    mock_proc.process.return_value = iter([])
+    return mock_proc
+
+
+@pytest.fixture
+def mock_web_document_processor():
+    """Creates a mock WebDocumentProcessor instance."""
+    mock_proc = Mock()
+    mock_proc.process.return_value = iter([])
+    return mock_proc
+
+
+@pytest.fixture
+def mock_document_chunk_repository():
+    """Creates a mock DocumentChunkRepository instance."""
+    mock_repo = Mock()
+    mock_repo.upsert_many = AsyncMock(return_value=[])
+    return mock_repo
+
+
 # ================== WEB SEARCHER FIXTURES ==================
 
 
