@@ -62,7 +62,6 @@ def get_chat_service() -> "ChatSessionService":
         from src.api.services.chat_sessions import ChatSessionService
 
         _chat_service = ChatSessionService(
-            chatbot=get_chatbot(),
             storage=get_storage_service(),
             chat_session_repo=get_database_repository("CHAT_SESSION"),
             chat_message_repo=get_database_repository("CHAT_MESSAGE"),
