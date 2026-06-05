@@ -97,14 +97,10 @@ def embedder():
         mock_model.model = "text-embedding-3-small"
         mock_openai.return_value = mock_model
 
-        # Mock cache instances
-        mock_doc_cache = Mock()
         mock_query_cache = Mock()
 
         # Set up cache factory to return mocked caches
         def get_cache_side_effect(namespace):
-            if "documents" in namespace.lower():
-                return mock_doc_cache
 
             if "queries" in namespace.lower():
                 return mock_query_cache

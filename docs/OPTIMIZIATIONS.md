@@ -10,8 +10,8 @@ enabled to prevent abuse.~~
 4. ~~**TTL Cleanup Jobs** - Add scheduled cleanup (for inactive sessions) that removes all related resources: DB rows,
 uploaded files, vector indexes, metadata, and cache entries.~~
 5. ~~**Storage Delete Correctness** - Ensure chat deletion removes full chat storage namespace and vectors, not only partial file items.~~
-6. **Validation Coverage** - Ensure all API endpoints use Pydantic request/response schemas consistently.
-7. **Error Contract Stability** - Standardize API error responses and error codes for predictable frontend integration.
+6. ~~**Validation Coverage** - Ensure all API endpoints use Pydantic request/response schemas consistently.~~
+7. ~~**Error Contract Stability** - Standardize API error responses and error codes for predictable frontend integration.~~
 8. **Core Observability** - Add structured logging + basic monitoring (request count, failure rate, latency, cleanup outcomes).
 9. **Deployment Config Hygiene** - Harden environment/config management for dev/staging/prod, including secrets and runtime flags.
 10. **Pre-Launch Tests** - Add/expand integration and e2e tests for chat, upload, retrieval, cleanup, and session lifecycle paths.

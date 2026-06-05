@@ -23,7 +23,6 @@ def test_embedder_initialization_success():
         embedder = Embedder()
 
         assert embedder.embedding_model is not None
-        assert embedder.documents_cache is not None
         assert embedder.queries_cache is not None
 
 
@@ -115,7 +114,6 @@ def test_embed_query_api_failure(embedder):
 
 def test_embed_documents_single_batch(embedder, sample_documents):
     """Test embedding documents that fit in a single batch."""
-    embedder.documents_cache.get.return_value = None
     embedder.embedding_model.embed_documents.return_value = [
         [0.1, 0.2],
         [0.3, 0.4],
@@ -140,7 +138,6 @@ def test_embed_documents_multiple_batches(embedder):
     """Test embedding documents across multiple batches."""
     docs = [f"Content {i}" for i in range(5)]
 
-    embedder.documents_cache.get.return_value = None
     embedder.embedding_model.embed_documents.side_effect = [
         [[0.1, 0.2], [0.3, 0.4]],
         [[0.5, 0.6], [0.7, 0.8]],
@@ -160,31 +157,8 @@ def test_embed_documents_multiple_batches(embedder):
     assert results[2] == [[0.9, 1.0]]
 
 
-def test_embed_documents_with_cache_hit(embedder):
-    """Test document embedding uses cache for previously seen content."""
-    doc = "cached content"
-
-    # First call - cache miss, second call - cache hit
-    cached_embedding = [0.1, 0.2, 0.3]
-    embedder.documents_cache.get.side_effect = [None, cached_embedding]
-    embedder.embedding_model.embed_documents.return_value = [cached_embedding]
-
-    with patch("src.components.retrieval.embedder.settings") as mock_settings:
-        mock_settings.vector.VECTOR_BATCH_SIZE = 10
-
-        # First embedding
-        list(embedder.embed_documents([doc]))
-        # Second embedding - should use cache
-        results = list(embedder.embed_documents([doc]))
-
-    # Verify cached result used
-    assert results[0] == [cached_embedding]
-    embedder.embedding_model.embed_documents.assert_called_once_with([doc])
-
-
 def test_embed_documents_api_failure(embedder, sample_documents):
     """Test document embedding handles API failures."""
-    embedder.documents_cache.get.return_value = None
     embedder.embedding_model.embed_documents.side_effect = Exception("API Error")
 
     with patch("src.components.retrieval.embedder.settings") as mock_settings:
@@ -203,7 +177,6 @@ def test_clear_caches(embedder):
     """Test clearing embedder caches."""
     embedder.clear_caches()
 
-    embedder.documents_cache.clear.assert_called_once()
     embedder.queries_cache.clear.assert_called_once()
 
 
