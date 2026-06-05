@@ -3,11 +3,14 @@ Service module for handling document uploads.
 """
 
 import asyncio
+import uuid
 from typing import List, Optional, Tuple
 from uuid import UUID
 
 from fastapi import UploadFile
 
+from src.api.services.caching.cache_factory import CacheFactory
+from src.api.services.caching.caching_service import CachingService
 from src.api.services.validation.rag_validation import (
     UploadDocumentsRequest,
     check_if_chat_exists,
@@ -18,7 +21,7 @@ from src.api.services.validation.rag_validation import (
 from src.api.utils.api_responses import SuccessResponseModel
 from src.components.ingestion.vector_processor import VectorProcessor
 from src.config.configs import settings
-from src.config.constants import ProcessingStatus
+from src.config.constants import ProcessingStatus, CacheNamespace
 from src.database.models import Document
 from src.database.repository.interfaces import (
     ChatSessionRepositoryInterface,
@@ -54,6 +57,9 @@ class UploadService:
         self.vector_processor = vector_processor
         self.chat_session_repo = chat_session_repo
         self.document_repo = document_repo
+        self._doc_cache: CachingService = CacheFactory.get_cache(
+            CacheNamespace.DOCUMENTS
+        )
         self.tx_factory = tx_factory
 
         self.max_file_size_bytes = settings.files.MAX_FILE_SIZE_MB * 1024 * 1024
@@ -132,6 +138,7 @@ class UploadService:
                     )
 
                     document = Document(
+                        id=uuid.uuid4(),
                         session_id=request.chat_id,
                         filename=uploaded_file.filename,
                         file_size=len(data),
@@ -140,6 +147,16 @@ class UploadService:
 
                     entities.append(document)
                     documents.append((document.id, uploaded_file.filename, data))
+
+                self._logger.debug(
+                    f"{len(documents)} document(s) entities created successfully"
+                )
+                self._logger.warning(
+                    f"{len(files_that_exceed_chat_limit)} files exceed chat limit"
+                )
+                self._logger.debug(
+                    f"{len(saved_keys)} file(s) were saved to the store successfully"
+                )
 
                 if len(files_that_exceed_chat_limit) == len(request.documents):
                     raise conflict_error(
@@ -166,12 +183,17 @@ class UploadService:
                         error_details="Mismatch in number of created document entities",
                     )
 
+                self._logger.debug(
+                    f"Created {len(created_entities)} document entities successfully"
+                )
+
                 await self._update_document_statuses(
                     document_ids=created_entities,
                     status=ProcessingStatus.COMPLETED,
                     tx=tx,
                 )
-        except ApiException:
+        except ApiException as e:
+            self._logger.warning(f"An {e.error.code} error occurred")
             await self._cleanup_saved_files_if_storage_failed(saved_keys)
             raise
         except Exception as e:
@@ -281,9 +303,14 @@ class UploadService:
     async def _cleanup_saved_files_if_storage_failed(
         self, saved_keys: List[str]
     ) -> None:
+        if not saved_keys or len(saved_keys) == 0:
+            self._logger.warning("No saved keys provided.")
+            return
+
         for k in saved_keys:
             try:
                 await asyncio.to_thread(self.storage_service.delete, k)
+                self._logger.debug(f"Successfully deleted {k} from storage")
             except (FileNotFoundError, IOError):
                 # Best-effort cleanup; ignore further errors
                 self._logger.warning(
@@ -439,6 +466,10 @@ class UploadService:
                         f"but updated {updated_count}."
                     ),
                 )
+
+            self._logger.debug(
+                f"All document statuses have been updated to {status.value}"
+            )
         except Exception as e:
             raise database_error(
                 message=f"Failed to update document statuses to {status.value}",

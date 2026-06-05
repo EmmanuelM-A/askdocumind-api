@@ -65,6 +65,7 @@ class Embedder:
             buffer_docs.append(doc)
 
             if len(buffer_docs) >= settings.vector.VECTOR_BATCH_SIZE:
+                self._logger.debug(f"Yielding {len(buffer_docs)} vectors")
                 yield self._embed_batch(buffer_docs)
                 buffer_docs.clear()
 
@@ -228,6 +229,8 @@ class Embedder:
         try:
             # Get embeddings in batch from OpenAI
             new_embeddings = self.embedding_model.embed_documents(texts)
+
+            self._logger.debug("New embeddings computed.")
 
             # Store in cache and create result list
             result = []

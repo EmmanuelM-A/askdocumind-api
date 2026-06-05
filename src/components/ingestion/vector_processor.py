@@ -45,7 +45,12 @@ class VectorProcessor:
             chunk_records = list(self._upload_document_processor.process([document]))
 
             if not chunk_records:
+                self._logger.warning(f"No chunks found for the {document}")
                 continue
+
+            self._logger.debug(
+                f"Processing {len(chunk_records)} chunks for {document.__str__()}"
+            )
 
             for start in range(0, len(chunk_records), batch_size):
                 batch_records = chunk_records[start : start + batch_size]
@@ -53,11 +58,13 @@ class VectorProcessor:
 
                 batch_vectors = list(self._embedder.embed_documents(batch_texts))
                 if not batch_vectors:
+                    self._logger.debug(f"No vectors found for {document}")
                     continue
 
                 vectors = batch_vectors[0]
 
                 for (document_id, chunk_text), embedding in zip(batch_records, vectors):
+                    self._logger.debug(f"Processing {document_id}")
                     entities.append(
                         DocumentChunk(
                             document_id=document_id,
@@ -66,11 +73,16 @@ class VectorProcessor:
                             embedding=embedding,
                         )
                     )
+        self._logger.debug(
+            f"Prepared {len(entities)} chunk entities for database upsert"
+        )
 
         if not entities:
             return 0
 
         saved_chunks = await self._document_chunk_repository.upsert_many(entities, tx)
+
+        self._logger.debug(f"{len(saved_chunks)} chunks uploaded")
 
         return len(saved_chunks)
 
