@@ -138,7 +138,7 @@ class Document(Base):
     )
 
     # Columns
-    id = Column(UUID(as_uuid=True), primary_key=True, nullable=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id = Column(
         UUID(as_uuid=True),
         ForeignKey("chat_session.id", ondelete="CASCADE"),

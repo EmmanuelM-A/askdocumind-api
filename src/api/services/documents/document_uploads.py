@@ -167,10 +167,6 @@ class UploadService:
                         error_code="ALL_DOCUMENTS_EXCEED_CHAT_LIMIT",
                     )
 
-                await self.vector_processor.process_and_save_vectors_from_uploads(
-                    chat_session_id=request.chat_id, documents=documents, tx=tx
-                )
-
                 created_entities = await self.document_repo.create_many(
                     entities=entities,
                     tx=tx,
@@ -185,6 +181,10 @@ class UploadService:
 
                 self._logger.debug(
                     f"Created {len(created_entities)} document entities successfully"
+                )
+
+                await self.vector_processor.process_and_save_vectors_from_uploads(
+                    chat_session_id=request.chat_id, documents=documents, tx=tx
                 )
 
                 await self._update_document_statuses(

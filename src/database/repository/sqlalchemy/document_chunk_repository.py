@@ -233,7 +233,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
     ) -> int:
         try:
             stmt = select(func.count(DocumentChunk.id)).select_from(DocumentChunk)
-            if document_id:
+            if document_id is not None:
                 stmt = stmt.where(DocumentChunk.document_id == document_id)
 
             if tx is not None:
@@ -342,7 +342,12 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
 
         try:
             # Extract unique document IDs from chunks
-            document_ids = set(chunk.document_id for chunk in chunks)
+            document_ids = {
+                chunk.document_id for chunk in chunks if chunk.document_id is not None
+            }
+
+            if not document_ids:
+                return []
 
             # Query documents where id IN (extracted IDs) AND session_id matches
             stmt = select(Document.filename).where(

@@ -45,11 +45,11 @@ class VectorProcessor:
             chunk_records = list(self._upload_document_processor.process([document]))
 
             if not chunk_records:
-                self._logger.warning(f"No chunks found for the {document}")
+                self._logger.warning(f"No chunks found for the {document[0]}")
                 continue
 
             self._logger.debug(
-                f"Processing {len(chunk_records)} chunks for {document.__str__()}"
+                f"Processing {len(chunk_records)} chunks for {document[0]}"
             )
 
             for start in range(0, len(chunk_records), batch_size):
@@ -58,13 +58,12 @@ class VectorProcessor:
 
                 batch_vectors = list(self._embedder.embed_documents(batch_texts))
                 if not batch_vectors:
-                    self._logger.debug(f"No vectors found for {document}")
+                    self._logger.debug(f"No vectors found for {document[0]}")
                     continue
 
                 vectors = batch_vectors[0]
 
                 for (document_id, chunk_text), embedding in zip(batch_records, vectors):
-                    self._logger.debug(f"Processing {document_id}")
                     entities.append(
                         DocumentChunk(
                             document_id=document_id,
