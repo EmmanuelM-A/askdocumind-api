@@ -138,7 +138,7 @@ class Document(Base):
     )
 
     # Columns
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, nullable=True)
     session_id = Column(
         UUID(as_uuid=True),
         ForeignKey("chat_session.id", ondelete="CASCADE"),
@@ -211,9 +211,7 @@ class DocumentChunk(Base):
     document = relationship("Document", back_populates="chunks")
 
     def __repr__(self) -> str:
-        return (
-            f"DocumentChunk(id={self.id}, document_id={self.document_id})"
-        )
+        return f"DocumentChunk(id={self.id}, document_id={self.document_id})"
 
     def __str__(self) -> str:
         return f"Chunk of document {self.document_id}"
