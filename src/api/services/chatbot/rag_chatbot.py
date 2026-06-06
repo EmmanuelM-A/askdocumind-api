@@ -11,6 +11,7 @@ from src.database.repository.interfaces import (
     ChatSessionRepositoryInterface,
     ChatMessageRepositoryInterface,
 )
+from src.logger.base_logger import BaseLogger
 
 
 class RAGChatbotService:
@@ -25,6 +26,7 @@ class RAGChatbotService:
         self.chat_session_repo = chat_session_repo
         self.chat_message_repo = chat_message_repo
         self.chatbot = chatbot
+        self._logger = BaseLogger(__name__)
 
     async def handle_chat_request(self, request: ChatRequest) -> SuccessResponseModel:
         """Handles a chat request."""
@@ -33,11 +35,15 @@ class RAGChatbotService:
             chat_id=request.chat_id, chat_session_repo=self.chat_session_repo
         )
 
+        self._logger.debug("Received chat request and chat session validated")
+
         response: ChatbotResponse = await self.chatbot.process_query(
             query=request.user_query,
             chat_session_id=request.chat_id,
             web_search_enabled=request.web_search_enabled,
         )
+
+        self._logger.debug("Chatbot processed the query and generated a response")
 
         user_query_chat_message = ChatMessage(
             session_id=request.chat_id,
@@ -57,6 +63,8 @@ class RAGChatbotService:
                 assistant_response_chat_message,
             ]
         )
+
+        self._logger.info("Chatbot query and response have been saved")
 
         return SuccessResponseModel(
             message="The chat query was processed successfully.",

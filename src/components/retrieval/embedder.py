@@ -110,7 +110,7 @@ class Embedder:
             self.queries_cache.set(cache_key, embedding)
 
             self._logger.info(
-                f"The query {query} has been embedded and cached successfully."
+                f"The query '{query}' has been embedded and cached successfully."
             )
 
             return embedding
