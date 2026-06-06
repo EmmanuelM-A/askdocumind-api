@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from src.api.services.chat_sessions import ChatSessionService
+from src.api.services.chats.chat_sessions import ChatSessionService
 from src.components.chatbot.chatbot_factory import get_chatbot
 from src.components.ingestion.processor_factory import get_vector_processor
 from src.database.repository import get_database_repository
@@ -12,7 +12,7 @@ from src.database.storage import get_storage_service
 if TYPE_CHECKING:
     from src.api.services.auth.anonymous_user import AnonymousUserSessionService
     from src.api.services.documents.document_uploads import UploadService
-    from src.api.services.rag_chatbot import RAGChatbotService
+    from src.api.services.chatbot.rag_chatbot import RAGChatbotService
 
 _rag_chatbot_service: "RAGChatbotService | None" = None
 _upload_service: "UploadService | None" = None
@@ -25,7 +25,7 @@ def get_rag_chatbot_service() -> "RAGChatbotService":
     global _rag_chatbot_service
 
     if _rag_chatbot_service is None:
-        from src.api.services.rag_chatbot import RAGChatbotService
+        from src.api.services.chatbot.rag_chatbot import RAGChatbotService
 
         _rag_chatbot_service = RAGChatbotService(
             get_database_repository("CHAT_SESSION"),
@@ -59,7 +59,7 @@ def get_chat_service() -> "ChatSessionService":
     global _chat_service
 
     if _chat_service is None:
-        from src.api.services.chat_sessions import ChatSessionService
+        from src.api.services.chats.chat_sessions import ChatSessionService
 
         _chat_service = ChatSessionService(
             storage=get_storage_service(),
