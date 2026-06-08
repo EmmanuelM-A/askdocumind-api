@@ -68,5 +68,5 @@ class RAGChatbotService:
 
         return SuccessResponseModel(
             message="The chat query was processed successfully.",
-            data=response.to_json(),
+            data=response.to_dict(),
         )
