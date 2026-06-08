@@ -47,7 +47,7 @@ class QueryHandler:
 
     async def search_for_vector(
         self, query: str, chat_session_id: UUID
-    ) -> Tuple[List[DocumentChunk], List[str]] | None:
+    ) -> Tuple[List[DocumentChunk], List[str]]:
         """
         Embeds query, searches vector DB, returns top_k results.
         """
@@ -75,7 +75,7 @@ class QueryHandler:
             self._logger.error(
                 f"No vector chunks found for the query vector: {query_vector}"
             )
-            return None
+            return [], []
 
         self._logger.info(f"Results found for the query: {query}")
 
