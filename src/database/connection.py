@@ -19,7 +19,7 @@ class DatabaseConnection:
     This class handles connection pooling, session management, and cleanup.
     """
 
-    def __init__(self, database_url: str = None):
+    def __init__(self, database_url: Optional[str] = None):
         self.database_url = database_url or str(
             settings.database.DATABASE_URL.get_secret_value()
         )
@@ -45,6 +45,7 @@ class DatabaseConnection:
                 pool_pre_ping=settings.database.DB_IS_POOL_PRE_PING_ENABLED,
                 pool_size=settings.database.DB_POOL_SIZE,
                 max_overflow=settings.database.DB_MAX_OVERFLOW,
+                pool_timeout=settings.database.DB_POOL_TIMEOUT_SECS,
             )
             self.session_maker = async_sessionmaker(
                 bind=self.engine, expire_on_commit=False, autoflush=False

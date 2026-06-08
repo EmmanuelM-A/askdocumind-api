@@ -21,17 +21,6 @@ class ChatMessageRole(enum.Enum):
     SYSTEM = "SYSTEM"
 
 
-class CacheNamespace(str, enum.Enum):
-    """Enumeration for cache namespaces."""
-
-    DEFAULT = "default"
-    SESSIONS = "sessions"
-    API_RESPONSES = "api_responses"
-    EMBEDDINGS = "embeddings"
-    QUERIES = "queries"
-    DOCUMENTS = "documents"
-
-
 class Source(str, enum.Enum):
     """Enumeration for document sources."""
 

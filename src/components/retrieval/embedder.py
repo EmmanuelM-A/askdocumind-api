@@ -3,16 +3,13 @@ Responsible for wrapping the embedding model client to encode text into
 vectors.
 """
 
-import hashlib
 from typing import Dict, Any, List, Iterable, Iterator
 
 from langchain_openai import OpenAIEmbeddings
 
 from src.config.configs import settings
-from src.config.constants import CacheNamespace
 from src.errors.custom_exceptions import server_error
 from src.logger.base_logger import BaseLogger
-from src.api.services.caching.cache_factory import CacheFactory
 
 
 class Embedder:
@@ -22,13 +19,8 @@ class Embedder:
     """
 
     def __init__(self):
-        """Initialize the embedder with caching and the embedding model."""
-
         self._logger = BaseLogger(__name__)
 
-        self.queries_cache = CacheFactory.get_cache(CacheNamespace.QUERIES)
-
-        # Initialize embedding model
         try:
             self.embedding_model = OpenAIEmbeddings(
                 model=settings.llm.EMBEDDING_MODEL_NAME
@@ -94,25 +86,8 @@ class Embedder:
         query = query.strip()
 
         try:
-            # Check cache first
-            cache_key = self._get_cache_key(query)
-            cached = self.queries_cache.get(cache_key)
-
-            if cached is not None:
-                self._logger.debug("Cache hit! Using cached query embedding.")
-                return cached
-
-            # Get new embedding
-            self._logger.debug("Cache miss. Computing new embedding for query.")
             embedding = self.embedding_model.embed_query(query)
-
-            # Cache the result
-            self.queries_cache.set(cache_key, embedding)
-
-            self._logger.info(
-                f"The query '{query}' has been embedded and cached successfully."
-            )
-
+            self._logger.info(f"The query '{query}' has been embedded successfully.")
             return embedding
 
         except Exception as e:
@@ -146,27 +121,6 @@ class Embedder:
                 error_code="EMBEDDING_ERROR",
                 stack_trace=str(e),
             )
-
-    @staticmethod
-    def _get_cache_key(content: str) -> str:
-        """
-        Generate cache key from content.
-
-        Args:
-            content: The text content.
-
-        Returns:
-            Cache key string.
-        """
-        return hashlib.sha256(content.encode("utf-8")).hexdigest()
-
-    # ========================= CACHE MANAGEMENT =========================
-
-    def clear_caches(self) -> None:
-        """Clear embedder caches."""
-
-        self.queries_cache.clear()
-        self._logger.info("Cleared embedder caches successfully.")
 
     def health_check(self) -> Dict[str, Any]:
         """Perform health check on the embedder."""

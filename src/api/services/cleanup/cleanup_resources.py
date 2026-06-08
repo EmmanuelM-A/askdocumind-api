@@ -8,11 +8,9 @@ from uuid import UUID
 
 from sqlalchemy import select
 
-from src.api.services.caching.cache_factory import CacheFactory
 from src.components.chatbot.chatbot_factory import get_chatbot
 from src.components.chatbot.core import RAGChatbot
 from src.config.configs import settings
-from src.config.constants import CacheNamespace
 from src.database.models import User
 from src.database.repository import get_database_repository
 from src.database.repository.database_repository_factory import get_tx_factory
@@ -75,7 +73,6 @@ class CleanupAnonymousUserResources:
                     chat_ids = [str(chat_session.id) for chat_session in chat_sessions]
 
                     resources_ok = self._clear_additional_resources(chat_ids)
-                    self._clear_caches(chat_ids)
 
                     if not resources_ok:
                         self.logger.warning(
@@ -99,34 +96,6 @@ class CleanupAnonymousUserResources:
             )
 
         return deleted_count
-
-    def _clear_caches(self, chat_ids: list[str]) -> None:
-        """Clear chat-scoped cache entries for deleted sessions.
-
-        Continues clearing all namespaces even if individual operations fail.
-        """
-
-        if not chat_ids:
-            return
-
-        for namespace in (
-            CacheNamespace.SESSIONS,
-            CacheNamespace.QUERIES,
-            CacheNamespace.DOCUMENTS,
-        ):
-            try:
-                cache = CacheFactory.get_cache(namespace)
-                for chat_id in chat_ids:
-                    try:
-                        cache.clear_namespace(chat_id)
-                    except Exception as exc:
-                        self.logger.warning(
-                            f"Failed to clear cache for namespace={namespace} chat_id={chat_id}: {exc}"
-                        )
-            except Exception as exc:
-                self.logger.warning(
-                    f"Failed to get cache for namespace={namespace}: {exc}"
-                )
 
     def _clear_additional_resources(self, chat_ids: list[str]) -> bool:
         """Clear storage files and vector indexes for deleted sessions."""

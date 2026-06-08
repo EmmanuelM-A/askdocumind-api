@@ -9,8 +9,6 @@ from uuid import UUID
 
 from fastapi import UploadFile
 
-from src.api.services.caching.cache_factory import CacheFactory
-from src.api.services.caching.caching_service import CachingService
 from src.api.services.validation.rag_validation import (
     UploadDocumentsRequest,
     check_if_chat_exists,
@@ -21,7 +19,7 @@ from src.api.services.validation.rag_validation import (
 from src.api.utils.api_responses import SuccessResponseModel
 from src.components.ingestion.vector_processor import VectorProcessor
 from src.config.configs import settings
-from src.config.constants import ProcessingStatus, CacheNamespace
+from src.config.constants import ProcessingStatus
 from src.database.models import Document
 from src.database.repository.interfaces import (
     ChatSessionRepositoryInterface,
@@ -57,9 +55,6 @@ class UploadService:
         self.vector_processor = vector_processor
         self.chat_session_repo = chat_session_repo
         self.document_repo = document_repo
-        self._doc_cache: CachingService = CacheFactory.get_cache(
-            CacheNamespace.DOCUMENTS
-        )
         self.tx_factory = tx_factory
 
         self.max_file_size_bytes = settings.files.MAX_FILE_SIZE_MB * 1024 * 1024
