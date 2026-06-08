@@ -22,9 +22,17 @@ async def api_exception_handler(request: Request, exc: ApiException) -> JSONResp
     """
     Handle all exceptions derived from ApiException (custom application errors).
     """
+    
+    stack_trace = traceback.format_exc() if settings.app.ENV == "development" else None
+
+    error = ErrorInfo(
+        code="INTERNAL_SERVER_ERROR",
+        details=str(exc.error.details) if exc.error.details else None,
+        stack_trace=stack_trace,
+    )
 
     error_response_model = ErrorResponseModel(
-        success=False, message=exc.detail, error=exc.error
+        success=False, message=exc.detail, error=error
     )
 
     logger.error(

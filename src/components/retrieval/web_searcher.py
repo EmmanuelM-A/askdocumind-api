@@ -3,13 +3,15 @@ Web search module for retrieving information from the internet when no
 relevant documents are found.
 """
 
+import ipaddress
+import socket
 from dataclasses import dataclass
+from urllib.parse import quote_plus, urlparse
 from uuid import UUID
 
 import requests
 import time
 from typing import List, Optional
-from urllib.parse import quote_plus
 from bs4 import BeautifulSoup
 
 from src.components.ingestion.vector_processor import VectorProcessor
@@ -276,6 +278,24 @@ class WebSearcher:
             self._logger.error(f"Error creating document from search result: {e}")
             return None
 
+    @staticmethod
+    def _is_safe_url(url: str) -> bool:
+        """Return False if the URL resolves to a private or reserved IP address."""
+        try:
+            hostname = urlparse(url).hostname
+            if not hostname:
+                return False
+            ip = ipaddress.ip_address(socket.gethostbyname(hostname))
+            return not (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                or ip.is_reserved
+                or ip.is_multicast
+            )
+        except Exception:
+            return False
+
     def _fetch_page_content(self, url: str) -> Optional[str]:
         """
         Fetch and extract text content from a web page at the given URL or
@@ -283,6 +303,10 @@ class WebSearcher:
         """
 
         try:
+            if not self._is_safe_url(url):
+                self._logger.warning(f"Blocked fetch to private/reserved address: {url}")
+                return None
+
             headers = {"User-Agent": settings.web.WEB_USER_AGENT}
 
             response = requests.get(

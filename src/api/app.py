@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
 def create_app():
     """Create and configure the FastAPI application."""
 
-    app = FastAPI(title="DocuChatAPI", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="DocuChatAPI", version="1.0.0", docs_url=None, redoc_url=None, lifespan=lifespan)
     app.state.limiter = limiter  # type: ignore[attr-defined]
 
     # --- Middleware ---

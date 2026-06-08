@@ -4,6 +4,7 @@ Handles input validation for user queries, file paths, and URLs.
 
 import re
 import html
+from pathlib import Path
 from typing import Optional, List, TYPE_CHECKING
 from urllib.parse import urlparse
 
@@ -191,6 +192,22 @@ class UploadDocumentsRequest(BaseModel):
         max_length=5,
     )
     chat_id: UUID = Field(..., description="The chat session identifier")
+
+    @field_validator("documents", mode="before")
+    @classmethod
+    def validate_file_extensions(cls, files: List[UploadFile]) -> List[UploadFile]:
+        allowed = {ext.lstrip(".") for ext in settings.files.ALLOWED_FILE_EXTENSIONS}
+        invalid = [
+            f.filename
+            for f in files
+            if Path(f.filename or "").suffix.lower().lstrip(".") not in allowed
+        ]
+        if invalid:
+            raise ValueError(
+                f"Unsupported file type(s): {', '.join(invalid)}. "
+                f"Allowed: {', '.join(sorted(allowed))}"
+            )
+        return files
 
 
 class FetchUploadedDocumentsRequest(BaseModel):
