@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 # Environment Setup
 # ------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-ENV_FILE = PROJECT_ROOT / ".env.dev"
+ENV_FILE = PROJECT_ROOT / ".env.prod"
 
 if ENV_FILE.exists():
     load_dotenv(ENV_FILE)
@@ -79,7 +79,7 @@ class AuthSettings(BaseSettings):
         default=..., validation_alias="USER_SESSION_SECRET"
     )
     ANON_SESSION_USER_COOKIE_NAME: str = Field(default="docu_chat_user_cookie")
-    ANON_SESSION_TTL_HOURS: float = Field(default=..., validation_alias="ANON_SESSION_TTL_HOURS")
+    ANON_SESSION_TTL_HOURS: float = Field(default=24.0, validation_alias="ANON_SESSION_TTL_HOURS")
     ANON_SESSION_COOKIE_SECURE: bool = Field(
         default=False, validation_alias="ANON_SESSION_COOKIE_SECURE"
     )
@@ -117,9 +117,9 @@ class FileProcessingSettings(BaseSettings):
 class LLMIntegrationSettings(BaseSettings):
     """LLM integration configuration settings."""
 
-    LLM_MODEL_NAME: str = Field(default=..., validation_alias="LLM_MODEL_NAME")
-    EMBEDDING_MODEL_NAME: str = Field(default=..., validation_alias="EMBEDDING_MODEL_NAME")
-    LLM_TEMPERATURE: float = Field(default=..., validation_alias="LLM_TEMPERATURE")
+    LLM_MODEL_NAME: str = Field(default="gpt-3.5-turbo", validation_alias="LLM_MODEL_NAME")
+    EMBEDDING_MODEL_NAME: str = Field(default="text-embedding-3-small", validation_alias="EMBEDDING_MODEL_NAME")
+    LLM_TEMPERATURE: float = Field(default=0.7, validation_alias="LLM_TEMPERATURE")
 
     RESPONSE_PROMPT_FILEPATH: str = Field(
         default=f"{PROJECT_ROOT}/data/prompts/default_response_prompt.yaml"
@@ -151,7 +151,7 @@ class VectorStoreSettings(BaseSettings):
 class WebSearchSettings(BaseSettings):
     """Web search configuration settings."""
 
-    IS_WEB_SEARCH_ENABLED: bool = Field(default=..., validation_alias="IS_WEB_SEARCH_ENABLED")
+    IS_WEB_SEARCH_ENABLED: bool = Field(default=False, validation_alias="IS_WEB_SEARCH_ENABLED")
     SEARCH_API_KEY: SecretStr = Field(default=..., validation_alias="SEARCH_API_KEY")
     SEARCH_ENGINE_ID: SecretStr = Field(
         default=..., validation_alias="SEARCH_ENGINE_ID"
@@ -181,8 +181,8 @@ class WebSearchSettings(BaseSettings):
 class AWSSettings(BaseSettings):
     """AWS configuration settings."""
 
-    REGION: str = Field(default=..., validation_alias="AWS_REGION")
-    S3_BUCKET_NAME: str = Field(default=..., validation_alias="AWS_S3_BUCKET_NAME")
+    REGION: str = Field(default="eu-west-2", validation_alias="AWS_REGION")
+    S3_BUCKET_NAME: str = Field(default="", validation_alias="AWS_S3_BUCKET_NAME")
 
     model_config = _DEFAULT_MODEL_CONFIG
 
