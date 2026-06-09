@@ -156,7 +156,7 @@ async def test_upload_documents_rejects_duplicate_filenames_in_same_request(
         storage_service=Mock(),
         chat_session_repo=Mock(),
         document_repo=document_repo,
-        chatbot=Mock(),
+        vector_processor=Mock(),
         tx_factory=Mock(),
     )
 
@@ -198,7 +198,7 @@ async def test_upload_documents_rejects_filename_that_already_exists_in_chat(
         storage_service=Mock(),
         chat_session_repo=Mock(),
         document_repo=document_repo,
-        chatbot=Mock(),
+        vector_processor=Mock(),
         tx_factory=Mock(),
     )
 
