@@ -32,16 +32,16 @@ _DEFAULT_MODEL_CONFIG = SettingsConfigDict(
 class CoreAppSettings(BaseSettings):
     """Core application configuration settings."""
 
-    ENV: str = Field(default="development", validation_alias="ENV")
+    ENV: str = Field(default=..., validation_alias="ENV")
     APP_NAME: str = Field(default="DocuChatAPI")
-    PORT: int = Field(default=5000, validation_alias="PORT")
-    HOST: str = Field(default="0.0.0.0", validation_alias="HOST")
+    PORT: int = Field(default=..., validation_alias="PORT")
+    HOST: str = Field(default=..., validation_alias="HOST")
 
-    # Internal API routing constants — not environment-specific
+    # Internal API routing constants
     SUPPORTED_VERSIONS: List[str] = Field(default=["1"])
     DEFAULT_VERSION: str = Field(default="1")
 
-    # Business-logic thresholds — not environment-specific
+    # Business-logic thresholds
     MIN_QUERY_LENGTH: int = Field(default=10)
     MAX_QUERY_LENGTH: int = Field(default=2000)
     IS_TRUNCATION_ENABLED: bool = Field(default=False)
@@ -80,8 +80,7 @@ class AuthSettings(BaseSettings):
         default=..., validation_alias="USER_SESSION_SECRET"
     )
     ANON_SESSION_USER_COOKIE_NAME: str = Field(default="docu_chat_user_cookie")
-    ANON_SESSION_TTL_HOURS: float = Field(default=0.5)
-    ANON_SESSION_COOKIE_HTTP_ONLY: bool = Field(default=True)
+    ANON_SESSION_TTL_HOURS: float = Field(default=..., validation_alias="ANON_SESSION_TTL_HOURS")
     ANON_SESSION_COOKIE_SECURE: bool = Field(
         default=False, validation_alias="ANON_SESSION_COOKIE_SECURE"
     )
@@ -91,11 +90,9 @@ class AuthSettings(BaseSettings):
     ANON_SESSION_COOKIE_DOMAIN: Optional[str] = Field(
         default=None, validation_alias="ANON_SESSION_COOKIE_DOMAIN"
     )
-    ANON_SESSION_REFRESH_EVERY_REQUEST: bool = Field(default=True)
 
     USER_SESSION_CLEANUP_ENABLED: bool = Field(default=True)
     USER_SESSION_CLEANUP_INTERVAL_MINUTES: int = Field(default=60)
-    USER_SESSION_CLEANUP_BATCH_SIZE: int = Field(default=100)
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -107,8 +104,8 @@ class FileProcessingSettings(BaseSettings):
     """File processing configuration settings."""
 
     ALLOWED_FILE_EXTENSIONS: List[str] = Field(default=[".pdf", ".docx", ".txt", ".md"])
-    MAX_FILE_SIZE_MB: float = Field(default=0.5)
-    MAX_FILES_PER_CHAT_MB: int = Field(default=1)
+    MAX_FILE_SIZE_MB: float = Field(default=0.5, validation_alias="MAX_FILE_SIZE_MB")  # Max size per file
+    MAX_FILES_PER_CHAT_MB: int = Field(default=1, validation_alias="MAX_FILES_PER_CHAT_MB")  # Max total size of all files per chat
 
     LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{PROJECT_ROOT}/data/local/documents")
 
@@ -121,16 +118,9 @@ class FileProcessingSettings(BaseSettings):
 class LLMIntegrationSettings(BaseSettings):
     """LLM integration configuration settings."""
 
-    LLM_MODEL_NAME: str = Field(default="gpt-3.5-turbo")
-    EMBEDDING_MODEL_NAME: str = Field(default="text-embedding-3-small")
-    LLM_TEMPERATURE: float = Field(default=0.7)
-    MAX_TOKENS: int = Field(default=4096)
-    RETRIEVAL_TOP_K: int = Field(default=3, validation_alias="RETRIEVAL_TOP_K")
-
-    OPENAI_API_RATE_LIMIT: int = Field(default=60)
-    OPENAI_API_TIMEOUT_SEC: int = Field(default=30)
-    MAX_API_RETRIES: int = Field(default=3)
-    API_RETRY_DELAY_SEC: int = Field(default=1)
+    LLM_MODEL_NAME: str = Field(default=..., validation_alias="LLM_MODEL_NAME")
+    EMBEDDING_MODEL_NAME: str = Field(default=..., validation_alias="EMBEDDING_MODEL_NAME")
+    LLM_TEMPERATURE: float = Field(default=..., validation_alias="LLM_TEMPERATURE")
 
     RESPONSE_PROMPT_FILEPATH: str = Field(
         default=f"{PROJECT_ROOT}/data/prompts/default_response_prompt.yaml"
@@ -147,7 +137,7 @@ class VectorStoreSettings(BaseSettings):
 
     CHUNK_SIZE: int = Field(default=1000)
     CHUNK_OVERLAP: int = Field(default=20)
-    RETRIEVAL_TOP_K: int = Field(default=3)
+    RETRIEVAL_TOP_K: int = Field(default=3, validation_alias="RETRIEVAL_TOP_K")
     SIMILARITY_THRESHOLD: float = Field(default=0.7)
     MAX_QUERY_LENGTH: int = Field(default=1000)
     MAX_VECTORS_IN_MEMORY: int = Field(default=10000)
@@ -204,7 +194,7 @@ class AWSSettings(BaseSettings):
 class LoggingSettings(BaseSettings):
     """Logging configuration settings."""
 
-    LOG_LEVEL: str = Field(default=LogLevel.DEBUG, validation_alias="LOG_LEVEL")
+    LOG_LEVEL: str = Field(default="DEBUG", validation_alias="LOG_LEVEL")
     LOG_DIRECTORY: str = Field(default=f"{PROJECT_ROOT}/logs")
     LOG_FORMAT: str = Field(
         default="%(asctime)s [%(levelname)s] [%(name)s]: %(message)s"
