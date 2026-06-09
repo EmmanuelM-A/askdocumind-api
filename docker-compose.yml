@@ -2,7 +2,7 @@ services:
   database:
     image: pgvector/pgvector:pg15
     container_name: docu_chat_postgres
-    env_file: .env
+    env_file: .env.dev
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -13,24 +13,14 @@ services:
       - db_data:/var/lib/postgresql/data
     restart: always
 
-  redis:
-    image: redis:7-alpine
-    container_name: docu_chat_redis_cache
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
-
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: docu_chat_pgadmin
     environment:
-      # Use a valid-looking default email (domain must contain a dot)
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
     ports:
-      - "${PGADMIN_PORT:-8080}:80"
+      - "8080:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     depends_on:
@@ -39,5 +29,4 @@ services:
 
 volumes:
   db_data:
-  redis_data:
   pgadmin_data:
