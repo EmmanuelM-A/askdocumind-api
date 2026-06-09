@@ -152,7 +152,7 @@ class VectorStoreSettings(BaseSettings):
 class WebSearchSettings(BaseSettings):
     """Web search configuration settings."""
 
-    IS_WEB_SEARCH_ENABLED: bool = Field(default=False)
+    IS_WEB_SEARCH_ENABLED: bool = Field(default=..., validation_alias="IS_WEB_SEARCH_ENABLED")
     SEARCH_API_KEY: SecretStr = Field(default=..., validation_alias="SEARCH_API_KEY")
     SEARCH_ENGINE_ID: SecretStr = Field(
         default=..., validation_alias="SEARCH_ENGINE_ID"
