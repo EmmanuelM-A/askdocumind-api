@@ -33,11 +33,11 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         token_manager = get_token_manager()
         cookie_name = settings.auth.ANON_SESSION_USER_COOKIE_NAME
-        anonymous_bootstrap_path = "api/auth/anonymous"
+        api_prefix = "/api"
+        anonymous_bootstrap_path = f"{api_prefix}/auth/anonymous"
+        health_prefix = f"{api_prefix}/health"
         normalized_path = request.url.path.rstrip("/") or "/"
-        is_api_path = normalized_path.startswith("api/")
-
-        health_prefix = "api/health"
+        is_api_path = normalized_path == api_prefix or normalized_path.startswith(f"{api_prefix}/")
 
         if request.method == "OPTIONS" or not is_api_path:
             return await call_next(request)

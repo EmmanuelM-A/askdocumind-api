@@ -15,23 +15,15 @@ from src.errors.api_exceptions import ApiException
 
 def test_embedder_initialization_success():
     """Test successful embedder initialization."""
-    with patch(
-        "src.components.retrieval.embedder.OpenAIEmbeddings"
-    ) as mock_openai, patch("src.components.retrieval.embedder.CacheFactory"):
-
+    with patch("src.components.retrieval.embedder.OpenAIEmbeddings") as mock_openai:
         mock_openai.return_value = Mock()
         embedder = Embedder()
-
         assert embedder.embedding_model is not None
-        assert embedder.queries_cache is not None
 
 
 def test_embedder_initialization_failure():
     """Test embedder initialization failure when model fails."""
-    with patch(
-        "src.components.retrieval.embedder.OpenAIEmbeddings"
-    ) as mock_openai, patch("src.components.retrieval.embedder.CacheFactory"):
-
+    with patch("src.components.retrieval.embedder.OpenAIEmbeddings") as mock_openai:
         mock_openai.side_effect = Exception("API Error")
 
         with pytest.raises(ApiException) as exc_info:
@@ -44,32 +36,13 @@ def test_embedder_initialization_failure():
 
 
 def test_embed_query_success(embedder, sample_embedding):
-    """Test successful query embedding without cache."""
-    embedder.queries_cache.get.return_value = None
+    """Test successful query embedding."""
     embedder.embedding_model.embed_query.return_value = sample_embedding
 
     result = embedder.embed_query("test query")
 
     assert result == sample_embedding
     embedder.embedding_model.embed_query.assert_called_once_with("test query")
-    embedder.queries_cache.set.assert_called_once()
-
-
-def test_embed_query_with_caching(embedder, sample_embedding):
-    """Test query embedding uses cache on subsequent calls."""
-    # First call - cache miss, then cache hit
-    embedder.queries_cache.get.side_effect = [None, sample_embedding]
-    embedder.embedding_model.embed_query.return_value = sample_embedding
-
-    # First call - should hit the model
-    result1 = embedder.embed_query("cached query")
-    # Second call - should use cache
-    result2 = embedder.embed_query("cached query")
-
-    assert result1 == sample_embedding
-    assert result2 == sample_embedding
-    # Model should only be called once
-    embedder.embedding_model.embed_query.assert_called_once()
 
 
 def test_embed_query_empty_string(embedder):
@@ -90,7 +63,6 @@ def test_embed_query_whitespace_only(embedder):
 
 def test_embed_query_strips_whitespace(embedder, sample_embedding):
     """Test query embedding strips leading/trailing whitespace."""
-    embedder.queries_cache.get.return_value = None
     embedder.embedding_model.embed_query.return_value = sample_embedding
 
     embedder.embed_query("  test query  ")
@@ -100,7 +72,6 @@ def test_embed_query_strips_whitespace(embedder, sample_embedding):
 
 def test_embed_query_api_failure(embedder):
     """Test query embedding handles API failures gracefully."""
-    embedder.queries_cache.get.return_value = None
     embedder.embedding_model.embed_query.side_effect = Exception("API Error")
 
     with pytest.raises(ApiException) as exc_info:
@@ -168,16 +139,6 @@ def test_embed_documents_api_failure(embedder, sample_documents):
             list(embedder.embed_documents(sample_documents))
 
     assert exc_info.value.error.code == "EMBEDDING_ERROR"
-
-
-# ==================== CACHE MANAGEMENT ====================
-
-
-def test_clear_caches(embedder):
-    """Test clearing embedder caches."""
-    embedder.clear_caches()
-
-    embedder.queries_cache.clear.assert_called_once()
 
 
 def test_health_check(embedder):

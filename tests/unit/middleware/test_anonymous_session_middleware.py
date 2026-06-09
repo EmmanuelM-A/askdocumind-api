@@ -31,7 +31,6 @@ def middleware_mocks(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     token_manager.decode_token = Mock()
     token_manager.create_token = Mock(return_value="refreshed-signed-token")
 
-    monkeypatch.setattr(settings.server, "API_PREFIX", "/api")
     monkeypatch.setattr(
         settings.auth,
         "ANON_SESSION_USER_COOKIE_NAME",

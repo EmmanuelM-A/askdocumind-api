@@ -86,36 +86,12 @@ def docx_upload_file(mock_upload_file_factory):
 @pytest.fixture
 def embedder():
     """Provides a fresh Embedder instance for each test with mocked dependencies."""
-    with patch(
-        "src.components.retrieval.embedder.OpenAIEmbeddings"
-    ) as mock_openai, patch(
-        "src.components.retrieval.embedder.CacheFactory"
-    ) as mock_cache_factory:
-
-        # Mock the embedding model
+    with patch("src.components.retrieval.embedder.OpenAIEmbeddings") as mock_openai:
         mock_model = Mock()
         mock_model.model = "text-embedding-3-small"
         mock_openai.return_value = mock_model
 
-        mock_query_cache = Mock()
-
-        # Set up cache factory to return mocked caches
-        def get_cache_side_effect(namespace):
-
-            if "queries" in namespace.lower():
-                return mock_query_cache
-
-            return Mock()
-
-        mock_cache_factory.get_cache.side_effect = get_cache_side_effect
-
-        # Create embedder instance
-        emb = Embedder()
-
-        yield emb
-
-        # Cleanup
-        emb.clear_caches()
+        yield Embedder()
 
 
 @pytest.fixture

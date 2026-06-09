@@ -13,8 +13,6 @@ from src.config.configs import settings
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> Generator[TestClient, None, None]:
     # Pin version settings so assertions stay stable across environments.
-    monkeypatch.setattr(settings.server, "API_PREFIX", "/api")
-    monkeypatch.setattr(settings.server, "API_V1_PREFIX", "/api/v1")
     monkeypatch.setattr(settings.app, "SUPPORTED_VERSIONS", ["1"])
     monkeypatch.setattr(settings.app, "DEFAULT_VERSION", "1")
 

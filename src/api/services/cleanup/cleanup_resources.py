@@ -86,8 +86,7 @@ class CleanupAnonymousUserResources:
 
             except Exception as exc:
                 self.logger.warning(
-                    f"Failed cleanup transaction for expired user {user_id}: {exc}",
-                    exc_info=True,
+                    f"Failed cleanup transaction for expired user {user_id}: {exc}"
                 )
 
         if deleted_count > 0:

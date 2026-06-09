@@ -36,7 +36,7 @@ class APIVersionMiddleware(BaseHTTPMiddleware):
 
 		path = request.url.path
 
-		if not path.startswith("api/"):
+		if not path.startswith("/api/"):
 			return await call_next(request)
 
 		supported_versions = set(settings.app.SUPPORTED_VERSIONS)
@@ -46,16 +46,17 @@ class APIVersionMiddleware(BaseHTTPMiddleware):
 
 		requested_version = header_version or default_version
 
+		is_legacy_v1_path = path == "/api/v1" or path.startswith("/api/v1/")
+		if is_legacy_v1_path and header_version is not None and header_version != "1":
+			return self._unprocessable_response(
+				"Accept-Version header conflicts with URL version. "
+				"Use /api routes with Accept-Version or /api/v1 without conflicting header."
+			)
+
 		if requested_version not in supported_versions:
 			return self._unprocessable_response(
 				f"Unsupported API version '{requested_version}'. "
 				f"Supported versions: {', '.join(sorted(supported_versions))}."
-			)
-
-		if (header_version is not None and header_version != "1"):
-			return self._unprocessable_response(
-				"Accept-Version header conflicts with URL version. "
-				"Use /api routes with Accept-Version or /api/v1 without conflicting header."
 			)
 
 		request.state.api_version = requested_version
