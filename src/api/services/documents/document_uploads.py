@@ -3,8 +3,11 @@ Service module for handling document uploads.
 """
 
 import asyncio
-from typing import List, Tuple
+import uuid
+from typing import List, Optional, Tuple
 from uuid import UUID
+
+from fastapi import UploadFile
 
 from src.api.services.validation.rag_validation import (
     UploadDocumentsRequest,
@@ -14,7 +17,7 @@ from src.api.services.validation.rag_validation import (
     DeleteUploadedDocumentRequest,
 )
 from src.api.utils.api_responses import SuccessResponseModel
-from src.components.chatbot.core import RAGChatbot
+from src.components.ingestion.vector_processor import VectorProcessor
 from src.config.configs import settings
 from src.config.constants import ProcessingStatus
 from src.database.models import Document
@@ -22,6 +25,7 @@ from src.database.repository.interfaces import (
     ChatSessionRepositoryInterface,
     DocumentRepositoryInterface,
     DocumentSearchCriteria,
+    DBTransaction,
     DBTransactionFactory,
 )
 
@@ -42,16 +46,22 @@ class UploadService:
     def __init__(
         self,
         storage_service: StorageService,
+        vector_processor: VectorProcessor,
         chat_session_repo: ChatSessionRepositoryInterface,
         document_repo: DocumentRepositoryInterface,
-        chatbot: RAGChatbot,
         tx_factory: DBTransactionFactory,
     ) -> None:
         self.storage_service = storage_service
+        self.vector_processor = vector_processor
         self.chat_session_repo = chat_session_repo
         self.document_repo = document_repo
-        self.chatbot = chatbot
         self.tx_factory = tx_factory
+
+        self.max_file_size_bytes = settings.files.MAX_FILE_SIZE_MB * 1024 * 1024
+        self.max_files_per_chat_bytes = (
+            settings.files.MAX_FILES_PER_CHAT_MB * 1024 * 1024
+        )
+
         self._logger = BaseLogger(__name__)
 
     async def handle_document_uploads(
@@ -78,37 +88,80 @@ class UploadService:
         """
 
         await check_if_chat_exists(
-            chat_id=request.chat_id,
-            chat_session_repo=self.chat_session_repo,
-            chatbot=self.chatbot,
+            chat_id=request.chat_id, chat_session_repo=self.chat_session_repo
         )
 
         self._logger.debug(
             f"The chat {request.chat_id} has been validated successfully"
         )
 
-        existing_documents_count = await self.document_repo.count(
-            filter_id=request.chat_id
-        )
-        incoming_documents_count = len(request.documents)
-        max_documents_per_chat = settings.server.MAX_DOCUMENTS_PER_CHAT
-
-        if existing_documents_count + incoming_documents_count > max_documents_per_chat:
-            raise unprocessable_entity_error(
-                message=(
-                    "Document upload limit reached for this chat. "
-                    f"Maximum allowed documents: {max_documents_per_chat}."
-                ),
-                error_code="CHAT_DOCUMENT_LIMIT_REACHED",
-            )
-
         await self._assert_no_duplicate_uploads(request)
 
-        saved_keys, entities = await self._persist_files_to_storage(request)
+        saved_keys: List[str] = []
+        entities: List[Document] = []
+        documents: List[Tuple[UUID, str, bytes]] = []
+        files_that_exceed_chat_limit: List[str] = []
+        created_entities: List[UUID] = []
 
-        # Persist metadata first so vector-processing failures can be marked as FAILED.
         try:
             async with self.tx_factory.create() as tx:
+                for uploaded_file in request.documents:
+                    data = await self._read_data_from_upload(uploaded_file, saved_keys)
+
+                    incoming_bytes = len(data)
+                    exceeds = await self._do_incoming_bytes_exceed_chat_limit(
+                        chat_session_id=request.chat_id,
+                        incoming_bytes=incoming_bytes,
+                    )
+
+                    if exceeds:
+                        files_that_exceed_chat_limit.append(uploaded_file.filename)
+                        continue
+
+                    key = f"{request.chat_id}/{uploaded_file.filename}"
+
+                    await self._persist_data_to_storage(
+                        key=key,
+                        data=data,
+                        filename=uploaded_file.filename,
+                        saved_keys=saved_keys,
+                    )
+                    saved_keys.append(key)
+
+                    self._logger.debug(
+                        f"The key {key} was saved to storage file successfully"
+                    )
+
+                    document = Document(
+                        id=uuid.uuid4(),
+                        session_id=request.chat_id,
+                        filename=uploaded_file.filename,
+                        file_size=len(data),
+                        processing_status=ProcessingStatus.PROCESSING,
+                    )
+
+                    entities.append(document)
+                    documents.append((document.id, uploaded_file.filename, data))
+
+                self._logger.debug(
+                    f"{len(documents)} document(s) entities created successfully"
+                )
+                self._logger.warning(
+                    f"{len(files_that_exceed_chat_limit)} files exceed chat limit"
+                )
+                self._logger.debug(
+                    f"{len(saved_keys)} file(s) were saved to the store successfully"
+                )
+
+                if len(files_that_exceed_chat_limit) == len(request.documents):
+                    raise conflict_error(
+                        message=(
+                            "All uploaded documents exceed the maximum total chat size limit of "
+                            f"{self.max_files_per_chat_bytes / (1024 * 1024):.1f} MB."
+                        ),
+                        error_code="ALL_DOCUMENTS_EXCEED_CHAT_LIMIT",
+                    )
+
                 created_entities = await self.document_repo.create_many(
                     entities=entities,
                     tx=tx,
@@ -121,7 +174,21 @@ class UploadService:
                         error_details="Mismatch in number of created document entities",
                     )
 
-        except ApiException:
+                self._logger.debug(
+                    f"Created {len(created_entities)} document entities successfully"
+                )
+
+                await self.vector_processor.process_and_save_vectors_from_uploads(
+                    chat_session_id=request.chat_id, documents=documents, tx=tx
+                )
+
+                await self._update_document_statuses(
+                    document_ids=created_entities,
+                    status=ProcessingStatus.COMPLETED,
+                    tx=tx,
+                )
+        except ApiException as e:
+            self._logger.warning(f"An {e.error.code} error occurred")
             await self._cleanup_saved_files_if_storage_failed(saved_keys)
             raise
         except Exception as e:
@@ -131,20 +198,6 @@ class UploadService:
                 error_code="DOCUMENT_METADATA_STORAGE_FAILED",
                 stack_trace=str(e),
             )
-
-        try:
-            await self._process_uploaded_files(request, saved_keys)
-        except ApiException:
-            await self._update_document_statuses(
-                document_ids=created_entities,
-                status=ProcessingStatus.FAILED,
-            )
-            raise
-
-        await self._update_document_statuses(
-            document_ids=created_entities,
-            status=ProcessingStatus.COMPLETED,
-        )
 
         self._logger.info(
             f"Successfully updated {len(created_entities)} documents to COMPLETED status"
@@ -171,9 +224,7 @@ class UploadService:
         """
 
         await check_if_chat_exists(
-            chat_id=request.chat_id,
-            chat_session_repo=self.chat_session_repo,
-            chatbot=self.chatbot,
+            chat_id=request.chat_id, chat_session_repo=self.chat_session_repo
         )
 
         documents = await self.document_repo.list_by(
@@ -191,9 +242,7 @@ class UploadService:
         self, request: DeleteUploadedDocumentRequest
     ) -> SuccessResponseModel:
         await check_if_chat_exists(
-            chat_id=request.chat_id,
-            chat_session_repo=self.chat_session_repo,
-            chatbot=self.chatbot,
+            chat_id=request.chat_id, chat_session_repo=self.chat_session_repo
         )
 
         document = await self.document_repo.get_by_criteria(
@@ -214,16 +263,6 @@ class UploadService:
 
         storage_key = f"{request.chat_id}/{document.filename}"
 
-        storage_exists = await asyncio.to_thread(self.storage_service.exists, storage_key)
-        if not storage_exists:
-            raise not_found_error(
-                message=(
-                    f"Document file '{document.filename}' was not found in storage "
-                    f"for chat {request.chat_id}."
-                ),
-                error_code="DOCUMENT_FILE_NOT_FOUND",
-            )
-
         try:
             async with self.tx_factory.create() as tx:
                 deleted = await self.document_repo.delete(request.document_id, tx=tx)
@@ -236,9 +275,12 @@ class UploadService:
                         error_code="DOCUMENT_NOT_FOUND",
                     )
 
-                await asyncio.to_thread(self.storage_service.delete, storage_key)
-        except ApiException:
-            raise
+            await asyncio.to_thread(self.storage_service.delete, storage_key)
+        except FileNotFoundError:
+            self._logger.warning(
+                f"Document file '{document.filename}' was already missing from storage "
+                f"for chat {request.chat_id}."
+            )
         except Exception as e:
             raise database_error(
                 message="Failed to delete uploaded document.",
@@ -256,9 +298,14 @@ class UploadService:
     async def _cleanup_saved_files_if_storage_failed(
         self, saved_keys: List[str]
     ) -> None:
+        if not saved_keys or len(saved_keys) == 0:
+            self._logger.warning("No saved keys provided.")
+            return
+
         for k in saved_keys:
             try:
                 await asyncio.to_thread(self.storage_service.delete, k)
+                self._logger.debug(f"Successfully deleted {k} from storage")
             except (FileNotFoundError, IOError):
                 # Best-effort cleanup; ignore further errors
                 self._logger.warning(
@@ -269,7 +316,9 @@ class UploadService:
     def _normalize_filename(filename: str) -> str:
         return filename.strip().lower()
 
-    async def _assert_no_duplicate_uploads(self, request: UploadDocumentsRequest) -> None:
+    async def _assert_no_duplicate_uploads(
+        self, request: UploadDocumentsRequest
+    ) -> None:
         incoming_by_normalized: dict[str, str] = {}
         duplicates_in_request: set[str] = set()
 
@@ -313,130 +362,112 @@ class UploadService:
                 error_code="DOCUMENT_ALREADY_EXISTS",
             )
 
-    async def _persist_files_to_storage(
-        self,
-        request: UploadDocumentsRequest,
-    ) -> Tuple[List[str], List[Document]]:
-        saved_keys: List[str] = []
-        entities: List[Document] = []
-        max_file_size_bytes = settings.files.MAX_FILE_SIZE_MB * 1024 * 1024
-
-        for upload in request.documents:
-            key = f"{request.chat_id}/{upload.filename}"
-
-            try:
-                # Offload potentially blocking file read to a thread
-                data = await asyncio.to_thread(upload.file.read)
-            except (FileNotFoundError, IOError) as e:
-                await self._cleanup_saved_files_if_storage_failed(saved_keys)
-
-                raise database_error(
-                    message=f"Failed to process uploaded file {upload.filename}",
-                    error_code="DOCUMENT_READ_FAILED",
-                    stack_trace=str(e),
-                )
-
-            if len(data) > max_file_size_bytes:
-                raise unprocessable_entity_error(
-                    message=(
-                        f"File '{upload.filename}' exceeds the maximum size of "
-                        f"{settings.files.MAX_FILE_SIZE_MB} MB."
-                    ),
-                    error_code="FILE_SIZE_LIMIT_EXCEEDED",
-                )
-
-            # Persist data in storage (offload to thread if implementation is blocking)
-            try:
-                await asyncio.to_thread(self.storage_service.save, key, data)
-            except IOError as storage_exc:
-                await self._cleanup_saved_files_if_storage_failed(saved_keys)
-
-                raise database_error(
-                    message=f"Failed to store document {upload.filename}",
-                    error_code="DOCUMENT_STORAGE_FAILED",
-                    stack_trace=str(storage_exc),
-                )
-
-            # Track saved keys for cleanup if anything fails later
-            saved_keys.append(key)
-            self._logger.debug(f"The key {key} was saved to storage file successfully")
-
-            # Build DB model instance; initially mark as PROCESSING while
-            # vectors are being verified/persisted to the vector store.
-            entities.append(
-                Document(
-                    session_id=request.chat_id,
-                    filename=upload.filename,
-                    file_size=len(data),
-                    vector_id=request.chat_id,
-                    processing_status=ProcessingStatus.PROCESSING,
-                )
-            )
-
-            # Reset the file pointer so the downstream processor can re-read
-            # the same upload when creating vectors.
-            try:
-                await asyncio.to_thread(upload.file.seek, 0)
-            except (ValueError, OSError):
-                # If seek is not supported, vector processing may still work if
-                # the extractor can handle bytes or a fresh UploadFile. We
-                # continue and let the vector processor surface errors.
-                pass
-
-        return saved_keys, entities
-
-    async def _process_uploaded_files(
-        self,
-        request: UploadDocumentsRequest,
-        saved_keys: List[str],
-    ) -> None:
-        # 2) Process and save document vectors (best-effort cleanup on failure)
+    async def _read_data_from_upload(
+        self, upload: UploadFile, saved_keys: List[str]
+    ) -> bytes:
+        """
+        Read data from upload and return as bytes.
+        """
         try:
-            # Offload the synchronous vector processing to a thread so the event loop
-            # isn't blocked by CPU/IO-heavy processing in the embedding pipeline.
-            await asyncio.to_thread(
-                self.chatbot.process_and_save_vectors,
-                request.documents,
-                str(request.chat_id),
-            )
-        except Exception as e:
+            # Offload potentially blocking file read to a thread
+            data = await asyncio.to_thread(upload.file.read)
+        except (FileNotFoundError, IOError) as e:
             await self._cleanup_saved_files_if_storage_failed(saved_keys)
-
             raise database_error(
-                message="Failed to process and save document vectors",
-                error_code="VECTOR_PROCESSING_FAILED",
+                message=f"Failed to process uploaded file {upload.filename}",
+                error_code="DOCUMENT_READ_FAILED",
                 stack_trace=str(e),
             )
+
+        if len(data) > self.max_file_size_bytes:
+            raise unprocessable_entity_error(
+                message=(
+                    f"File '{upload.filename}' exceeds the maximum size of "
+                    f"{self.max_file_size_bytes / (1024 * 1024):.1f} MB."
+                ),
+                error_code="FILE_SIZE_LIMIT_EXCEEDED",
+            )
+
+        return data
+
+    async def _persist_data_to_storage(
+        self, key: str, data: bytes, saved_keys: List[str], filename: str
+    ) -> None:
+        """
+        Persist data from upload and store in storage.
+        """
+        try:
+            await asyncio.to_thread(self.storage_service.save, key, data)
+        except IOError as storage_exc:
+            await self._cleanup_saved_files_if_storage_failed(saved_keys)
+            raise database_error(
+                message=f"Failed to store document {filename}",
+                error_code="DOCUMENT_STORAGE_FAILED",
+                stack_trace=str(storage_exc),
+            )
+
+    async def _do_incoming_bytes_exceed_chat_limit(
+        self, chat_session_id: UUID, incoming_bytes: int
+    ) -> bool:
+        current_mb_in_chat = await self.document_repo.get_total_size_mb(
+            chat_session_id=chat_session_id
+        )
+        current_bytes_in_chat = int(current_mb_in_chat * 1024 * 1024)
+        return current_bytes_in_chat + incoming_bytes > self.max_files_per_chat_bytes
 
     async def _update_document_statuses(
         self,
         document_ids: List[UUID],
         status: ProcessingStatus,
+        tx: Optional[DBTransaction] = None,
     ) -> None:
         if not document_ids:
             return
 
         try:
-            async with self.tx_factory.create() as tx:
-                updated_count = await self.document_repo.bulk_update_processing_status(
-                    document_ids,
-                    status,
-                    tx=tx,
+            if tx is None:
+                async with self.tx_factory.create() as tx:
+                    updated_count = (
+                        await self.document_repo.bulk_update_processing_status(
+                            document_ids,
+                            status,
+                            tx=tx,
+                        )
+                    )
+
+                    if updated_count != len(document_ids):
+                        raise database_error(
+                            message=f"Failed to update all document statuses to {status.value}",
+                            error_code="DOCUMENT_STATUS_UPDATE_FAILED",
+                            error_details=(
+                                f"Expected to update {len(document_ids)} documents, "
+                                f"but updated {updated_count}."
+                            ),
+                        )
+                return
+
+            updated_count = await self.document_repo.bulk_update_processing_status(
+                document_ids,
+                status,
+                tx=tx,
+            )
+
+            if updated_count != len(document_ids):
+                raise database_error(
+                    message=f"Failed to update all document statuses to {status.value}",
+                    error_code="DOCUMENT_STATUS_UPDATE_FAILED",
+                    error_details=(
+                        f"Expected to update {len(document_ids)} documents, "
+                        f"but updated {updated_count}."
+                    ),
                 )
 
-                if updated_count != len(document_ids):
-                    raise database_error(
-                        message=f"Failed to update all document statuses to {status.value}",
-                        error_code="DOCUMENT_STATUS_UPDATE_FAILED",
-                        error_details=(
-                            f"Expected to update {len(document_ids)} documents, "
-                            f"but updated {updated_count}."
-                        ),
-                    )
+            self._logger.debug(
+                f"All document statuses have been updated to {status.value}"
+            )
         except Exception as e:
             raise database_error(
                 message=f"Failed to update document statuses to {status.value}",
                 error_code="DOCUMENT_STATUS_UPDATE_FAILED",
                 stack_trace=str(e),
             )
-

@@ -3,6 +3,7 @@ Middleware that ensures each API request has a signed anonymous session.
 """
 
 from datetime import datetime
+from typing import cast
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -17,6 +18,7 @@ from src.api.utils.session_manager import get_token_manager
 from src.config.configs import settings
 from src.database.repository import get_database_repository
 from src.database.repository.interfaces.user_repository import UpdatedUserData
+from src.database.repository.sqlalchemy.user_repository import UserRepository
 from src.errors.custom_exceptions import unprocessable_entity_error, not_found_error
 
 
@@ -31,12 +33,11 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         token_manager = get_token_manager()
         cookie_name = settings.auth.ANON_SESSION_USER_COOKIE_NAME
-        api_prefix = settings.server.API_PREFIX.rstrip("/")
+        api_prefix = "/api"
         anonymous_bootstrap_path = f"{api_prefix}/auth/anonymous"
+        health_prefix = f"{api_prefix}/health"
         normalized_path = request.url.path.rstrip("/") or "/"
-        is_api_path = normalized_path == api_prefix or normalized_path.startswith(
-            f"{api_prefix}/"
-        )
+        is_api_path = normalized_path == api_prefix or normalized_path.startswith(f"{api_prefix}/")
 
         if request.method == "OPTIONS" or not is_api_path:
             return await call_next(request)
@@ -44,8 +45,15 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
         if normalized_path == anonymous_bootstrap_path:
             return await call_next(request)
 
+        if normalized_path == health_prefix or normalized_path.startswith(
+            f"{health_prefix}/"
+        ):
+            return await call_next(request)
+
         cookie_value = request.cookies.get(cookie_name)
-        user_repo = get_database_repository("USER")
+        user_repo: UserRepository = cast(
+            UserRepository, get_database_repository("USER")
+        )
 
         if not cookie_value:
             raise unprocessable_entity_error(

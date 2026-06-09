@@ -1,0 +1,55 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "alembic/**"
+      - "requirements.txt"
+      - "pytest.ini"
+      - ".github/workflows/**"
+  pull_request:
+    branches:
+      - develop
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "alembic/**"
+      - "requirements.txt"
+      - "pytest.ini"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    uses: ./.github/workflows/lint.yaml
+    with:
+      python-version: "3.12"
+
+  unit-tests:
+    name: Unit Tests
+    needs: lint
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
+    uses: ./.github/workflows/unit-tests.yaml
+    with:
+      python-version: "3.12"

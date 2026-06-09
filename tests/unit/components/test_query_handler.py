@@ -3,9 +3,9 @@ Unit tests for the QueryHandler component.
 Tests query processing and response generation functionality.
 """
 
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
+from uuid import uuid4
 
-import numpy as np
 import pytest
 
 from src.components.chatbot.query_handler import QueryHandler
@@ -14,398 +14,166 @@ from src.errors.api_exceptions import ApiException
 # ==================== INITIALIZATION TESTS ====================
 
 
-def test_query_handler_initialization(mock_embedder):
+def test_query_handler_initialization(mock_embedder, mock_document_chunk_repo):
     """Test successful QueryHandler initialization."""
-    handler = QueryHandler(embedder=mock_embedder)
+    with patch("src.components.chatbot.query_handler.ChatOpenAI") as mock_llm, patch(
+        "src.components.chatbot.query_handler.create_prompt_template"
+    ) as mock_prompt:
+        mock_llm.return_value = Mock()
+        mock_prompt.return_value = Mock()
+
+        handler = QueryHandler(
+            embedder=mock_embedder,
+            document_chunk_repo=mock_document_chunk_repo,
+        )
 
     assert handler.embedder is mock_embedder
-    assert handler.llm_model_name is not None
+    assert handler.document_chunk_repo is mock_document_chunk_repo
+    assert handler._llm is not None
+    assert handler._prompt_template is not None
 
 
-def test_query_handler_initialization_with_embedder(mock_embedder):
-    """Test QueryHandler stores embedder reference correctly."""
-    handler = QueryHandler(embedder=mock_embedder)
+@pytest.mark.asyncio
+async def test_search_for_vector_success(query_handler):
+    """Test successful vector search with valid inputs."""
+    chat_session_id = uuid4()
+    chunks = [Mock(chunk_text="Chunk 1"), Mock(chunk_text="Chunk 2")]
 
-    assert handler.embedder == mock_embedder
+    query_handler.document_chunk_repo.search_similar = AsyncMock(return_value=chunks)
+    query_handler.document_chunk_repo.get_filenames_for_chunks = AsyncMock(
+        return_value=["doc1.txt", "doc2.txt"]
+    )
+
+    with patch(
+        "src.components.chatbot.query_handler.validate_and_sanitize_query",
+        return_value="sanitized query",
+    ) as mock_validate, patch(
+        "src.components.chatbot.query_handler.settings"
+    ) as mock_settings:
+        mock_settings.vector.RETRIEVAL_TOP_K = 3
+        mock_settings.vector.SIMILARITY_THRESHOLD = 0.7
+
+        result = await query_handler.search_for_vector("  test query  ", chat_session_id)
+
+    assert result == (chunks, ["doc1.txt", "doc2.txt"])
+    mock_validate.assert_called_once()
+    query_handler.embedder.embed_query.assert_called_once_with("sanitized query")
+    query_handler.document_chunk_repo.search_similar.assert_awaited_once_with(
+        chat_session_id=chat_session_id,
+        vector=[0.1, 0.2, 0.3, 0.4, 0.5],
+        top_k=3,
+        threshold=0.7,
+    )
+    query_handler.document_chunk_repo.get_filenames_for_chunks.assert_awaited_once_with(
+        chunks=chunks,
+        chat_session_id=chat_session_id,
+    )
 
 
 # ==================== SEARCH FOR VECTOR TESTS ====================
 
 
-def test_search_for_vector_success(
-    query_handler, mock_faiss_index, sample_vector_metadata
-):
-    """Test successful vector search with valid inputs."""
-    query = "test query"
-    query_handler.embedder.embed_query.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
-
-    # Mock FAISS search to return indices
-    mock_faiss_index.search.return_value = (
-        np.array([[0.5, 0.3, 0.2]]),  # distances
-        np.array([[0, 1, 2]]),  # indices
-    )
-
-    with patch("src.components.chatbot.query_handler.sanitize_query") as mock_sanitize:
-        mock_sanitize.return_value = query
-
-        results = query_handler.search_for_vector(
-            query, mock_faiss_index, sample_vector_metadata
-        )
-
-    assert results is not None
-    assert len(results) == 3
-    assert results[0]["text"] == "Content 0"
-    assert "meta" in results[0]
-    query_handler.embedder.embed_query.assert_called_once_with(query)
-
-
-def test_search_for_vector_missing_index(query_handler, sample_vector_metadata):
-    """Test search raises error when index is None."""
+@pytest.mark.asyncio
+async def test_search_for_vector_empty_query_raises_error(query_handler):
+    """Test empty queries are rejected by validation."""
     with pytest.raises(ApiException) as exc_info:
-        query_handler.search_for_vector("test query", None, sample_vector_metadata)
+        await query_handler.search_for_vector("   ", uuid4())
 
-    assert exc_info.value.error.code == "MISSING_FAISS_INDEX"
-
-
-def test_search_for_vector_invalid_metadata(query_handler, mock_faiss_index):
-    """Test search raises error when metadata is invalid."""
-    with pytest.raises(ApiException) as exc_info:
-        query_handler.search_for_vector("test query", mock_faiss_index, None)
-
-    assert exc_info.value.error.code == "INVALID_METADATA"
+    assert exc_info.value.error.code == "EMPTY_QUERY"
 
 
-def test_search_for_vector_metadata_not_dict(query_handler, mock_faiss_index):
-    """Test search raises error when metadata is not a dictionary."""
-    with pytest.raises(ApiException) as exc_info:
-        query_handler.search_for_vector("test query", mock_faiss_index, "invalid")
+@pytest.mark.asyncio
+async def test_search_for_vector_no_results_returns_none(query_handler):
+    """Test search returns None when no chunks are found."""
+    chat_session_id = uuid4()
 
-    assert exc_info.value.error.code == "INVALID_METADATA"
-
-
-def test_search_for_vector_no_indices_found(
-    query_handler, mock_faiss_index, sample_vector_metadata
-):
-    """Test search returns None when no indices are found."""
-    query_handler.embedder.embed_query.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
-
-    # Return empty indices
-    mock_faiss_index.search.return_value = (
-        np.array([[]]),
-        np.array([[]]),
+    query_handler.document_chunk_repo.search_similar = AsyncMock(return_value=[])
+    query_handler.document_chunk_repo.get_filenames_for_chunks = AsyncMock(
+        return_value=[]
     )
 
-    with patch("src.components.chatbot.query_handler.sanitize_query") as mock_sanitize:
-        mock_sanitize.return_value = "test query"
+    with patch(
+        "src.components.chatbot.query_handler.validate_and_sanitize_query",
+        return_value="sanitized query",
+    ), patch(
+        "src.components.chatbot.query_handler.settings"
+    ) as mock_settings:
+        mock_settings.vector.RETRIEVAL_TOP_K = 3
+        mock_settings.vector.SIMILARITY_THRESHOLD = 0.7
 
-        results = query_handler.search_for_vector(
-            "test query", mock_faiss_index, sample_vector_metadata
-        )
+        result = await query_handler.search_for_vector("test query", chat_session_id)
 
-    assert results is None
-
-
-def test_search_for_vector_missing_text_in_metadata(query_handler, mock_faiss_index):
-    """Test search skips entries with missing 'text' field."""
-    query_handler.embedder.embed_query.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
-
-    # Metadata with missing 'text' field
-    metadata = {
-        0: {"meta": {"source": "doc1.txt"}},  # Missing 'text'
-        1: {"text": "Content 1", "meta": {"source": "doc2.txt"}},
-    }
-
-    mock_faiss_index.search.return_value = (
-        np.array([[0.5, 0.3]]),
-        np.array([[0, 1]]),
-    )
-
-    with patch("src.components.chatbot.query_handler.sanitize_query") as mock_sanitize:
-        mock_sanitize.return_value = "test query"
-
-        results = query_handler.search_for_vector(
-            "test query", mock_faiss_index, metadata
-        )
-
-    # Should only return the valid entry
-    assert len(results) == 1
-    assert results[0]["text"] == "Content 1"
-
-
-def test_search_for_vector_missing_meta_in_metadata(query_handler, mock_faiss_index):
-    """Test search skips entries with missing 'meta' field."""
-    query_handler.embedder.embed_query.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
-
-    # Metadata with missing 'meta' field
-    metadata = {
-        0: {"text": "Content 0"},  # Missing 'meta'
-        1: {"text": "Content 1", "meta": {"source": "doc2.txt"}},
-    }
-
-    mock_faiss_index.search.return_value = (
-        np.array([[0.5, 0.3]]),
-        np.array([[0, 1]]),
-    )
-
-    with patch("src.components.chatbot.query_handler.sanitize_query") as mock_sanitize:
-        mock_sanitize.return_value = "test query"
-
-        results = query_handler.search_for_vector(
-            "test query", mock_faiss_index, metadata
-        )
-
-    # Should only return the valid entry
-    assert len(results) == 1
-    assert results[0]["text"] == "Content 1"
-
-
-def test_search_for_vector_sanitizes_query(
-    query_handler, mock_faiss_index, sample_vector_metadata
-):
-    """Test that search sanitizes the query before processing."""
-    query_handler.embedder.embed_query.return_value = [0.1, 0.2, 0.3, 0.4, 0.5]
-
-    mock_faiss_index.search.return_value = (
-        np.array([[0.5]]),
-        np.array([[0]]),
-    )
-
-    with patch("src.components.chatbot.query_handler.sanitize_query") as mock_sanitize:
-        mock_sanitize.return_value = "sanitized query"
-
-        query_handler.search_for_vector(
-            "<script>malicious</script>", mock_faiss_index, sample_vector_metadata
-        )
-
-        mock_sanitize.assert_called_once()
+    assert result == ([], [])
+    query_handler.document_chunk_repo.search_similar.assert_awaited_once()
+    query_handler.document_chunk_repo.get_filenames_for_chunks.assert_awaited_once()
 
 
 # ==================== GENERATE RESPONSES TESTS ====================
 
 
-def test_generate_responses_success(query_handler, sample_retrieved_chunks):
+def test_generate_responses_success(query_handler):
     """Test successful response generation."""
     query = "What is the test content?"
+    chunks = [Mock(chunk_text="First chunk content"), Mock(chunk_text="Second chunk content")]
 
-    with patch("src.components.chatbot.query_handler.ChatOpenAI"), patch(
-        "src.components.chatbot.query_handler.create_prompt_template"
-    ) as mock_prompt, patch(
-        "src.components.chatbot.query_handler.StrOutputParser"
-    ) as mock_parser:
+    mock_final_chain = Mock()
+    mock_final_chain.invoke.return_value = "This is the answer based on the context."
 
-        # Mock the final chain (after all | operations)
-        mock_final_chain = Mock()
-        mock_final_chain.invoke.return_value = (
-            "This is the answer based on the context."
-        )
+    query_handler._prompt_template.__or__.return_value = query_handler._llm
+    query_handler._llm.__or__.return_value = mock_final_chain
 
-        # Mock intermediate chain (prompt_template | llm)
-        mock_intermediate_chain = Mock()
-        mock_intermediate_chain.__or__ = Mock(return_value=mock_final_chain)
+    with patch(
+        "src.components.chatbot.query_handler.StrOutputParser",
+        return_value=Mock(),
+    ):
+        result = query_handler.generate_responses(query, chunks)
 
-        # Mock prompt template
-        mock_template = Mock()
-        mock_template.__or__ = Mock(return_value=mock_intermediate_chain)
-        mock_prompt.return_value = mock_template
-
-        # Mock the parser instance
-        mock_parser.return_value = Mock()
-
-        result = query_handler.generate_responses(query, sample_retrieved_chunks)
-
-    assert result is not None
-    assert "answer" in result
-    assert "sources" in result
-    assert result["answer"] == "This is the answer based on the context."
-    assert len(result["sources"]) > 0
+    assert result == "This is the answer based on the context."
+    call_args = mock_final_chain.invoke.call_args[0][0]
+    assert call_args["query"] == query
+    assert call_args["context"] == "First chunk content\n\nSecond chunk content"
 
 
-def test_generate_responses_need_web_search(query_handler, sample_retrieved_chunks):
+def test_generate_responses_need_web_search(query_handler):
     """Test response generation returns None when web search is needed."""
     query = "What is the weather today?"
+    chunks = [Mock(chunk_text="Context chunk")]
 
-    with patch("src.components.chatbot.query_handler.ChatOpenAI"), patch(
-        "src.components.chatbot.query_handler.create_prompt_template"
-    ) as mock_prompt, patch(
-        "src.components.chatbot.query_handler.StrOutputParser"
-    ) as mock_parser:
+    mock_final_chain = Mock()
+    mock_final_chain.invoke.return_value = "NEED_WEB_SEARCH"
 
-        # Mock the final chain to return NEED_WEB_SEARCH
-        mock_final_chain = Mock()
-        mock_final_chain.invoke.return_value = "NEED_WEB_SEARCH"
+    query_handler._prompt_template.__or__.return_value = query_handler._llm
+    query_handler._llm.__or__.return_value = mock_final_chain
 
-        mock_intermediate_chain = Mock()
-        mock_intermediate_chain.__or__ = Mock(return_value=mock_final_chain)
-
-        mock_template = Mock()
-        mock_template.__or__ = Mock(return_value=mock_intermediate_chain)
-        mock_prompt.return_value = mock_template
-
-        mock_parser.return_value = Mock()
-
-        result = query_handler.generate_responses(query, sample_retrieved_chunks)
+    with patch(
+        "src.components.chatbot.query_handler.StrOutputParser",
+        return_value=Mock(),
+    ):
+        result = query_handler.generate_responses(query, chunks)
 
     assert result is None
 
 
-def test_generate_responses_extracts_sources(query_handler):
-    """Test that sources are correctly extracted from chunks."""
-    query = "test query"
-    chunks = [
-        {"text": "Content 1", "meta": {"source": "doc1.txt"}},
-        {"text": "Content 2", "meta": {"source": "doc2.txt"}},
-        {"text": "Content 3", "meta": {"source": "doc1.txt"}},  # Duplicate
-    ]
+def test_generate_responses_need_web_search_overridden_for_web(query_handler):
+    """Test NEED_WEB_SEARCH is returned when the response comes from web search."""
+    query = "What is the weather today?"
+    chunks = [Mock(chunk_text="Context chunk")]
 
-    with patch("src.components.chatbot.query_handler.ChatOpenAI"), patch(
-        "src.components.chatbot.query_handler.create_prompt_template"
-    ) as mock_prompt, patch(
-        "src.components.chatbot.query_handler.StrOutputParser"
-    ) as mock_parser:
+    mock_final_chain = Mock()
+    mock_final_chain.invoke.return_value = "NEED_WEB_SEARCH"
 
-        mock_final_chain = Mock()
-        mock_final_chain.invoke.return_value = "Answer"
+    query_handler._prompt_template.__or__.return_value = query_handler._llm
+    query_handler._llm.__or__.return_value = mock_final_chain
 
-        mock_intermediate_chain = Mock()
-        mock_intermediate_chain.__or__ = Mock(return_value=mock_final_chain)
+    with patch(
+        "src.components.chatbot.query_handler.StrOutputParser",
+        return_value=Mock(),
+    ):
+        result = query_handler.generate_responses(query, chunks, from_web_search=True)
 
-        mock_template = Mock()
-        mock_template.__or__ = Mock(return_value=mock_intermediate_chain)
-        mock_prompt.return_value = mock_template
-
-        mock_parser.return_value = Mock()
-
-        result = query_handler.generate_responses(query, chunks)
-
-    assert result is not None
-    assert len(result["sources"]) == 2  # Duplicates removed
-    assert "doc1.txt" in result["sources"]
-    assert "doc2.txt" in result["sources"]
+    assert result == "NEED_WEB_SEARCH"
 
 
-def test_generate_responses_handles_dict_metadata(query_handler):
-    """Test response generation handles dictionary metadata."""
-    query = "test query"
-    chunks = [
-        {"text": "Content", "meta": {"source": "doc.txt", "extra": "data"}},
-    ]
-
-    with patch("src.components.chatbot.query_handler.ChatOpenAI"), patch(
-        "src.components.chatbot.query_handler.create_prompt_template"
-    ) as mock_prompt, patch(
-        "src.components.chatbot.query_handler.StrOutputParser"
-    ) as mock_parser:
-
-        mock_final_chain = Mock()
-        mock_final_chain.invoke.return_value = "Answer"
-
-        mock_intermediate_chain = Mock()
-        mock_intermediate_chain.__or__ = Mock(return_value=mock_final_chain)
-
-        mock_template = Mock()
-        mock_template.__or__ = Mock(return_value=mock_intermediate_chain)
-        mock_prompt.return_value = mock_template
-
-        mock_parser.return_value = Mock()
-
-        result = query_handler.generate_responses(query, chunks)
-
-    assert "doc.txt" in result["sources"]
-
-
-def test_generate_responses_handles_object_metadata(query_handler):
-    """Test response generation handles object metadata with source attribute."""
-    query = "test query"
-
-    # Create a mock metadata object
-    mock_metadata = Mock()
-    mock_metadata.source = "object_source.txt"
-
-    chunks = [
-        {"text": "Content", "meta": mock_metadata},
-    ]
-
-    with patch("src.components.chatbot.query_handler.ChatOpenAI"), patch(
-        "src.components.chatbot.query_handler.create_prompt_template"
-    ) as mock_prompt, patch(
-        "src.components.chatbot.query_handler.StrOutputParser"
-    ) as mock_parser:
-
-        mock_final_chain = Mock()
-        mock_final_chain.invoke.return_value = "Answer"
-
-        mock_intermediate_chain = Mock()
-        mock_intermediate_chain.__or__ = Mock(return_value=mock_final_chain)
-
-        mock_template = Mock()
-        mock_template.__or__ = Mock(return_value=mock_intermediate_chain)
-        mock_prompt.return_value = mock_template
-
-        mock_parser.return_value = Mock()
-
-        result = query_handler.generate_responses(query, chunks)
-
-    assert "object_source.txt" in result["sources"]
-
-
-def test_generate_responses_handles_missing_sources(query_handler):
-    """Test response generation handles chunks without sources gracefully."""
-    query = "test query"
-    chunks = [
-        {"text": "Content 1", "meta": {}},  # No source
-        {"text": "Content 2", "meta": {"source": "doc.txt"}},
-    ]
-
-    with patch("src.components.chatbot.query_handler.ChatOpenAI"), patch(
-        "src.components.chatbot.query_handler.create_prompt_template"
-    ) as mock_prompt, patch(
-        "src.components.chatbot.query_handler.StrOutputParser"
-    ) as mock_parser:
-
-        mock_final_chain = Mock()
-        mock_final_chain.invoke.return_value = "Answer"
-
-        mock_intermediate_chain = Mock()
-        mock_intermediate_chain.__or__ = Mock(return_value=mock_final_chain)
-
-        mock_template = Mock()
-        mock_template.__or__ = Mock(return_value=mock_intermediate_chain)
-        mock_prompt.return_value = mock_template
-
-        mock_parser.return_value = Mock()
-
-        result = query_handler.generate_responses(query, chunks)
-
-    assert len(result["sources"]) == 1
-    assert "doc.txt" in result["sources"]
-
-
-def test_generate_responses_context_formatting(query_handler, sample_retrieved_chunks):
-    """Test that context is properly formatted for the LLM."""
-    query = "test query"
-
-    with patch("src.components.chatbot.query_handler.ChatOpenAI"), patch(
-        "src.components.chatbot.query_handler.create_prompt_template"
-    ) as mock_prompt, patch(
-        "src.components.chatbot.query_handler.StrOutputParser"
-    ) as mock_parser:
-
-        mock_final_chain = Mock()
-        mock_final_chain.invoke.return_value = "Answer"
-
-        mock_intermediate_chain = Mock()
-        mock_intermediate_chain.__or__ = Mock(return_value=mock_final_chain)
-
-        mock_template = Mock()
-        mock_template.__or__ = Mock(return_value=mock_intermediate_chain)
-        mock_prompt.return_value = mock_template
-
-        mock_parser.return_value = Mock()
-
-        query_handler.generate_responses(query, sample_retrieved_chunks)
-
-        # Verify the chain was invoked with properly formatted context
-        call_args = mock_final_chain.invoke.call_args[0][0]
-        assert "context" in call_args
-        assert "query" in call_args
-        assert "\n\n" in call_args["context"]  # Check for double newline separator
+def test_generate_responses_no_chunks_returns_none(query_handler):
+    """Test response generation handles empty chunk lists."""
+    assert query_handler.generate_responses("test query", []) is None

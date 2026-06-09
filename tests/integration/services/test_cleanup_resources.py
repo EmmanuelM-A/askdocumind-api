@@ -134,13 +134,11 @@ async def test_cleanup_sessions_skips_user_delete_when_resource_cleanup_fails(cl
     )
     service._get_expired_user_ids = AsyncMock(return_value=[user_id])
     service._clear_additional_resources = Mock(return_value=False)
-    service._clear_caches = Mock()
 
     deleted_count = await service._cleanup_expired_anonymous_user_sessions()
 
     assert deleted_count == 0
     user_repo.delete.assert_not_awaited()
-    service._clear_caches.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -165,7 +163,6 @@ async def test_cleanup_sessions_continues_after_user_transaction_error(cleanup_m
     )
     service._get_expired_user_ids = AsyncMock(return_value=[user_1, user_2])
     service._clear_additional_resources = Mock(return_value=True)
-    service._clear_caches = Mock()
 
     deleted_count = await service._cleanup_expired_anonymous_user_sessions()
 
@@ -173,42 +170,7 @@ async def test_cleanup_sessions_continues_after_user_transaction_error(cleanup_m
     user_repo.delete.assert_awaited_once_with(user_2, tx=tx_2)
 
 
-def test_clear_caches_clears_each_namespace_per_chat_id(cleanup_module, monkeypatch):
-    cache_sessions = Mock()
-    cache_queries = Mock()
-    cache_documents = Mock()
-    cache_by_namespace = {
-        cleanup_module.CacheNamespace.SESSIONS: cache_sessions,
-        cleanup_module.CacheNamespace.QUERIES: cache_queries,
-        cleanup_module.CacheNamespace.DOCUMENTS: cache_documents,
-    }
-
-    monkeypatch.setattr(
-        cleanup_module.CacheFactory,
-        "get_cache",
-        lambda namespace: cache_by_namespace[namespace],
-    )
-
-    service = cleanup_module.CleanupAnonymousUserResources(
-        user_repo=Mock(),
-        chat_repo=Mock(),
-        tx_factory=Mock(),
-        chatbot=Mock(),
-        storage_service=Mock(),
-    )
-
-    service._clear_caches(["chat-1", "chat-2"])
-
-    assert cache_sessions.clear_namespace.call_count == 2
-    assert cache_queries.clear_namespace.call_count == 2
-    assert cache_documents.clear_namespace.call_count == 2
-
-
 def test_clear_additional_resources_returns_false_when_any_cleanup_step_fails(cleanup_module):
-    chatbot = Mock()
-    chatbot.chat_exists.side_effect = [True, True]
-    chatbot.delete_chat.side_effect = [None, RuntimeError("vector error")]
-
     storage = Mock()
     storage.delete_all.side_effect = [None, RuntimeError("storage error")]
 
@@ -216,7 +178,7 @@ def test_clear_additional_resources_returns_false_when_any_cleanup_step_fails(cl
         user_repo=Mock(),
         chat_repo=Mock(),
         tx_factory=Mock(),
-        chatbot=chatbot,
+        chatbot=Mock(),
         storage_service=storage,
     )
 
@@ -224,8 +186,6 @@ def test_clear_additional_resources_returns_false_when_any_cleanup_step_fails(cl
 
     assert result is False
     assert storage.delete_all.call_count == 2
-    assert chatbot.chat_exists.call_count == 2
-    assert chatbot.delete_chat.call_count == 2
 
 
 @pytest.mark.asyncio

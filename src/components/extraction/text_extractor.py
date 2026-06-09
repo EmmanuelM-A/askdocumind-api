@@ -2,8 +2,10 @@
 Module for text extraction from various file formats.
 """
 
+from abc import ABC, abstractmethod
 from importlib.metadata import PackageNotFoundError
 import zipfile
+from io import BytesIO
 
 try:
     import docx  # python-docx package
@@ -11,88 +13,85 @@ except ImportError:
     docx = None
 
 import pymupdf
-from fastapi import UploadFile
 
-from src.components.extraction.base_extractor import TextDocumentExtractor
-from src.components.ingestion.document import FileDocumentMetadata
-from src.config.constants import Source
+from src.errors.api_exceptions import ApiException
 from src.errors.custom_exceptions import server_error
 from src.logger.base_logger import BaseLogger
 
-logger = BaseLogger(__name__)
+_logger = BaseLogger(__name__)
+
+
+class TextDocumentExtractor(ABC):
+    """
+    Abstract base class for text extractors.
+    This class defines the interface for extracting data (text and metadata)
+    from various file formats.
+    """
+
+    @abstractmethod
+    def extract_text_from(self, data: bytes, filename: str) -> str:
+        """
+        Extracts the text data from the uploaded document.
+
+        :param data: The UploadFile to extract data from.
+        :param filename: The filename to extract data from.
+        :return: The extracted text content as a string.
+        """
+        raise NotImplementedError("Subclasses must implement this method.")
 
 
 class TxtDocumentExtractor(TextDocumentExtractor):
     """Text extractor for TXT documents."""
 
-    def extract_text_from(self, document: UploadFile) -> str:
+    def extract_text_from(self, data: bytes, filename: str) -> str:
         try:
-            content = document.file.read().decode("utf-8")
+            content = data.decode("utf-8")
         except UnicodeDecodeError:
-            logger.warning(
-                f"UTF-8 decoding failed, trying Latin-1 decoding for the file {document.filename}"
+            _logger.warning(
+                f"UTF-8 decoding failed, trying Latin-1 decoding for the file {filename}"
             )
-            document.file.seek(0)
-            content = document.file.read().decode("latin-1")
+            content = data.decode("latin-1")
         except (FileNotFoundError, PermissionError, IsADirectoryError, OSError) as e:
             raise server_error(
                 message="An error occurred whilst extracting text from the file "
-                f"{document.filename}",
+                f"{filename}",
                 error_code="TEXT_EXTRACTION_ERROR",
                 stack_trace=str(e),
             )
 
         return content
 
-    def extract_metadata_from(self, document: UploadFile) -> FileDocumentMetadata:
-        return FileDocumentMetadata(
-            filename=document.filename,
-            file_extension=".txt",
-            author=None,
-            source=Source.UPLOAD,
-        )
-
 
 class MarkdownDocumentExtractor(TextDocumentExtractor):
     """Text extractor for Markdown documents."""
 
-    def extract_text_from(self, document: UploadFile) -> str:
+    def extract_text_from(self, data: bytes, filename: str) -> str:
         try:
-            content = document.file.read().decode("utf-8")
+            content = data.decode("utf-8")
         except UnicodeDecodeError:
-            logger.warning(
-                f"UTF-8 decoding failed, trying Latin-1 decoding for the file {document.filename}"
+            _logger.warning(
+                f"UTF-8 decoding failed, trying Latin-1 decoding for the file {filename}"
             )
-            document.file.seek(0)
-            content = document.file.read().decode("latin-1")
+            content = data.decode("latin-1")
         except (FileNotFoundError, PermissionError, IsADirectoryError, OSError) as e:
             raise server_error(
                 message="An error occurred whilst extracting text from the file "
-                f"{document.filename}",
+                f"{filename}",
                 error_code="MARKDOWN_EXTRACTION_ERROR",
                 stack_trace=str(e),
             )
 
         return content
 
-    def extract_metadata_from(self, document: UploadFile) -> FileDocumentMetadata:
-        return FileDocumentMetadata(
-            filename=document.filename,
-            file_extension=".md",
-            author=None,
-            source=Source.UPLOAD,
-        )
-
 
 class PDFDocumentExtractor(TextDocumentExtractor):
     """Text extractor for PDF documents."""
 
-    def extract_text_from(self, document: UploadFile) -> str:
+    def extract_text_from(self, data: bytes, filename: str) -> str:
         content = ""
-        pdf_bytes = document.file.read()
 
         try:
-            doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+            doc = pymupdf.open(stream=data, filetype="pdf")
 
             if not doc:
                 raise server_error(
@@ -106,8 +105,8 @@ class PDFDocumentExtractor(TextDocumentExtractor):
                     if page_text.strip():
                         content += f"\n--- Page {page_num + 1} ---\n{page_text}"
                 except Exception:
-                    logger.warning(
-                        f"Error extracting page {page_num + 1} of {document.filename}"
+                    _logger.warning(
+                        f"Error extracting page {page_num + 1} of {filename}"
                     )
                     continue
 
@@ -119,22 +118,21 @@ class PDFDocumentExtractor(TextDocumentExtractor):
 
             return content.strip()
 
-        finally:
-            document.file.seek(0)
-
-    def extract_metadata_from(self, document: UploadFile) -> FileDocumentMetadata:
-        return FileDocumentMetadata(
-            filename=document.filename,
-            file_extension=".pdf",
-            author=None,
-            source=Source.UPLOAD,
-        )
+        except ApiException:
+            raise
+        except Exception as e:
+            raise server_error(
+                message="An error occurred whilst extracting text from the file "
+                f"{filename}",
+                error_code="PDF_EXTRACTION_ERROR",
+                stack_trace=str(e),
+            )
 
 
 class DocxDocumentExtractor(TextDocumentExtractor):
     """Text extractor for DOCX documents."""
 
-    def extract_text_from(self, document: UploadFile) -> str:
+    def extract_text_from(self, data: bytes, filename: str) -> str:
         if docx is None:
             raise server_error(
                 message=(
@@ -145,8 +143,8 @@ class DocxDocumentExtractor(TextDocumentExtractor):
             )
 
         try:
-            document.file.seek(0)
-            doc = docx.Document(document.file)
+            file_stream = BytesIO(data)
+            doc = docx.Document(file_stream)
             content = "\n".join([para.text for para in doc.paragraphs])
             return content
         except (
@@ -160,15 +158,7 @@ class DocxDocumentExtractor(TextDocumentExtractor):
         ) as e:
             raise server_error(
                 message="An error occurred whilst extracting text from the file "
-                f"{document.filename}",
+                f"{filename}",
                 error_code="DOCX_EXTRACTION_ERROR",
                 stack_trace=str(e),
             )
-
-    def extract_metadata_from(self, document: UploadFile) -> FileDocumentMetadata:
-        return FileDocumentMetadata(
-            filename=document.filename,
-            file_extension=".docx",
-            author=None,
-            source=Source.UPLOAD,
-        )

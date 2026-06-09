@@ -43,7 +43,8 @@ class DocumentRepository(DocumentRepositoryInterface):
         message = str(error).lower()
         return (
             "uq_document_session_filename" in message
-            or "unique constraint" in message and "document" in message
+            or "unique constraint" in message
+            and "document" in message
         )
 
     async def create(self, data: Document, tx: Optional[DBTransaction] = None) -> UUID:
@@ -295,6 +296,35 @@ class DocumentRepository(DocumentRepositoryInterface):
             raise database_error(
                 message="An error occurred while counting documents.",
                 error_code="DOCUMENT_COUNT_ERROR",
+                stack_trace=str(e),
+            )
+
+    async def get_total_size_mb(
+        self,
+        chat_session_id: UUID,
+        tx: Optional[DBTransaction] = None,
+    ) -> float:
+        try:
+            stmt = select(
+                func.coalesce(func.sum(Document.file_size), 0)
+            ).select_from(
+                Document
+            ).where(Document.session_id == chat_session_id)
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                total_bytes = result.scalar_one() or 0
+                return float(total_bytes) / (1024 * 1024)
+
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
+                total_bytes = result.scalar_one() or 0
+                return float(total_bytes) / (1024 * 1024)
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise database_error(
+                message="An error occurred while calculating document storage size.",
+                error_code="DOCUMENT_SIZE_TOTAL_ERROR",
                 stack_trace=str(e),
             )
 

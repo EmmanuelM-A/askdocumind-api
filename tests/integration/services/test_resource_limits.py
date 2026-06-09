@@ -12,12 +12,22 @@ from src.api.middleware.rate_limiter import (
     chat_query_limit,
     user_key_func,
 )
-from src.api.services.chat_sessions import ChatSessionService
-from src.api.services.document_uploads import UploadService
+from src.api.services.chats.chat_sessions import ChatSessionService
+from src.api.services.documents.document_uploads import UploadService
 from src.api.services.validation.rag_validation import UploadDocumentsRequest
 from src.api.services.validation.schemas import CreateChatSchema
 from src.config.configs import settings
 from src.errors.api_exceptions import ApiException
+
+
+def _mock_tx_factory_and_tx():
+    tx = Mock()
+    tx_cm = AsyncMock()
+    tx_cm.__aenter__.return_value = tx
+    tx_cm.__aexit__.return_value = None
+    tx_factory = Mock()
+    tx_factory.create.return_value = tx_cm
+    return tx_factory, tx
 
 
 @pytest.mark.asyncio
@@ -25,20 +35,21 @@ async def test_create_chat_blocks_when_anonymous_chat_limit_is_reached(
     monkeypatch: pytest.MonkeyPatch,
 ):
     monkeypatch.setattr(
-        "src.api.services.chat_sessions.require_current_anonymous_user_id",
+        "src.api.services.chats.chat_sessions.require_current_anonymous_user_id",
         lambda: uuid4(),
     )
     monkeypatch.setattr(settings.server, "MAX_CHATS_PER_USER", 2)
+
+    tx_factory, _ = _mock_tx_factory_and_tx()
 
     chat_session_repo = Mock()
     chat_session_repo.list_by = AsyncMock(return_value=[Mock(), Mock()])
 
     service = ChatSessionService(
-        chatbot=Mock(),
         storage=Mock(),
         chat_session_repo=chat_session_repo,
         chat_message_repo=Mock(),
-        tx_factory=Mock(),
+        tx_factory=tx_factory,
     )
 
     with pytest.raises(ApiException) as exc_info:
@@ -56,22 +67,25 @@ async def test_upload_blocks_when_per_chat_document_limit_is_exceeded(
         return None
 
     monkeypatch.setattr(
-        "src.api.services.document_uploads.check_if_chat_exists", _chat_exists
+        "src.api.services.documents.document_uploads.check_if_chat_exists", _chat_exists
     )
     monkeypatch.setattr(settings.server, "MAX_DOCUMENTS_PER_CHAT", 2)
+    monkeypatch.setattr(settings.files, "MAX_FILES_PER_CHAT_MB", 2)
 
     document_repo = Mock()
-    document_repo.count = AsyncMock(return_value=1)
     document_repo.list_by = AsyncMock(return_value=[])
+    # Return enough existing usage that any new file pushes over the limit
+    document_repo.get_total_size_mb = AsyncMock(return_value=2.0)
     document_repo.create_many = AsyncMock()
 
+    tx_factory, _ = _mock_tx_factory_and_tx()
     storage = Mock()
     service = UploadService(
         storage_service=storage,
         chat_session_repo=Mock(),
         document_repo=document_repo,
-        chatbot=Mock(),
-        tx_factory=Mock(),
+        vector_processor=Mock(),
+        tx_factory=tx_factory,
     )
 
     request = UploadDocumentsRequest(
@@ -85,8 +99,8 @@ async def test_upload_blocks_when_per_chat_document_limit_is_exceeded(
     with pytest.raises(ApiException) as exc_info:
         await service.handle_document_uploads(request)
 
-    assert exc_info.value.status_code == 422
-    assert exc_info.value.error.code == "CHAT_DOCUMENT_LIMIT_REACHED"
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.error.code == "ALL_DOCUMENTS_EXCEED_CHAT_LIMIT"
     assert not storage.save.called
     document_repo.create_many.assert_not_called()
 
@@ -99,23 +113,24 @@ async def test_upload_blocks_when_file_size_limit_is_exceeded(
         return None
 
     monkeypatch.setattr(
-        "src.api.services.document_uploads.check_if_chat_exists", _chat_exists
+        "src.api.services.documents.document_uploads.check_if_chat_exists", _chat_exists
     )
     monkeypatch.setattr(settings.server, "MAX_DOCUMENTS_PER_CHAT", 10)
     monkeypatch.setattr(settings.files, "MAX_FILE_SIZE_MB", 1)
 
     document_repo = Mock()
-    document_repo.count = AsyncMock(return_value=0)
     document_repo.list_by = AsyncMock(return_value=[])
+    document_repo.get_total_size_mb = AsyncMock(return_value=0.0)
     document_repo.create_many = AsyncMock()
 
+    tx_factory, _ = _mock_tx_factory_and_tx()
     storage = Mock()
     service = UploadService(
         storage_service=storage,
         chat_session_repo=Mock(),
         document_repo=document_repo,
-        chatbot=Mock(),
-        tx_factory=Mock(),
+        vector_processor=Mock(),
+        tx_factory=tx_factory,
     )
 
     oversized_bytes = b"x" * (1024 * 1024 + 1)
@@ -127,10 +142,8 @@ async def test_upload_blocks_when_file_size_limit_is_exceeded(
     with pytest.raises(ApiException) as exc_info:
         await service.handle_document_uploads(request)
 
-    assert (
-        exc_info.value.status_code == 500
-    )  # TODO: REFACTORING NEEDED IN DOC UPLOAD SERVICE TO RAISE 422 IN THIS CASE
-    assert exc_info.value.error.code == "DOCUMENT_READ_FAILED"
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.error.code == "FILE_SIZE_LIMIT_EXCEEDED"
     assert not storage.save.called
     document_repo.create_many.assert_not_called()
 

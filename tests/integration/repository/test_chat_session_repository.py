@@ -127,8 +127,6 @@ class TestChatSessionRepositoryCore:
         self, chat_session_repo, test_chat_session, cleanup_sessions
     ):
         """Test updating only some fields."""
-        original_title = test_chat_session.title
-        
         # Update only title
         update_data = UpdatedChatSessionData(title="Updated Title")
         updated = await chat_session_repo.update(test_chat_session.id, update_data)

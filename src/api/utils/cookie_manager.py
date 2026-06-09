@@ -14,7 +14,7 @@ def set_cookie(
     response.set_cookie(
         key=cookie_name,
         value=cookie_value,
-        httponly=settings.auth.ANON_SESSION_COOKIE_HTTP_ONLY,
+        httponly=True,
         secure=secure,
         samesite=same_site,
         max_age=max_age_seconds,
@@ -31,7 +31,7 @@ def clear_cookie(response: Response, cookie_name: str) -> None:
     secure = settings.auth.ANON_SESSION_COOKIE_SECURE or same_site == "none"
     response.delete_cookie(
         key=cookie_name,
-        httponly=settings.auth.ANON_SESSION_COOKIE_HTTP_ONLY,
+        httponly=True,
         secure=secure,
         samesite=same_site,
         path="/",

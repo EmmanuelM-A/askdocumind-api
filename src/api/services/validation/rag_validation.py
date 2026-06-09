@@ -4,7 +4,8 @@ Handles input validation for user queries, file paths, and URLs.
 
 import re
 import html
-from typing import Optional, List, TYPE_CHECKING
+from pathlib import Path
+from typing import Optional, List
 from urllib.parse import urlparse
 
 from fastapi import UploadFile
@@ -14,11 +15,6 @@ from uuid import UUID
 from src.database.repository.interfaces import ChatSessionRepositoryInterface
 from src.database.repository.interfaces import ChatSessionSearchCriteria
 from src.api.services.auth.anonymous_identity import require_current_anonymous_user_id
-
-# Avoid importing RAGChatbot at module import time to prevent circular imports;
-# import it only for type checking.
-if TYPE_CHECKING:
-    from src.components.chatbot.core import RAGChatbot
 
 from src.config.configs import settings
 from src.errors.custom_exceptions import (
@@ -30,7 +26,7 @@ from src.logger.base_logger import BaseLogger
 # TODO: USE PYDANTIC FOR VALIDATION?
 
 
-def sanitize_query(query: str, logger: BaseLogger) -> str:
+def validate_and_sanitize_query(query: str, logger: BaseLogger) -> str:
     """Sanitize user query and return the sanitized string.
 
     The function is idempotent: repeated calls produce the same output. It
@@ -129,9 +125,7 @@ def validate_url(url: str) -> bool:
 
 
 async def check_if_chat_exists(
-    chat_id: UUID,
-    chat_session_repo: ChatSessionRepositoryInterface,
-    chatbot: "RAGChatbot",
+    chat_id: UUID, chat_session_repo: ChatSessionRepositoryInterface
 ) -> None:
     """
     Check if the chat session and corresponding chat vector store exist.
@@ -157,12 +151,6 @@ async def check_if_chat_exists(
             error_code="CHAT_SESSION_NOT_FOUND",
         )
 
-    if not chatbot.chat_exists(index_chat_id=str(chat_id)):
-        raise not_found_error(
-            message=f"Chat with ID {chat_id} not found in vector store.",
-            error_code="CHAT_NOT_FOUND_IN_VECTOR_STORE",
-        )
-
 
 class ChatRequest(BaseModel):
     """
@@ -184,7 +172,7 @@ class ChatRequest(BaseModel):
     def validate_query(cls, value: str) -> str:
         """Ensure query is not just whitespace."""
 
-        return sanitize_query(query=value, logger=BaseLogger(__name__))
+        return validate_and_sanitize_query(query=value, logger=BaseLogger(__name__))
 
 
 class UploadDocumentsRequest(BaseModel):
@@ -196,9 +184,25 @@ class UploadDocumentsRequest(BaseModel):
         ...,
         description="List of file documents to be uploaded",
         min_length=1,
-        max_length=settings.files.MAX_FILES_PER_UPLOAD,
+        max_length=5,
     )
     chat_id: UUID = Field(..., description="The chat session identifier")
+
+    @field_validator("documents", mode="before")
+    @classmethod
+    def validate_file_extensions(cls, files: List[UploadFile]) -> List[UploadFile]:
+        allowed = {ext.lstrip(".") for ext in settings.files.ALLOWED_FILE_EXTENSIONS}
+        invalid = [
+            f.filename
+            for f in files
+            if Path(f.filename or "").suffix.lower().lstrip(".") not in allowed
+        ]
+        if invalid:
+            raise ValueError(
+                f"Unsupported file type(s): {', '.join(invalid)}. "
+                f"Allowed: {', '.join(sorted(allowed))}"
+            )
+        return files
 
 
 class FetchUploadedDocumentsRequest(BaseModel):

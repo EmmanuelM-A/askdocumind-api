@@ -10,13 +10,12 @@ from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
-from src.logger.logging_utils import LogLevel
 
 # ------------------------------------------------------------------
 # Environment Setup
 # ------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-ENV_FILE = PROJECT_ROOT / ".env"
+ENV_FILE = PROJECT_ROOT / ".env.prod"
 
 if ENV_FILE.exists():
     load_dotenv(ENV_FILE)
@@ -32,28 +31,21 @@ _DEFAULT_MODEL_CONFIG = SettingsConfigDict(
 class CoreAppSettings(BaseSettings):
     """Core application configuration settings."""
 
-    ENV: str = Field(default="development", json_schema_extra={"env": "ENV"})
+    ENV: str = Field(default=..., validation_alias="ENV")
     APP_NAME: str = Field(default="DocuChatAPI")
-    PORT: int = Field(default=5000)
-    HOST: str = Field(default="localhost")
+    PORT: int = Field(default=..., validation_alias="PORT")
+    HOST: str = Field(default="0.0.0.0", validation_alias="HOST")
+
+    # Internal API routing constants
     SUPPORTED_VERSIONS: List[str] = Field(default=["1"])
     DEFAULT_VERSION: str = Field(default="1")
 
-    MIN_QUERY_LENGTH: int = Field(
-        default=10, json_schema_extra={"env": "MIN_QUERY_LENGTH"}
-    )
-    MAX_QUERY_LENGTH: int = Field(
-        default=2000, json_schema_extra={"env": "MAX_QUERY_LENGTH"}
-    )  # TODO: ADD TO ENV
-    IS_TRUNCATION_ENABLED: bool = Field(
-        default=False, json_schema_extra={"env": "IS_QUERY_TRUNCATION_ENABLED"}
-    )  # TODO: ADD TO ENV
-    MIN_DOCUMENT_CONTENT_LENGTH: int = Field(
-        default=10, json_schema_extra={"env": "MIN_DOCUMENT_CONTENT_LENGTH"}
-    )  # TODO: ADD TO ENV
-    MAX_DOCUMENT_CONTENT_LENGTH: int = Field(
-        default=1000000, json_schema_extra={"env": "MAX_DOCUMENT_CONTENT_LENGTH"}
-    )  # TODO: ADD TO ENV
+    # Business-logic thresholds
+    MIN_QUERY_LENGTH: int = Field(default=10)
+    MAX_QUERY_LENGTH: int = Field(default=2000)
+    IS_TRUNCATION_ENABLED: bool = Field(default=False)
+    MIN_DOCUMENT_CONTENT_LENGTH: int = Field(default=10)
+    MAX_DOCUMENT_CONTENT_LENGTH: int = Field(default=1000000)
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -64,45 +56,15 @@ class CoreAppSettings(BaseSettings):
 class DatabaseSettings(BaseSettings):
     """Database configuration settings."""
 
-    DATABASE_URL: SecretStr = Field(
-        default=..., json_schema_extra={"env": "DATABASE_URL"}
-    )
-    DB_LOG_DIR: str = Field(default=f"{PROJECT_ROOT}/logs/database")
-    DB_HOST: str = Field(default="localhost", json_schema_extra={"env": "DB_HOST"})
-    DB_PORT: int = Field(default=5432, json_schema_extra={"env": "DB_PORT"})
-    DB_NAME: str = Field(default="docu_chat", json_schema_extra={"env": "DB_NAME"})
-    DB_USER: str = Field(default="postgres", json_schema_extra={"env": "DB_USER"})
-    DB_PASSWORD: SecretStr = Field(default="", json_schema_extra={"env": "DB_PASSWORD"})
+    DATABASE_URL: SecretStr = Field(default=..., validation_alias="DATABASE_URL")
 
-    PGADMIN_PORT: int = Field(default=..., json_schema_extra={"env": "PGADMIN_PORT"})
-
+    # Pool tuning — sensible defaults, override in env only if needed
     DB_POOL_SIZE: int = Field(default=10)
     DB_MAX_OVERFLOW: int = Field(default=20)
-    DB_POOL_TIMEOUT: int = Field(default=30)
-    DB_ECHO: bool = Field(default=False)
+    DB_POOL_TIMEOUT_SECS: int = Field(default=30)
+    DB_ECHO: bool = Field(default=False, validation_alias="DB_ECHO")
     DB_IS_POOL_PRE_PING_ENABLED: bool = Field(default=True)
-
     DB_SAFETY_ENABLED: bool = Field(default=True)
-
-    model_config = _DEFAULT_MODEL_CONFIG
-
-
-# ------------------------------------------------------------------
-# Cache Settings
-# ------------------------------------------------------------------
-class CacheSettings(BaseSettings):
-    """
-    Cache configuration settings.
-    """
-
-    REDIS_HOST: str = Field(default=..., json_schema_extra={"env": "REDIS_HOST"})
-    REDIS_PORT: int = Field(default=6379, json_schema_extra={"env": "REDIS_PORT"})
-    REDIS_PASSWORD: SecretStr = Field(
-        default="", json_schema_extra={"env": "REDIS_PASSWORD"}
-    )
-    REDIS_DB: int = Field(default=0, json_schema_extra={"env": "REDIS_DB"})
-    REDIS_TTL_SECONDS: int = Field(default=3600)
-    REDIS_ENABLED: bool = Field(default=True)
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -111,30 +73,25 @@ class CacheSettings(BaseSettings):
 # Authentication Settings
 # ------------------------------------------------------------------
 class AuthSettings(BaseSettings):
-    """
-    Authentication and authorization configuration settings.
-    """
-
-    # ACCESS_SECRET: SecretStr = Field(..., env="ACCESS_TOKEN_SECRET")
-    # REFRESH_SECRET: SecretStr = Field(..., env="REFRESH_TOKEN_SECRET")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=5)
-    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7)
+    """Authentication and authorization configuration settings."""
 
     USER_SESSION_SECRET: SecretStr = Field(
-        default="dev-anon-session-secret-change-me",
-        json_schema_extra={"env": "USER_SESSION_SECRET"},
+        default=..., validation_alias="USER_SESSION_SECRET"
     )
     ANON_SESSION_USER_COOKIE_NAME: str = Field(default="docu_chat_user_cookie")
-    ANON_SESSION_TTL_HOURS: float = Field(default=0.5)
-    ANON_SESSION_COOKIE_HTTP_ONLY: bool = Field(default=True)
-    ANON_SESSION_COOKIE_SECURE: bool = Field(default=False)
-    ANON_SESSION_COOKIE_SAMESITE: str = Field(default="lax")
-    ANON_SESSION_COOKIE_DOMAIN: Optional[str] = Field(default=None)
-    ANON_SESSION_REFRESH_EVERY_REQUEST: bool = Field(default=True)
+    ANON_SESSION_TTL_HOURS: float = Field(default=24.0, validation_alias="ANON_SESSION_TTL_HOURS")
+    ANON_SESSION_COOKIE_SECURE: bool = Field(
+        default=False, validation_alias="ANON_SESSION_COOKIE_SECURE"
+    )
+    ANON_SESSION_COOKIE_SAMESITE: str = Field(
+        default="lax", validation_alias="ANON_SESSION_COOKIE_SAMESITE"
+    )
+    ANON_SESSION_COOKIE_DOMAIN: Optional[str] = Field(
+        default=None, validation_alias="ANON_SESSION_COOKIE_DOMAIN"
+    )
 
     USER_SESSION_CLEANUP_ENABLED: bool = Field(default=True)
     USER_SESSION_CLEANUP_INTERVAL_MINUTES: int = Field(default=60)
-    USER_SESSION_CLEANUP_BATCH_SIZE: int = Field(default=100)
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -146,15 +103,10 @@ class FileProcessingSettings(BaseSettings):
     """File processing configuration settings."""
 
     ALLOWED_FILE_EXTENSIONS: List[str] = Field(default=[".pdf", ".docx", ".txt", ".md"])
-    MAX_FILE_SIZE_MB: int = Field(default=10)  # TODO: ADD TOTAL FOR USER PER CHAT
-    MAX_FILES_PER_UPLOAD: int = Field(default=10)
+    MAX_FILE_SIZE_MB: float = Field(default=0.5, validation_alias="MAX_FILE_SIZE_MB")  # Max size per file
+    MAX_FILES_PER_CHAT_MB: int = Field(default=1, validation_alias="MAX_FILES_PER_CHAT_MB")  # Max total size of all files per chat
 
     LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{PROJECT_ROOT}/data/local/documents")
-
-    MD_FILE_EXT: str = Field(default=".md")
-    TXT_FILE_EXT: str = Field(default=".txt")
-    PDF_FILE_EXT: str = Field(default=".pdf")
-    DOCX_FILE_EXT: str = Field(default=".docx")
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -165,20 +117,9 @@ class FileProcessingSettings(BaseSettings):
 class LLMIntegrationSettings(BaseSettings):
     """LLM integration configuration settings."""
 
-    # OPENAI_API_KEY: SecretStr = Field(default=..., env="OPENAI_API_KEY")
-    LLM_MODEL_NAME: str = Field(default="gpt-3.5-turbo")
-    EMBEDDING_MODEL_NAME: str = Field(default="text-embedding-3-small")
-
-    LLM_TEMPERATURE: float = Field(default=0.7)
-    MAX_TOKENS: int = Field(default=4096)
-    RETRIEVAL_TOP_K: int = Field(
-        default=3, json_schema_extra={"env": "RETRIEVAL_TOP_K"}
-    )
-
-    OPENAI_API_RATE_LIMIT: int = Field(default=60)
-    OPENAI_API_TIMEOUT_SEC: int = Field(default=30)
-    MAX_API_RETRIES: int = Field(default=3)
-    API_RETRY_DELAY_SEC: int = Field(default=1)
+    LLM_MODEL_NAME: str = Field(default="gpt-3.5-turbo", validation_alias="LLM_MODEL_NAME")
+    EMBEDDING_MODEL_NAME: str = Field(default="text-embedding-3-small", validation_alias="EMBEDDING_MODEL_NAME")
+    LLM_TEMPERATURE: float = Field(default=0.7, validation_alias="LLM_TEMPERATURE")
 
     RESPONSE_PROMPT_FILEPATH: str = Field(
         default=f"{PROJECT_ROOT}/data/prompts/default_response_prompt.yaml"
@@ -193,21 +134,13 @@ class LLMIntegrationSettings(BaseSettings):
 class VectorStoreSettings(BaseSettings):
     """Vector store configuration settings."""
 
-    DEV_VECTOR_STORE: str = Field(default=f"{PROJECT_ROOT}/data/faiss/indexes")
-    DEV_METADATA_STORE: str = Field(default=f"{PROJECT_ROOT}/data/faiss/metadata")
-
     CHUNK_SIZE: int = Field(default=1000)
     CHUNK_OVERLAP: int = Field(default=20)
-
-    RETRIEVAL_TOP_K: int = Field(default=3)
+    RETRIEVAL_TOP_K: int = Field(default=3, validation_alias="RETRIEVAL_TOP_K")
     SIMILARITY_THRESHOLD: float = Field(default=0.7)
     MAX_QUERY_LENGTH: int = Field(default=1000)
-
     MAX_VECTORS_IN_MEMORY: int = Field(default=10000)
     VECTOR_BATCH_SIZE: int = Field(default=100)
-    EMBEDDING_CACHE_ENABLED: bool = Field(default=True)
-    EMBEDDING_CACHE_DIR: str = Field(default="../data/cache/embeddings")
-    MAX_CACHE_SIZE_MB: int = Field(default=500)
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -218,12 +151,10 @@ class VectorStoreSettings(BaseSettings):
 class WebSearchSettings(BaseSettings):
     """Web search configuration settings."""
 
-    IS_WEB_SEARCH_ENABLED: bool = Field(default=False)
-    SEARCH_API_KEY: SecretStr = Field(
-        default=..., json_schema_extra={"env": "SEARCH_API_KEY"}
-    )
+    IS_WEB_SEARCH_ENABLED: bool = Field(default=False, validation_alias="IS_WEB_SEARCH_ENABLED")
+    SEARCH_API_KEY: SecretStr = Field(default=..., validation_alias="SEARCH_API_KEY")
     SEARCH_ENGINE_ID: SecretStr = Field(
-        default=..., json_schema_extra={"env": "SEARCH_ENGINE_ID"}
+        default=..., validation_alias="SEARCH_ENGINE_ID"
     )
 
     MAX_WEB_SEARCH_RESULTS: int = Field(default=3)
@@ -245,17 +176,28 @@ class WebSearchSettings(BaseSettings):
 
 
 # ------------------------------------------------------------------
+# AWS
+# ------------------------------------------------------------------
+class AWSSettings(BaseSettings):
+    """AWS configuration settings."""
+
+    REGION: str = Field(default="eu-west-2", validation_alias="AWS_REGION")
+    S3_BUCKET_NAME: str = Field(default="", validation_alias="AWS_S3_BUCKET_NAME")
+
+    model_config = _DEFAULT_MODEL_CONFIG
+
+
+# ------------------------------------------------------------------
 # Logging
 # ------------------------------------------------------------------
 class LoggingSettings(BaseSettings):
     """Logging configuration settings."""
 
-    LOG_LEVEL: str = Field(default=LogLevel.DEBUG)
+    LOG_LEVEL: str = Field(default="DEBUG", validation_alias="LOG_LEVEL")
     LOG_DIRECTORY: str = Field(default=f"{PROJECT_ROOT}/logs")
     LOG_FORMAT: str = Field(
         default="%(asctime)s [%(levelname)s] [%(name)s]: %(message)s"
     )
-    # Use a space between date and time for human-friendly logs
     DATE_FORMAT: str = Field(default="%Y-%m-%d %H:%M:%S")
     LOG_MAX_MB: int = Field(default=10)
 
@@ -268,21 +210,13 @@ class LoggingSettings(BaseSettings):
 class APIServerSettings(BaseSettings):
     """API server configuration settings."""
 
-    HOST: str = Field(default="0.0.0.0")
-    PORT: int = Field(default=8000)
     WORKERS: int = Field(default=1)
+    DOCS_URL: Optional[str] = Field(default="/docs", validation_alias="DOCS_URL")
+    REDOC_URL: Optional[str] = Field(default="/redoc", validation_alias="REDOC_URL")
 
-    DOCS_URL: str = Field(default="/docs")
-    REDOC_URL: str = Field(default="/redoc")
-
-    API_PREFIX: str = Field(default="/api")
-    API_V1_PREFIX: str = Field(default="/api/v1")
     CORS_ORIGINS: List[str] = Field(
-        default=[
-            "http://localhost:3000",
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-        ]
+        default=["http://localhost:3000", "http://localhost:5173"],
+        validation_alias="CORS_ORIGINS",
     )
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
     CORS_ALLOW_METHODS: List[str] = Field(
@@ -304,26 +238,6 @@ class APIServerSettings(BaseSettings):
 
 
 # ------------------------------------------------------------------
-# Monitoring
-# ------------------------------------------------------------------
-class MonitoringSettings(BaseSettings):
-    """Monitoring and metrics configuration settings."""
-
-    ENABLE_METRICS: bool = Field(default=True)
-    METRICS_ENDPOINT: str = Field(default="/metrics")
-
-    # SENTRY_DSN: Optional[SecretStr] = Field(default=None, env="SENTRY_DSN")
-    SENTRY_ENVIRONMENT: str = Field(default="development")
-
-    QA_SQLITE_DB_PATH: str = Field(default="../data/db/qa_log.db")
-    ENABLE_EVALUATION_LOGGING: bool = Field(default=False)
-
-    HEALTH_CHECK_TIMEOUT: int = Field(default=30)
-
-    model_config = _DEFAULT_MODEL_CONFIG
-
-
-# ------------------------------------------------------------------
 # Main Settings Container
 # ------------------------------------------------------------------
 class Settings(BaseSettings):
@@ -331,7 +245,6 @@ class Settings(BaseSettings):
 
     app: CoreAppSettings = CoreAppSettings()
     database: DatabaseSettings = DatabaseSettings()
-    cache: CacheSettings = CacheSettings()
     auth: AuthSettings = AuthSettings()
     files: FileProcessingSettings = FileProcessingSettings()
     llm: LLMIntegrationSettings = LLMIntegrationSettings()
@@ -339,7 +252,7 @@ class Settings(BaseSettings):
     web: WebSearchSettings = WebSearchSettings()
     logging: LoggingSettings = LoggingSettings()
     server: APIServerSettings = APIServerSettings()
-    monitoring: MonitoringSettings = MonitoringSettings()
+    aws: AWSSettings = AWSSettings()
 
     model_config = _DEFAULT_MODEL_CONFIG
 

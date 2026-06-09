@@ -99,7 +99,7 @@ class BaseLogger:
 
         error_log_path = os.path.join(self.log_path, "error.log")
         error_handler = logging.FileHandler(error_log_path, encoding="utf-8")
-        error_handler.setLevel(logging.ERROR)
+        error_handler.setLevel(logging.WARNING)
         error_handler.setFormatter(file_formatter)
         self.logger.addHandler(error_handler)
         self.handlers.append(error_handler)

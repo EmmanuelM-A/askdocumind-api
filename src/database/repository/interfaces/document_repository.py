@@ -156,6 +156,21 @@ class DocumentRepositoryInterface(ABC):
         """
         raise NotImplementedError
 
+    @abstractmethod
+    async def get_total_size_mb(
+        self,
+        chat_session_id: UUID,
+        tx: Optional[DBTransaction] = None,
+    ) -> float:
+        """
+        Sum the stored document sizes and return the total in megabytes.
+
+        :param chat_session_id: The UUID of the chat session to calculate total size for.
+        :param tx: Optional db transaction to wrap a db operation in.
+        :return: Total document size in megabytes.
+        """
+        raise NotImplementedError
+
     async def create_many(
         self, entities: List[Document], tx: Optional[DBTransaction] = None
     ) -> List[UUID]:

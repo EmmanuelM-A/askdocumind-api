@@ -6,6 +6,7 @@ Can be reused for other implementations by changing the repository instantiation
 """
 
 import pytest
+import pytest_asyncio
 from uuid import uuid4
 
 from src.database.models import Document, ChatSession
@@ -15,15 +16,16 @@ from src.database.repository.interfaces.document_repository import (
     UpdatedDocumentData,
 )
 from src.config.constants import ProcessingStatus
+from src.errors.api_exceptions import ApiException
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def document_repo(db_connection):
     """Provide a DocumentRepository instance."""
     return DocumentRepository(connection=db_connection)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def cleanup_documents(db_connection):
     """Cleanup test documents after each test."""
     yield
@@ -48,7 +50,7 @@ class TestDocumentRepositoryCore:
             session_id=test_chat_session.id,
             filename="test.pdf",
             file_size=123,
-            processing_status=ProcessingStatus.PENDING,
+            processing_status=ProcessingStatus.PROCESSING,
         )
 
         doc_id = await document_repo.create(doc)
@@ -85,7 +87,10 @@ class TestDocumentRepositoryCore:
     ):
         """Test retrieving a document by ID."""
         doc = Document(
-            id=uuid4(), session_id=test_chat_session.id, filename="test.pdf", file_size=123
+            id=uuid4(),
+            session_id=test_chat_session.id,
+            filename="test.pdf",
+            file_size=123,
         )
         await document_repo.create(doc)
 
@@ -167,7 +172,7 @@ class TestDocumentRepositoryCore:
             session_id=test_chat_session.id,
             filename="pending.pdf",
             file_size=123,
-            processing_status=ProcessingStatus.PENDING,
+            processing_status=ProcessingStatus.PROCESSING,
         )
         doc_completed = Document(
             id=uuid4(),
@@ -195,7 +200,7 @@ class TestDocumentRepositoryCore:
             session_id=test_chat_session.id,
             filename="original.pdf",
             file_size=123,
-            processing_status=ProcessingStatus.PENDING,
+            processing_status=ProcessingStatus.PROCESSING,
         )
         await document_repo.create(doc)
 
@@ -229,7 +234,7 @@ class TestDocumentRepositoryCore:
             session_id=test_chat_session.id,
             filename="test.pdf",
             file_size=123,
-            processing_status=ProcessingStatus.PENDING,
+            processing_status=ProcessingStatus.PROCESSING,
         )
         await document_repo.create(doc)
 
@@ -238,7 +243,7 @@ class TestDocumentRepositoryCore:
         updated = await document_repo.update(doc.id, update_data)
 
         assert updated.filename == "new_name.pdf"
-        assert updated.processing_status == ProcessingStatus.PENDING
+        assert updated.processing_status == ProcessingStatus.PROCESSING
 
     @pytest.mark.asyncio
     async def test_delete_document_success(
@@ -246,7 +251,10 @@ class TestDocumentRepositoryCore:
     ):
         """Test deleting a document."""
         doc = Document(
-            id=uuid4(), session_id=test_chat_session.id, filename="test.pdf", file_size=123
+            id=uuid4(),
+            session_id=test_chat_session.id,
+            filename="test.pdf",
+            file_size=123,
         )
         await document_repo.create(doc)
 
@@ -264,10 +272,41 @@ class TestDocumentRepositoryCore:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_exists_true(self, document_repo, test_chat_session, cleanup_documents):
+    async def test_create_duplicate_filename_raises_conflict(
+        self, document_repo, test_chat_session, cleanup_documents
+    ):
+        """Test duplicate filename in the same chat raises a conflict error."""
+        first = Document(
+            id=uuid4(),
+            session_id=test_chat_session.id,
+            filename="duplicate.pdf",
+            file_size=123,
+        )
+        second = Document(
+            id=uuid4(),
+            session_id=test_chat_session.id,
+            filename="duplicate.pdf",
+            file_size=456,
+        )
+
+        await document_repo.create(first)
+
+        with pytest.raises(ApiException) as exc_info:
+            await document_repo.create(second)
+
+        assert exc_info.value.status_code == 409
+        assert exc_info.value.error.code == "DOCUMENT_ALREADY_EXISTS"
+
+    @pytest.mark.asyncio
+    async def test_exists_true(
+        self, document_repo, test_chat_session, cleanup_documents
+    ):
         """Test exists returns True for existing document."""
         doc = Document(
-            id=uuid4(), session_id=test_chat_session.id, filename="test.pdf", file_size=123
+            id=uuid4(),
+            session_id=test_chat_session.id,
+            filename="test.pdf",
+            file_size=123,
         )
         await document_repo.create(doc)
 
@@ -369,6 +408,8 @@ class TestDocumentRepositoryCore:
         deleted_count = await document_repo.delete_many(doc_ids)
 
         assert deleted_count == 3
+        for doc_id in doc_ids:
+            assert await document_repo.get_by_id(doc_id) is None
 
     @pytest.mark.asyncio
     async def test_bulk_update_processing_status(
@@ -381,7 +422,7 @@ class TestDocumentRepositoryCore:
                 session_id=test_chat_session.id,
                 filename=f"doc{i}.pdf",
                 file_size=123,
-                processing_status=ProcessingStatus.PENDING,
+                processing_status=ProcessingStatus.PROCESSING,
             )
             for i in range(3)
         ]

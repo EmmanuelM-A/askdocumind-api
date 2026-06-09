@@ -3,18 +3,35 @@ Web search module for retrieving information from the internet when no
 relevant documents are found.
 """
 
+import ipaddress
+import socket
+from dataclasses import dataclass
+from urllib.parse import quote_plus, urlparse
+from uuid import UUID
+
 import requests
 import time
-from typing import List, Dict, Any, Optional
-from urllib.parse import quote_plus
+from typing import List, Optional
 from bs4 import BeautifulSoup
 
-from src.components.ingestion.document_processor import DocumentProcessor
+from src.components.ingestion.vector_processor import VectorProcessor
 from src.components.retrieval.embedder import Embedder
-from src.components.retrieval.vector_store import VectorStore
 from src.config.configs import settings
-from src.components.ingestion.document import FileDocument, FileDocumentMetadata
+from src.database.repository.interfaces import DBTransaction
 from src.logger.base_logger import BaseLogger
+
+
+@dataclass
+class WebContent:
+    content: str
+    source: str
+
+
+@dataclass
+class WebSearchResult:
+    title: str
+    snippet: str
+    url: str
 
 
 class WebSearcher:
@@ -25,8 +42,7 @@ class WebSearcher:
     def __init__(
         self,
         embedder: Embedder,
-        document_processor: DocumentProcessor,
-        vector_store: VectorStore,
+        vector_processor: VectorProcessor,
     ) -> None:
         """
         Initializes the WebSearcher instance.
@@ -38,62 +54,41 @@ class WebSearcher:
         self.search_engine_id = settings.web.SEARCH_ENGINE_ID.get_secret_value()
 
         self.embedder = embedder
-        self.document_processor = document_processor
-        self.vector_store = vector_store
+        self._vector_processor = vector_processor
 
     # ======================== WEB SEARCH METHODS ========================
 
-    def process_query_via_web_search(
-        self, query: str, index_id: str
-    ) -> Optional[List[dict]]:
-        """
-        Process a user query by performing a web search, retrieving content,
-        embedding the content, and storing it in the vector store.
+    async def search_and_ingest_web_content(
+        self, query: str, chat_session_id: UUID, tx: DBTransaction
+    ) -> int:
 
-        Args:
-            query: The user's search query.
-            index_id: The ID of the vector index to store results in.
+        self._logger.debug(f"Processing query via web search: '{query}'")
 
-        Returns:
-            A list of dictionaries containing the text and metadata of the
-            ingested web documents, or None if no documents were found.
-        """
+        raw_web_documents = self._search_and_retrieve_content_from_web(query)
 
-        self._logger.info(f"Processing query via web search: '{query}'")
-
-        web_documents = self._search_and_retrieve_content_from_web(query)
-
-        if not web_documents:
+        if not raw_web_documents:
             self._logger.info("No documents retrieved from web search")
-            return None
+            return 0
 
-        total_chunks = 0
-        results = []
+        all_web_content: List[str] = []
+        all_content_sources: List[str] = []
 
-        web_chunks = self.document_processor.process(web_documents)
+        for raw_web_document in raw_web_documents:
+            all_web_content.append(raw_web_document.content)
+            all_content_sources.append(raw_web_document.source)
 
-        # Stream chunks → batch embeddings → store vectors
-        for vectors, metadata in self.embedder.embed_documents(web_chunks):
-            self.vector_store.add_vectors(
-                index_id=index_id,
-                vectors=vectors,
-                metadata=metadata,
-            )
-
-            total_chunks += len(vectors)
-
-        for doc in web_chunks:
-            results.append({"text": doc.content, "metadata": doc.metadata})
-
-        self._logger.info(
-            f"Ingested {total_chunks} web document chunks into index '{index_id}'"
+        ingested = await self._vector_processor.process_and_save_vectors_from_web(
+            chat_session_id=chat_session_id, raw_web_contents=all_web_content, tx=tx
         )
 
-        return results
+        self._logger.info(
+            f"Ingested {ingested} web chunks for query '{query}' into chat {chat_session_id}"
+        )
+        return ingested
 
     # ========================== HELPER METHODS ==========================
 
-    def _search_and_retrieve_content_from_web(self, query: str) -> List[FileDocument]:
+    def _search_and_retrieve_content_from_web(self, query: str) -> List[WebContent]:
         """Enhanced web search with better error handling."""
 
         if not query or not query.strip():
@@ -105,23 +100,17 @@ class WebSearcher:
         try:
             search_results = self._search_web(query)
 
-            if not search_results:
+            if not search_results or len(search_results) == 0:
                 self._logger.info("No web search results found")
                 return []
 
-            documents = []
+            documents: List[WebContent] = []
             successful_fetches = 0
 
             for i, result in enumerate(search_results):
                 try:
-                    # Validate result structure
-                    if not isinstance(result, dict) or "url" not in result:
-                        self._logger.warning(
-                            f"Invalid search result structure at index {i}"
-                        )
-                        continue
 
-                    url = result.get("url", "").strip()
+                    url = result.url.strip()
                     if not url or not url.startswith(("http://", "https://")):
                         self._logger.warning(f"Invalid URL in search result: {url}")
                         continue
@@ -130,9 +119,14 @@ class WebSearcher:
                     if i > 0:
                         time.sleep(settings.web.WEB_REQUEST_DELAY_SECS)
 
-                    document = self._fetch_and_create_document(result)
-                    if document:
-                        documents.append(document)
+                    document_content = self._fetch_and_full_content(result)
+                    if document_content:
+                        documents.append(
+                            WebContent(
+                                content=document_content,
+                                source=url,
+                            )
+                        )
                         successful_fetches += 1
 
                 except Exception as e:
@@ -148,7 +142,7 @@ class WebSearcher:
             self._logger.error(f"Critical error in web search: {e}", exc_info=True)
             return []
 
-    def _search_web(self, query: str) -> List[Dict[str, Any]]:
+    def _search_web(self, query: str) -> List[WebSearchResult]:
         """
         Perform web search using Google Custom Search API.
 
@@ -191,17 +185,17 @@ class WebSearcher:
                 self._logger.warning("No search results found")
                 return []
 
-            results = []
+            results: List[WebSearchResult] = []
             for item in data["items"]:
                 results.append(
-                    {
-                        "title": item.get("title", ""),
-                        "snippet": item.get("snippet", ""),
-                        "url": item.get("link", ""),
-                    }
+                    WebSearchResult(
+                        title=item.get("title", ""),
+                        snippet=item.get("snippet", ""),
+                        url=item.get("url", ""),
+                    )
                 )
 
-            self._logger.info(f"Retrieved {len(results)} search results")
+            self._logger.debug(f"Retrieved {len(results)} search results")
 
             return results
 
@@ -209,7 +203,7 @@ class WebSearcher:
             self._logger.error(f"Error in web search: {e}")
             return self._fallback_search(query, num_results)
 
-    def _fallback_search(self, query: str, num_results: int) -> List[Dict[str, Any]]:
+    def _fallback_search(self, query: str, num_results: int) -> List[WebSearchResult]:
         """
         Fallback search using DuckDuckGo (no API key required).
 
@@ -221,8 +215,6 @@ class WebSearcher:
             self._logger.warning("Web search fallback is disabled")
             return []
 
-        self._logger.info(f"Using fallback search method for the query: '{query}'")
-
         try:
             # Simple DuckDuckGo search (note: this may not work reliably in production)
             search_url = f"https://duckduckgo.com/html/?q={quote_plus(query)}"
@@ -232,7 +224,7 @@ class WebSearcher:
             response.raise_for_status()
 
             soup = BeautifulSoup(response.content, "html.parser")
-            results = []
+            results: List[WebSearchResult] = []
 
             # Parse DuckDuckGo results (simplified)
             result_elements = soup.find_all("div", class_="result")[:num_results]
@@ -243,36 +235,31 @@ class WebSearcher:
 
                 if title_elem and snippet_elem:
                     results.append(
-                        {
-                            "title": title_elem.get_text(strip=True),
-                            "snippet": snippet_elem.get_text(strip=True),
-                            "url": title_elem.get("href", ""),
-                            "source": "duckduckgo_search",
-                        }
+                        WebSearchResult(
+                            title=title_elem.get_text(strip=True),
+                            snippet=snippet_elem.get_text(strip=True),
+                            url=title_elem.get("href", ""),
+                        )
                     )
 
-            self._logger.info(f"Retrieved {len(results)} fallback search results")
+            self._logger.debug(f"Retrieved {len(results)} fallback search results")
             return results
 
         except Exception as e:
             self._logger.error(f"Error in fallback search: {e}")
             return []
 
-    def _fetch_and_create_document(self, result: dict) -> Optional[FileDocument]:
+    def _fetch_and_full_content(self, result: WebSearchResult) -> Optional[str]:
         """
-        Safely fetch and create document from search result.
-
-        Args:
-            result: A single search result dictionary
-
-        Returns:
-            FileDocument object or None if failed
+        Safely fetch and extract content from a web page given a search result,
+        with robust error handling and fallback to snippet if content retrieval
+        fails.
         """
 
         try:
-            url = result["url"]
-            title = result.get("title", "Untitled")
-            snippet = result.get("snippet", "")
+            url = result.url
+            title = result.title
+            snippet = result.snippet
 
             content = self._fetch_page_content(url)
 
@@ -285,31 +272,41 @@ class WebSearcher:
                 full_content = f"Title: {title}\n\nSummary: {snippet}"
                 self._logger.debug(f"Using snippet fallback for {url}")
 
-            metadata = FileDocumentMetadata(
-                filename=title or "web_content",
-                file_extension=".html",
-                author=None,
-                source=url,
-            )
-
-            return FileDocument(full_content, metadata)
+            return full_content
 
         except Exception as e:
             self._logger.error(f"Error creating document from search result: {e}")
             return None
 
+    @staticmethod
+    def _is_safe_url(url: str) -> bool:
+        """Return False if the URL resolves to a private or reserved IP address."""
+        try:
+            hostname = urlparse(url).hostname
+            if not hostname:
+                return False
+            ip = ipaddress.ip_address(socket.gethostbyname(hostname))
+            return not (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                or ip.is_reserved
+                or ip.is_multicast
+            )
+        except Exception:
+            return False
+
     def _fetch_page_content(self, url: str) -> Optional[str]:
         """
-        Fetch and extract text content from a web page.
-
-        Args:
-            url: URL to fetch
-
-        Returns:
-            Extracted text content or None if failed
+        Fetch and extract text content from a web page at the given URL or
+        return None if any error occurs.
         """
 
         try:
+            if not self._is_safe_url(url):
+                self._logger.warning(f"Blocked fetch to private/reserved address: {url}")
+                return None
+
             headers = {"User-Agent": settings.web.WEB_USER_AGENT}
 
             response = requests.get(
