@@ -34,11 +34,9 @@ class APIVersionMiddleware(BaseHTTPMiddleware):
 		if request.method == "OPTIONS":
 			return await call_next(request)
 
-		api_prefix = settings.server.API_PREFIX.rstrip("/")
-		legacy_v1_prefix = settings.server.API_V1_PREFIX.rstrip("/")
 		path = request.url.path
 
-		if not (path == api_prefix or path.startswith(f"{api_prefix}/")):
+		if not path.startswith(f"api/"):
 			return await call_next(request)
 
 		supported_versions = set(settings.app.SUPPORTED_VERSIONS)
@@ -46,10 +44,7 @@ class APIVersionMiddleware(BaseHTTPMiddleware):
 
 		header_version = self._normalize_version(request.headers.get("Accept-Version"))
 
-		if path == legacy_v1_prefix or path.startswith(f"{legacy_v1_prefix}/"):
-			requested_version = "1"
-		else:
-			requested_version = header_version or default_version
+		requested_version = header_version or default_version
 
 		if requested_version not in supported_versions:
 			return self._unprocessable_response(
@@ -57,11 +52,7 @@ class APIVersionMiddleware(BaseHTTPMiddleware):
 				f"Supported versions: {', '.join(sorted(supported_versions))}."
 			)
 
-		if (
-			header_version is not None
-			and (path == legacy_v1_prefix or path.startswith(f"{legacy_v1_prefix}/"))
-			and header_version != "1"
-		):
+		if (header_version is not None and header_version != "1"):
 			return self._unprocessable_response(
 				"Accept-Version header conflicts with URL version. "
 				"Use /api routes with Accept-Version or /api/v1 without conflicting header."

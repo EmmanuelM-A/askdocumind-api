@@ -10,13 +10,12 @@ from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
-from src.logger.logging_utils import LogLevel
 
 # ------------------------------------------------------------------
 # Environment Setup
 # ------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-ENV_FILE = PROJECT_ROOT / ".env"
+ENV_FILE = PROJECT_ROOT / ".env.dev"
 
 if ENV_FILE.exists():
     load_dotenv(ENV_FILE)
@@ -214,9 +213,6 @@ class APIServerSettings(BaseSettings):
     WORKERS: int = Field(default=1)
     DOCS_URL: Optional[str] = Field(default="/docs", validation_alias="DOCS_URL")
     REDOC_URL: Optional[str] = Field(default="/redoc", validation_alias="REDOC_URL")
-
-    API_PREFIX: str = Field(default="/api")
-    API_V1_PREFIX: str = Field(default="/api/v1")
 
     CORS_ORIGINS: List[str] = Field(
         default=["http://localhost:3000", "http://localhost:5173"],

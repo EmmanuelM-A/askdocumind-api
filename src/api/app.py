@@ -30,8 +30,7 @@ async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded)
     """Delegate SlowAPI limit errors to the library-provided response builder."""
     return _rate_limit_exceeded_handler(request, exc)
 
-
-API_PREFIX = settings.server.API_PREFIX
+API_PREFIX = "/api"
 
 
 @asynccontextmanager
