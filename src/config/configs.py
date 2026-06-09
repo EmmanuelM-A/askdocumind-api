@@ -34,7 +34,7 @@ class CoreAppSettings(BaseSettings):
     ENV: str = Field(default=..., validation_alias="ENV")
     APP_NAME: str = Field(default="DocuChatAPI")
     PORT: int = Field(default=..., validation_alias="PORT")
-    HOST: str = Field(default=..., validation_alias="HOST")
+    HOST: str = Field(default="0.0.0.0", validation_alias="HOST")
 
     # Internal API routing constants
     SUPPORTED_VERSIONS: List[str] = Field(default=["1"])
