@@ -13,7 +13,6 @@ from uuid import uuid4
 
 import pytest
 
-from src.errors.custom_exceptions import unprocessable_entity_error
 
 # ========================================
 # Core Functionality Tests

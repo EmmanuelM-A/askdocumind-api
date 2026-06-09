@@ -192,7 +192,7 @@ class WebDocumentProcessor(DocumentProcessor):
             )
 
             if not success or not cleaned_web_content:
-                _logger.warning(f"Raw web content validation failed")
+                _logger.warning("Raw web content validation failed")
                 continue
 
             for chunked_text in self._split_content(cleaned_web_content):
@@ -201,7 +201,7 @@ class WebDocumentProcessor(DocumentProcessor):
 
                 yielded_any_chunk = True
 
-                _logger.debug(f"Yielding web content chunk")
+                _logger.debug("Yielding web content chunk")
 
                 yield chunked_text
 

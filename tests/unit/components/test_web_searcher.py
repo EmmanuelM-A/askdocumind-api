@@ -157,7 +157,7 @@ def test_search_web_missing_api_credentials_uses_fallback(web_searcher):
         mock_fallback.return_value = []
         mock_settings.web.MAX_WEB_SEARCH_RESULTS = 10
 
-        results = web_searcher._search_web(query)
+        web_searcher._search_web(query)
 
     mock_fallback.assert_called_once()
 
@@ -693,7 +693,7 @@ def test_search_and_retrieve_content_critical_error(web_searcher):
 
     with patch.object(web_searcher, "_search_web") as mock_search, patch.object(
         web_searcher, "_logger"
-    ) as mock_logger:
+    ) as _:
         mock_search.side_effect = Exception("Critical error")
 
         results = web_searcher._search_and_retrieve_content_from_web(query)

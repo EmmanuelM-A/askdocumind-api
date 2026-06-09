@@ -123,8 +123,7 @@ class RAGChatbot:
 
             if web_response:
                 self._logger.info(
-                    f"Generated response from web search for the query: "
-                    + f"'{query}'."
+                    f"Generated response from web search for the query: '{query}'."
                 )
                 response_data.answer = web_response
                 response_data.sources = web_sources

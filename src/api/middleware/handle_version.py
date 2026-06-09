@@ -36,7 +36,7 @@ class APIVersionMiddleware(BaseHTTPMiddleware):
 
 		path = request.url.path
 
-		if not path.startswith(f"api/"):
+		if not path.startswith("api/"):
 			return await call_next(request)
 
 		supported_versions = set(settings.app.SUPPORTED_VERSIONS)

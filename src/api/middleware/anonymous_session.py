@@ -37,7 +37,7 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
         normalized_path = request.url.path.rstrip("/") or "/"
         is_api_path = normalized_path.startswith("api/")
 
-        health_prefix = f"api/health"
+        health_prefix = "api/health"
 
         if request.method == "OPTIONS" or not is_api_path:
             return await call_next(request)

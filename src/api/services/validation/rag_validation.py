@@ -5,7 +5,7 @@ Handles input validation for user queries, file paths, and URLs.
 import re
 import html
 from pathlib import Path
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List
 from urllib.parse import urlparse
 
 from fastapi import UploadFile
@@ -15,11 +15,6 @@ from uuid import UUID
 from src.database.repository.interfaces import ChatSessionRepositoryInterface
 from src.database.repository.interfaces import ChatSessionSearchCriteria
 from src.api.services.auth.anonymous_identity import require_current_anonymous_user_id
-
-# Avoid importing RAGChatbot at module import time to prevent circular imports;
-# import it only for type checking.
-if TYPE_CHECKING:
-    from src.components.chatbot.core import RAGChatbot
 
 from src.config.configs import settings
 from src.errors.custom_exceptions import (
