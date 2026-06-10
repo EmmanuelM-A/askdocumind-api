@@ -6,7 +6,7 @@ Each configuration class handles a specific domain of settings.
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
@@ -57,6 +57,15 @@ class DatabaseSettings(BaseSettings):
     """Database configuration settings."""
 
     DATABASE_URL: SecretStr = Field(default=..., validation_alias="DATABASE_URL")
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def _ensure_asyncpg_driver(cls, v: str) -> str:
+        url = v if isinstance(v, str) else str(v)
+        for sync_prefix in ("postgresql+psycopg2://", "postgresql://", "postgres://"):
+            if url.startswith(sync_prefix):
+                return "postgresql+asyncpg://" + url[len(sync_prefix):]
+        return url
 
     # Pool tuning — sensible defaults, override in env only if needed
     DB_POOL_SIZE: int = Field(default=10)
