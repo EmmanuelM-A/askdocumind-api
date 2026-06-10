@@ -14,4 +14,4 @@ PORT = settings.app.PORT
 
 if __name__ == "__main__":
     print(f"Docs available at http://{HOST}:{PORT}/docs")
-    uvicorn.run("src.api.server:app", host=HOST, port=PORT, reload=True)
+    uvicorn.run("src.api.server:app", host=HOST, port=PORT, reload=settings.app.ENV == "development")
