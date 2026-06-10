@@ -8,6 +8,5 @@ tests/
 logs/
 data/raw/
 docs/
-alembic/
 .git/
 *.md
