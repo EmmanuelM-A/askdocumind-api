@@ -7,7 +7,7 @@ from typing import cast
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 from src.api.services.auth.anonymous_identity import (
     reset_current_anonymous_user_id,
@@ -19,7 +19,6 @@ from src.config.configs import settings
 from src.database.repository import get_database_repository
 from src.database.repository.interfaces.user_repository import UpdatedUserData
 from src.database.repository.sqlalchemy.user_repository import UserRepository
-from src.errors.custom_exceptions import unprocessable_entity_error, not_found_error
 
 
 class AnonymousSessionMiddleware(BaseHTTPMiddleware):
@@ -56,17 +55,18 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
         )
 
         if not cookie_value:
-            raise unprocessable_entity_error(
-                message="No cookie value provided", error_code="NO_COOKIE_VALUE"
+            return JSONResponse(
+                status_code=422,
+                content={"error": {"code": "NO_COOKIE_VALUE", "message": "No cookie value provided"}},
             )
 
         anonymous_id = token_manager.decode_token(cookie_value).user_id
 
         existing_user = await user_repo.get_by_id(anonymous_id)
         if existing_user is None:
-            raise not_found_error(
-                message="Anonymous session user no longer exists.",
-                error_code="ANONYMOUS_USER_NOT_FOUND",
+            return JSONResponse(
+                status_code=404,
+                content={"error": {"code": "ANONYMOUS_USER_NOT_FOUND", "message": "Anonymous session user no longer exists."}},
             )
 
         await user_repo.update(
