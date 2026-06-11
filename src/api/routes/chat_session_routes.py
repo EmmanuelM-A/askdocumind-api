@@ -25,7 +25,7 @@ _controller = ChatSessionController()
 #     pass
 
 
-@chat_session_router.post("/", summary="Create chat session")
+@chat_session_router.post("", summary="Create chat session")
 async def create_chat_session(http_request: Request, request: CreateChatSchema):
     return await _controller.create_chat_session_endpoint(http_request, request)
 
