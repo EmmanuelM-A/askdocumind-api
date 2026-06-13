@@ -26,21 +26,15 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        # Allowed unauthenticated paths
-        anonymous_user_path = "api/auth/anonymous/"
-        health_path = "api/health/"
-
-        # Only apply middleware to API paths, excluding OPTIONS requests for CORS preflight
         current_path = request.url.path
-        is_api_path = current_path == "api/" or current_path.startswith("api/")
 
-        if request.method == "OPTIONS" or not is_api_path:
+        if request.method == "OPTIONS" or not current_path.startswith("/api/"):
             return await call_next(request)
 
-        if current_path == anonymous_user_path or current_path.startswith(anonymous_user_path):
+        if current_path.startswith("/api/auth/anonymous"):
             return await call_next(request)
 
-        if current_path == health_path or current_path.startswith(health_path):
+        if current_path.startswith("/api/health"):
             return await call_next(request)
         
         _logger.debug(f"Processing request for path: {current_path}")
