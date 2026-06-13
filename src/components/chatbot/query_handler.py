@@ -3,8 +3,6 @@ Responsible for handling user queries and generating their corresponding
 response.
 """
 
-import html
-import re
 from typing import List, Tuple, cast
 from uuid import UUID
 

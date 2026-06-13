@@ -27,8 +27,8 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
         # Allowed unauthenticated paths
-        anonymous_user_path = f"api/auth/anonymous/"
-        health_path = f"api/health/"
+        anonymous_user_path = "api/auth/anonymous/"
+        health_path = "api/health/"
 
         # Only apply middleware to API paths, excluding OPTIONS requests for CORS preflight
         current_path = request.url.path
