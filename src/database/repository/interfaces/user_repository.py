@@ -23,7 +23,7 @@ class UserSearchCriteria(BaseModel):
 class UpdatedUserData(BaseModel):
     """Schema for updating user fields."""
 
-    last_seen_at: Optional[str] = None
+    last_seen_at: Optional[datetime] = None
 
 
 class UserRepositoryInterface(ABC):

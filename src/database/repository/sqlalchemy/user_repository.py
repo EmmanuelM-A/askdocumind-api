@@ -38,20 +38,9 @@ class UserRepository(UserRepositoryInterface):
             filters.append(User.id == criteria.id)
 
         if criteria.last_seen_at_lte is not None:
-            last_seen_cutoff = criteria.last_seen_at_lte
-            if last_seen_cutoff.tzinfo is not None:
-                last_seen_cutoff = last_seen_cutoff.astimezone().replace(tzinfo=None)
-            filters.append(User.last_seen_at <= last_seen_cutoff)
+            filters.append(User.last_seen_at <= criteria.last_seen_at_lte)
 
         return filters
-
-    @staticmethod
-    def _to_naive_datetime(value: str) -> datetime:
-        """Parse ISO datetime text and normalize to local naive for DB writes."""
-        parsed = datetime.fromisoformat(value)
-        if parsed.tzinfo is not None:
-            return parsed.astimezone().replace(tzinfo=None)
-        return parsed
 
     async def create(self, data: User, tx: Optional[DBTransaction] = None) -> UUID:
         try:
@@ -121,9 +110,7 @@ class UserRepository(UserRepositoryInterface):
                     hasattr(new_user_data, "last_seen_at")
                     and new_user_data.last_seen_at is not None
                 ):
-                    existing.last_seen_at = self._to_naive_datetime(
-                        new_user_data.last_seen_at
-                    )
+                    existing.last_seen_at = new_user_data.last_seen_at
 
                 await tx.flush()
                 self._logger.debug(f"User updated: {user_id}")
@@ -140,9 +127,7 @@ class UserRepository(UserRepositoryInterface):
                     hasattr(new_user_data, "last_seen_at")
                     and new_user_data.last_seen_at is not None
                 ):
-                    existing.last_seen_at = self._to_naive_datetime(
-                        new_user_data.last_seen_at
-                    )
+                    existing.last_seen_at = new_user_data.last_seen_at
 
                 await session.flush()
                 self._logger.debug(f"User updated: {user_id}")

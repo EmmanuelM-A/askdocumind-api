@@ -1,6 +1,6 @@
 from typing import List, Optional
 from uuid import UUID
-from zipfile import Path
+from pathlib import Path
 
 from fastapi import UploadFile
 from pydantic import BaseModel, Field, field_validator
