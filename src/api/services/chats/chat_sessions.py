@@ -6,12 +6,12 @@ of chat sessions with proper authorization and transaction management.
 from typing import List, cast
 from uuid import UUID
 
-from src.api.services.validation.chat import (
+from src.api.services.validation.chat_session import (
     DeleteChatSessionSchema,
     GetChatSessionMessagesSchema,
     InitializeChatSessionSchema,
 )
-from src.api.services.validation.rag_validation import check_if_chat_exists
+from src.api.services.validation.helper import check_if_chat_exists
 from src.api.services.validation.schemas import (
     CreateChatSchema,
     GetChatMetadataSchema,
@@ -20,7 +20,6 @@ from src.config.configs import settings
 from src.database.models import ChatSession, ChatMessage
 from src.database.repository.interfaces import (
     ChatSessionRepositoryInterface,
-    DBTransactionFactory,
     ChatMessageSearchCriteria,
     ChatMessageRepositoryInterface,
     ChatSessionSearchCriteria,
@@ -66,7 +65,7 @@ class ChatSessionService:
 
         return created_id
 
-    async def get_chat_metadata(self, data: GetChatMetadataSchema) -> ChatSession:
+    async def get_chat_metadata(self, data: GetChatMetadataSchema) -> dict:
         """
         Retrieve chat session metadata after verifying ownership.
         """
@@ -81,7 +80,7 @@ class ChatSessionService:
             f"Retrieved metadata for chat session {data.chat_id} owned by user {data.owner_id}"
         )
 
-        return chat
+        return chat.to_dict()
 
     async def delete_chat(self, data: DeleteChatSessionSchema) -> UUID:
         """
@@ -124,13 +123,15 @@ class ChatSessionService:
 
         created_id = await self._chat_session_repo.create(data=new_chat)
 
-        self._logger.info(f"Created new chat session {created_id} for user {data.user_id}")
+        self._logger.info(
+            f"Created new chat session {created_id} for user {data.user_id}"
+        )
 
         return created_id
 
     async def get_chat_messages(
         self, data: GetChatSessionMessagesSchema, criteria: ChatMessageSearchCriteria
-    ) -> List[ChatMessage]:
+    ) -> List[dict]:
         """
         Retrieve messages for a specific chat session after verifying ownership.
         """
@@ -139,5 +140,11 @@ class ChatSessionService:
             owner_id=data.owner_id,
             chat_session_repo=self._chat_session_repo,
         )
-        
-        return await self._chat_message_repo.list_by(criteria)
+
+        messages = await self._chat_message_repo.list_by(criteria)
+
+        self._logger.info(
+            f"Retrieved {len(messages)} messages for chat session {data.chat_id} owned by the user {data.owner_id}"
+        )
+
+        return [message.to_dict() for message in messages]

@@ -84,7 +84,7 @@ class AnonymousUserSessionService:
         """
 
         cutoff = datetime.now(timezone.utc) - timedelta(
-            hours=settings.auth.ANON_SESSION_TTL_HOURS
+            minutes=settings.anon.TTL_MINS / 60
         )
 
         expired_ids: List[UUID] = await self._user_repo.get_all_expired_user_ids(

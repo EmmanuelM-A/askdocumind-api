@@ -85,6 +85,7 @@ class AnonymousUserSessionSettings(BaseSettings):
     CLEANUP_INTERVAL_H: int = Field(
         default=1, validation_alias="USER_CLEANUP_INTERVAL_HOURS"
     )
+    TTL_MINS: int = Field(default=60, validation_alias="USER_TTL_MINS")
 
     model_config = _DEFAULT_MODEL_CONFIG
 
