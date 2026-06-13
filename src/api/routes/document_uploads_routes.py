@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, UploadFile, File, Form
 
 from src.api.controllers.document_uploads_controller import DocumentUploadController
-from src.api.services.validation.rag_validation import (
+from src.api.services.validation.helper import (
     FetchDocumentMetadataRequest,
     UploadDocumentsRequest,
     DeleteUploadedDocumentRequest,

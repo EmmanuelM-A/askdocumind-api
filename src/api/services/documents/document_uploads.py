@@ -9,12 +9,8 @@ from uuid import UUID
 
 from fastapi import UploadFile
 
-from src.api.services.validation.rag_validation import (
-    UploadDocumentsRequest,
-    check_if_chat_exists,
-    FetchDocumentMetadataRequest,
-    DeleteUploadedDocumentRequest,
-)
+from src.api.services.validation.document import DeleteUploadedDocumentRequest, FetchDocumentMetadataRequest, UploadDocumentsRequest
+from src.api.services.validation.helper import check_if_chat_exists
 from src.components.ingestion.vector_processor import VectorProcessor
 from src.config.configs import settings
 from src.config.constants import ProcessingStatus
@@ -76,6 +72,9 @@ class UploadDocumentService:
         entities: List[Document] = []
         documents: List[Tuple[UUID, str, bytes]] = []
         files_that_exceed_chat_limit: List[str] = []
+        
+        # NOTE: Consider a best-effort approach to upload files
+        # rather than failing the entire request if one file fails some validation
 
         for uploaded_file in request.documents:
             filename = self._normalize_filename(

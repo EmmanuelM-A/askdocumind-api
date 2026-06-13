@@ -52,14 +52,13 @@ class AnonymousUserSessionService:
             )
             return await self._create_anonymous_user_session()
 
-        existing_user: Optional[User] = None
-
         try:
             payload = self._token_manager.decode_token(cookie_value)
-            existing_user = await self._user_repo.get_by_id(payload.user_id)
         except Exception:
             self._logger.debug("Anonymous session cookie could not be reused.")
             return await self._create_anonymous_user_session()
+        
+        existing_user = await self._user_repo.get_by_id(payload.user_id)
 
         if existing_user is None:
             self._logger.debug(
