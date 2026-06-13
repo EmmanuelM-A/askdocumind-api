@@ -111,3 +111,14 @@ class UserRepositoryInterface(ABC):
         :return: Number of users deleted.
         """
         raise NotImplementedError
+
+    @abstractmethod
+    async def update_last_seen(
+        self, user_id: UUID, tx: Optional[DBTransaction] = None
+    ) -> None:
+        """
+        Update the last seen timestamp of a user to the current time.
+
+        :param user_id: The UUID of the user to update.
+        """
+        raise NotImplementedError

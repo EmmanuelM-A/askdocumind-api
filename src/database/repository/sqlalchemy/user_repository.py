@@ -5,11 +5,10 @@ operations and specific queries related to user entities.
 
 from typing import Optional
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import select, func, delete
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-
 from src.database.connection import DatabaseConnection
 from src.database.models import User
 from src.database.repository.interfaces.user_repository import (
@@ -242,6 +241,40 @@ class UserRepository(UserRepositoryInterface):
             raise database_error(
                 message="An error occurred while deleting users by criteria.",
                 error_code="USER_DELETE_BY_CRITERIA_ERROR",
+                stack_trace=str(e),
+            )
+    
+
+    async def update_last_seen(self, user_id: UUID, tx: Optional[DBTransaction] = None) -> None:
+        """Update the last_seen_at timestamp of a user to the current UTC time."""
+        try:
+            stmt = select(User).where(User.id == user_id)
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                existing = result.scalar_one_or_none()
+                if not existing:
+                    self._logger.warning(f"User {user_id} not found for last seen update.")
+                    return
+                existing.last_seen_at = datetime.now(timezone.utc)
+                await tx.flush()
+                self._logger.debug(f"Updated last seen for user: {user_id}")
+                return
+
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
+                existing = result.scalar_one_or_none()
+                if not existing:
+                    self._logger.warning(f"User {user_id} not found for last seen update.")
+                    return
+                existing.last_seen_at = datetime.now(timezone.utc)
+                await session.flush()
+                self._logger.debug(f"Updated last seen for user: {user_id}")
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise database_error(
+                message="An error occurred while updating the user's last seen timestamp.",
+                error_code="USER_UPDATE_LAST_SEEN_ERROR",
                 stack_trace=str(e),
             )
 
