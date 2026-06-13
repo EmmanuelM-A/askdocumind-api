@@ -72,7 +72,7 @@ class CustomJSONEncoder(json.JSONEncoder):
     suitable format.
     """
 
-    def default(self, obj):
+    def default(self, obj): # type: ignore
         """
         Convert custom objects to a serializable format.
         """

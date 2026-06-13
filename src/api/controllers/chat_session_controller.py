@@ -4,14 +4,22 @@ Handles application logic related to chat sessions and interactions with the
 service layer.
 """
 
+from typing import Optional
 from uuid import UUID
 
 from fastapi import status
 from fastapi import Request
 from starlette.responses import JSONResponse
 
+from src.api.services.chats.chat_sessions import ChatSessionService
 from src.api.services.service_factory import get_chat_service
-from src.api.services.validation.schemas import CreateChatSchema, UpdateChatMetadataSchema, InitChatSessionSchema
+from src.api.services.validation.chat_session import (
+    CreateChatSessionSchema,
+    DeleteChatSessionSchema,
+    GetChatSessionMessagesSchema,
+    GetChatSessionSchema,
+    InitializeChatSessionSchema,
+)
 from src.api.utils.api_responses import SuccessResponseModel
 from src.api.utils.response_delivery import create_success_response
 from src.database.repository.interfaces import ChatMessageSearchCriteria
@@ -25,117 +33,75 @@ class ChatSessionController:
     """
 
     def __init__(self):
-        self.chat_service = None
-        self.logger = BaseLogger(__name__)
+        self._chat_service: Optional[ChatSessionService] = None
+        self._logger = BaseLogger(__name__)
 
     def lazy_init(self) -> None:
         """Lazy initialize service dependency."""
-        if self.chat_service is None:
-            self.chat_service = get_chat_service()
+        if self._chat_service is None:
+            self._chat_service = get_chat_service()
 
     async def create_chat_session_endpoint(
-        self, http_request: Request, request: CreateChatSchema
+        self, input: CreateChatSessionSchema
     ) -> JSONResponse:
         self.lazy_init()
+        assert self._chat_service is not None
 
-        cookie_name = settings.auth.ANON_SESSION_USER_COOKIE_NAME
-        self.logger.info(
-            "chat session create request | "
-            f"origin={http_request.headers.get('origin')} "
-            f"method={http_request.method} "
-            f"path={http_request.url.path} "
-            f"cookie_found={bool(http_request.cookies.get(cookie_name))}"
-        )
+        created_id = await self._chat_service.create_new_chat(input)
 
-        created_id = await self.chat_service.create_new_chat(request)
         response_model = SuccessResponseModel(
             message="Chat session created successfully.",
             data={"chat_id": str(created_id)},
         )
-        self.logger.info(
-            "chat session create success | "
-            f"origin={http_request.headers.get('origin')} "
-            f"method={http_request.method} "
-            f"path={http_request.url.path} "
-            f"chat_id={created_id}"
-        )
+
         return create_success_response(
             status_code=status.HTTP_201_CREATED,
             success_response_model=response_model,
         )
 
     async def init_chat_session_endpoint(
-        self, http_request: Request, request: InitChatSessionSchema
+        self, input: InitializeChatSessionSchema
     ) -> JSONResponse:
         """Initialize or retrieve a chat session for a user."""
         self.lazy_init()
+        assert self._chat_service is not None
 
-        cookie_name = settings.auth.ANON_SESSION_USER_COOKIE_NAME
-        self.logger.info(
-            "chat session init request | "
-            f"origin={http_request.headers.get('origin')} "
-            f"method={http_request.method} "
-            f"path={http_request.url.path} "
-            f"user_id={request.user_id} "
-            f"cookie_found={bool(http_request.cookies.get(cookie_name))}"
-        )
+        chat_id = await self._chat_service.init_chat_session(input)
 
-        chat_id = await self.chat_service.init_or_get_chat_session(
-            user_id=request.user_id,
-            title=request.title,
-        )
         response_model = SuccessResponseModel(
             message="Chat session initialized successfully.",
             data={"chat_id": str(chat_id)},
         )
-        self.logger.info(
-            "chat session init success | "
-            f"origin={http_request.headers.get('origin')} "
-            f"method={http_request.method} "
-            f"path={http_request.url.path} "
-            f"user_id={request.user_id} "
-            f"chat_id={chat_id}"
-        )
+
         return create_success_response(
             status_code=status.HTTP_200_OK,
             success_response_model=response_model,
         )
 
-    async def get_chat_session_endpoint(self, session_id: UUID) -> JSONResponse:
-        self.lazy_init()
-
-        chat = await self.chat_service.get_chat_metadata(session_id)
-        response_model = SuccessResponseModel(
-            message="Chat session fetched successfully.",
-            data=chat.to_dict(),
-        )
-        return create_success_response(
-            status_code=status.HTTP_200_OK,
-            success_response_model=response_model,
-        )
-
-    async def update_chat_session_endpoint(
-        self, session_id: UUID, request: UpdateChatMetadataSchema
+    async def get_chat_session_endpoint(
+        self, input: GetChatSessionSchema
     ) -> JSONResponse:
         self.lazy_init()
+        assert self._chat_service is not None
 
-        updated_chat = await self.chat_service.update_chat_metadata(
-            chat_id=session_id,
-            data=request,
-        )
+        chat_metadata = await self._chat_service.get_chat_metadata(input)
+
         response_model = SuccessResponseModel(
-            message="Chat session updated successfully.",
-            data=updated_chat.to_dict(),
+            message="Chat session fetched successfully.",
+            data=chat_metadata,
         )
+
         return create_success_response(
             status_code=status.HTTP_200_OK,
             success_response_model=response_model,
         )
 
-    async def delete_chat_session_endpoint(self, session_id: UUID) -> JSONResponse:
+    async def delete_chat_session_endpoint(self, input: DeleteChatSessionSchema) -> JSONResponse:
         self.lazy_init()
+        assert self._chat_service is not None
 
-        deleted_id = await self.chat_service.delete_chat(session_id)
+        deleted_id = await self._chat_service.delete_chat(input)
+
         response_model = SuccessResponseModel(
             message="Chat session deleted successfully.",
             data={"chat_id": str(deleted_id)},
@@ -145,15 +111,16 @@ class ChatSessionController:
             success_response_model=response_model,
         )
 
-    async def get_chat_messages_endpoint(self, session_id: UUID) -> JSONResponse:
+    async def get_chat_messages_endpoint(self, input: GetChatSessionMessagesSchema) -> JSONResponse:
         self.lazy_init()
+        assert self._chat_service is not None
 
-        criteria = ChatMessageSearchCriteria(session_id=session_id)
-        messages = await self.chat_service.get_chat_messages(criteria)
+        criteria = ChatMessageSearchCriteria(session_id=input.chat_id)
+        messages = await self._chat_service.get_chat_messages(data=input, criteria=criteria)
 
         response_model = SuccessResponseModel(
             message="Chat messages fetched successfully.",
-            data=[message.to_dict() for message in messages],
+            data=messages,
         )
         return create_success_response(
             status_code=status.HTTP_200_OK,

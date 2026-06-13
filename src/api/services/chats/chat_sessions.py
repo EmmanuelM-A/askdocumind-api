@@ -7,17 +7,15 @@ from typing import List, cast
 from uuid import UUID
 
 from src.api.services.validation.chat_session import (
+    CreateChatSessionSchema,
     DeleteChatSessionSchema,
     GetChatSessionMessagesSchema,
+    GetChatSessionSchema,
     InitializeChatSessionSchema,
 )
 from src.api.services.validation.helper import check_if_chat_exists
-from src.api.services.validation.schemas import (
-    CreateChatSchema,
-    GetChatMetadataSchema,
-)
 from src.config.configs import settings
-from src.database.models import ChatSession, ChatMessage
+from src.database.models import ChatSession
 from src.database.repository.interfaces import (
     ChatSessionRepositoryInterface,
     ChatMessageSearchCriteria,
@@ -38,13 +36,13 @@ class ChatSessionService:
         self._chat_message_repo = chat_message_repo
         self._logger = BaseLogger(__name__)
 
-    async def create_new_chat(self, chat_data: CreateChatSchema) -> UUID:
+    async def create_new_chat(self, data: CreateChatSessionSchema) -> UUID:
         """
         Create a new chat session after verifying max chat limit.
         """
 
         existing_chats = await self._chat_session_repo.list_by(
-            ChatSessionSearchCriteria(user_id=chat_data.owner_id)
+            ChatSessionSearchCriteria(user_id=data.owner_id)
         )
 
         if len(existing_chats) >= settings.app.MAX_CHATS_PER_USER:
@@ -54,18 +52,18 @@ class ChatSessionService:
             )
 
         data = ChatSession(
-            title=chat_data.title,
-            user_id=chat_data.owner_id,
+            title=data.title,
+            user_id=data.owner_id,
         )
         created_id = await self._chat_session_repo.create(data=data)
 
         self._logger.info(
-            f"Created new chat session {created_id} for the user {chat_data.owner_id}"
+            f"Created new chat session {created_id} for the user {data.owner_id}"
         )
 
         return created_id
 
-    async def get_chat_metadata(self, data: GetChatMetadataSchema) -> dict:
+    async def get_chat_metadata(self, data: GetChatSessionSchema) -> dict:
         """
         Retrieve chat session metadata after verifying ownership.
         """
