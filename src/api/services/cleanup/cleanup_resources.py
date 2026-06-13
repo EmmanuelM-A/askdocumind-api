@@ -1,168 +1,54 @@
-"""Cleanup orchestration for anonymous user resources."""
-
-from __future__ import annotations
+"""Cleanup orchestration for expired anonymous user sessions."""
 
 import asyncio
-from datetime import datetime, timedelta
-from uuid import UUID
 
-from sqlalchemy import select
-
-from src.components.chatbot.chatbot_factory import get_chatbot
-from src.components.chatbot.core import RAGChatbot
+from src.api.services.auth.anonymous_user import AnonymousUserSessionService
+from src.api.services.service_factory import get_anonymous_user_service
 from src.config.configs import settings
-from src.database.models import User
-from src.database.repository import get_database_repository
-from src.database.repository.database_repository_factory import get_tx_factory
-from src.database.repository.interfaces import (
-    ChatSessionRepositoryInterface,
-    ChatSessionSearchCriteria,
-    DBTransactionFactory,
-    UserRepositoryInterface,
-)
-from src.database.storage import StorageService, get_storage_service
 from src.logger.base_logger import BaseLogger
 
+_logger = BaseLogger(__name__)
 
-class CleanupAnonymousUserResources:
-    def __init__(
-        self,
-        user_repo: UserRepositoryInterface,
-        chat_repo: ChatSessionRepositoryInterface,
-        tx_factory: DBTransactionFactory,
-        chatbot: RAGChatbot,
-        storage_service: StorageService,
-    ) -> None:
-        self.user_repo = user_repo
-        self.chat_repo = chat_repo
-        self.tx_factory = tx_factory
-        self.chatbot = chatbot
-        self.storage_service = storage_service
-        self.logger = BaseLogger(__name__)
+async def _run_scheduler(
+    anonymous_user_services: AnonymousUserSessionService,
+    stop_event: asyncio.Event,
+    interval_minutes: int,
+) -> None:
+    """Run cleanup repeatedly until the stop event is set."""
 
-    async def _get_expired_user_ids(self, cutoff: datetime) -> list[UUID]:
-        """Fetch expired anonymous user IDs before attempting cleanup."""
+    sleep_seconds = max(interval_minutes * 60, 1)
 
-        async with self.tx_factory.create() as tx:
-            stmt = select(User.id).where(
-                User.last_seen_at.is_not(None),
-                User.last_seen_at <= cutoff,
-            )
-            result = await tx.execute(stmt)
-            return list(result.scalars().all())
+    while not stop_event.is_set():
+        await anonymous_user_services.delete_expired_anonymous_user_sessions()
 
-    async def _cleanup_expired_anonymous_user_sessions(self) -> int:
-        """Delete expired anonymous users and clear related resources."""
-
-        cutoff = datetime.now() - timedelta(hours=settings.auth.ANON_SESSION_TTL_HOURS)
-
-        expired_user_ids = await self._get_expired_user_ids(cutoff)
-        if not expired_user_ids:
-            self.logger.debug("No expired anonymous user sessions found for cleanup.")
-            return 0
-
-        deleted_count = 0
-
-        for user_id in expired_user_ids:
-            try:
-                async with self.tx_factory.create() as tx:
-                    chat_sessions = await self.chat_repo.list_by(
-                        criteria=ChatSessionSearchCriteria(user_id=user_id),
-                        tx=tx,
-                    )
-                    chat_ids = [str(chat_session.id) for chat_session in chat_sessions]
-
-                    resources_ok = self._clear_additional_resources(chat_ids)
-
-                    if not resources_ok:
-                        self.logger.warning(
-                            f"Skipping deletion for user {user_id} because one or more non-DB resources failed to clear."
-                        )
-                        continue
-
-                    if await self.user_repo.delete(user_id, tx=tx):
-                        deleted_count += 1
-                        self.logger.info(f"Purged expired user session: {user_id}")
-
-            except Exception as exc:
-                self.logger.warning(
-                    f"Failed cleanup transaction for expired user {user_id}: {exc}"
-                )
-
-        if deleted_count > 0:
-            self.logger.info(
-                f"Deleted {deleted_count} expired anonymous user session(s)"
-            )
-
-        return deleted_count
-
-    def _clear_additional_resources(self, chat_ids: list[str]) -> bool:
-        """Clear storage files and vector indexes for deleted sessions."""
-
-        if not chat_ids:
-            return True
-
-        success = True
-
-        for chat_id in chat_ids:
-            try:
-                self.storage_service.delete_all(chat_id)
-            except Exception as exc:
-                success = False
-                self.logger.warning(
-                    f"Failed to delete storage resources for chat {chat_id}: {exc}"
-                )
-
-        return success
-
-    async def run_scheduler(
-        self,
-        stop_event: asyncio.Event,
-        interval_minutes: int,
-    ) -> None:
-        """Run cleanup repeatedly until the stop event is set."""
-
-        sleep_seconds = max(interval_minutes * 60, 1)
-
-        while not stop_event.is_set():
-            await self._cleanup_expired_anonymous_user_sessions()
-
-            try:
-                await asyncio.wait_for(stop_event.wait(), timeout=sleep_seconds)
-            except asyncio.TimeoutError:
-                continue
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=sleep_seconds)
+        except asyncio.TimeoutError:
+            continue
+    
+    _logger.info("Anonymous user session cleanup scheduler stopped.")
 
 
 async def init_anon_user_sessions_cleanup(
     stop_event: asyncio.Event | None = None,
     interval_minutes: int | None = None,
 ) -> None:
-    """Start cleanup repeatedly until the stop event is set.
-
-    Args:
-        stop_event: Event to signal when cleanup should stop. If None, creates a new event.
-        interval_minutes: Minutes between cleanup runs. If None, uses configured default.
+    """
+    Start the cleanup scheduler, running until the stop event is set.
     """
 
-    if not settings.auth.USER_SESSION_CLEANUP_ENABLED:
+    if not settings.anon.CLEANUP_ENABLED:
+        _logger.info("Anonymous user session cleanup is disabled in settings.")
         return
 
-    # Use provided event or create new one
-    effective_stop_event = stop_event or asyncio.Event()
-    # Use provided interval or fall back to settings
-    effective_interval_minutes = (
-        interval_minutes or settings.auth.USER_SESSION_CLEANUP_INTERVAL_MINUTES
+    stop_event = stop_event or asyncio.Event()
+    interval_minutes = (
+        interval_minutes or
+        settings.anon.CLEANUP_INTERVAL_H * 60
     )
 
-    cleanup_service = CleanupAnonymousUserResources(
-        user_repo=get_database_repository("USER"),
-        chat_repo=get_database_repository("CHAT_SESSION"),
-        tx_factory=get_tx_factory(),
-        chatbot=get_chatbot(),
-        storage_service=get_storage_service(),
-    )
-
-    await cleanup_service.run_scheduler(
-        stop_event=effective_stop_event,
-        interval_minutes=effective_interval_minutes,
+    await _run_scheduler(
+        anonymous_user_services=get_anonymous_user_service(),
+        stop_event=stop_event,
+        interval_minutes=interval_minutes,
     )

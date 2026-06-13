@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from src.api.services.chats.chat_sessions import ChatSessionService
+from src.api.utils.session_manager import get_token_manager
 from src.components.chatbot.chatbot_factory import get_chatbot
 from src.components.ingestion.processor_factory import get_vector_processor
 from src.database.repository import get_database_repository
@@ -79,7 +80,8 @@ def get_anonymous_user_service() -> "AnonymousUserSessionService":
         from src.api.services.auth.anonymous_user import AnonymousUserSessionService
 
         _anonymous_user_service = AnonymousUserSessionService(
-            user_repo=get_database_repository("USER")
+            user_repo=get_database_repository("USER"),
+            token_manager=get_token_manager(),
         )
 
     return _anonymous_user_service
