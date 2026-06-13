@@ -20,11 +20,3 @@ class ChatMessageRole(enum.Enum):
     ASSISTANT = "ASSISTANT"
     SYSTEM = "SYSTEM"
 
-
-class Source(str, enum.Enum):
-    """Enumeration for document sources."""
-
-    UPLOAD = "UPLOAD"
-    WEB_SEARCH = "WEB_SEARCH"
-    API = "API"
-    OTHER = "OTHER"
