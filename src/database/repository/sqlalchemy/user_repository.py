@@ -3,7 +3,7 @@ Concrete implementation of the user repository, providing methods for CRUD
 operations and specific queries related to user entities.
 """
 
-from typing import Optional
+from typing import Optional, cast
 from uuid import UUID
 from datetime import datetime, timezone
 
@@ -59,13 +59,13 @@ class UserRepository(UserRepositoryInterface):
                 await tx.add(data)
                 await tx.flush()
                 self._logger.debug(f"New user created: {data.id}")
-                return data.id
+                return cast(UUID, data.id)
 
             async with self._db.get_session() as session:
                 session.add(data)
                 await session.flush()
                 self._logger.debug(f"New user created: {data.id}")
-                return data.id
+                return cast(UUID, data.id)
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise database_error(
@@ -182,6 +182,34 @@ class UserRepository(UserRepositoryInterface):
                 stack_trace=str(e),
             )
 
+    async def delete_many(
+        self, user_ids: list[UUID], tx: Optional[DBTransaction] = None
+    ) -> int:
+        if not user_ids:
+            return 0
+
+        try:
+            stmt = delete(User).where(User.id.in_(user_ids))
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                deleted_count = result.rowcount or 0
+                self._logger.debug(f"Deleted {deleted_count} user(s) in bulk.")
+                return deleted_count
+
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
+                deleted_count = result.rowcount or 0
+                self._logger.debug(f"Deleted {deleted_count} user(s) in bulk.")
+                return deleted_count
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise database_error(
+                message="An error occurred while deleting multiple users.",
+                error_code="USER_BULK_DELETE_ERROR",
+                stack_trace=str(e),
+            )
+
     async def exists(
         self, user_id: UUID, tx: Optional[DBTransaction] = None
     ) -> bool:
@@ -278,4 +306,27 @@ class UserRepository(UserRepositoryInterface):
                 stack_trace=str(e),
             )
 
+    async def get_all_expired_user_ids(
+        self, cutoff: datetime, tx: Optional[DBTransaction] = None
+    ) -> list[UUID]:
+        try:
+            stmt = select(User.id).where(
+                User.last_seen_at.is_not(None),
+                User.last_seen_at <= cutoff,
+            )
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                return list(result.scalars().all())
+
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
+                return list(result.scalars().all())
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise database_error(
+                message="An error occurred while fetching expired user IDs.",
+                error_code="USER_GET_EXPIRED_IDS_ERROR",
+                stack_trace=str(e),
+            )
 

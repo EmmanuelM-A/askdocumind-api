@@ -87,6 +87,18 @@ class UserRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def delete_many(self, user_ids: list[UUID], tx: Optional[DBTransaction] = None) -> int:
+        """
+        Delete multiple users by their unique identifiers.
+
+        :param user_ids: List of UUIDs of the users to delete.
+        :param tx: Optional db transaction to wrap a db operation in.
+        :return: Number of users deleted.
+        """
+        raise NotImplementedError
+
+
+    @abstractmethod
     async def exists(self, user_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
         """
         Check if a user with the given UUID exists.
@@ -120,5 +132,20 @@ class UserRepositoryInterface(ABC):
         Update the last seen timestamp of a user to the current time.
 
         :param user_id: The UUID of the user to update.
+        :param tx: Optional db transaction to wrap a db operation in.
+        :return: None
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_all_expired_user_ids(
+        self, cutoff: datetime, tx: Optional[DBTransaction] = None
+    ) -> list[UUID]:
+        """
+        Retrieve all user IDs that have a last_seen_at timestamp older than the cutoff.
+        
+        :param cutoff: The datetime threshold for determining expiration.
+        :param tx: Optional db transaction to wrap a db operation in.
+        :return: List of UUIDs for expired users.
         """
         raise NotImplementedError
