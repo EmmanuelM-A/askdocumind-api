@@ -11,10 +11,6 @@ import pytest
 
 from src.api.middleware.anonymous_session import AnonymousSessionMiddleware
 from src.api.middleware.exception_handler import setup_exception_handlers
-from src.api.services.auth.anonymous_identity import (
-    get_current_anonymous_user_id,
-    require_current_anonymous_user_id,
-)
 from src.api.utils.session_manager import AnonymousSessionPayload
 from src.config.configs import settings
 from src.database.models import User
@@ -56,11 +52,7 @@ def app(middleware_mocks: SimpleNamespace) -> FastAPI:
 
     @app.get("/api/probe")
     async def probe(request: Request):
-        current_user_id = require_current_anonymous_user_id()
-        return {
-            "state_user_id": str(request.state.anonymous_user_id),
-            "context_user_id": str(current_user_id),
-        }
+        return {"state_user_id": str(request.state.anonymous_user_id)}
 
     @app.get("/api/auth/anonymous")
     async def bootstrap():
@@ -95,10 +87,7 @@ def test_valid_cookie_refreshes_existing_session(
     response = client.get("/api/probe")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "state_user_id": str(existing_user_id),
-        "context_user_id": str(existing_user_id),
-    }
+    assert response.json() == {"state_user_id": str(existing_user_id)}
 
     middleware_mocks.repo.get_by_id.assert_awaited_once_with(existing_user_id)
     middleware_mocks.repo.update.assert_awaited_once()
@@ -110,8 +99,6 @@ def test_valid_cookie_refreshes_existing_session(
     assert "anon_test_cookie=refreshed-signed-token" in response.headers.get(
         "set-cookie", ""
     )
-
-    assert get_current_anonymous_user_id() is None
 
 
 def test_missing_cookie_on_api_route_returns_422(

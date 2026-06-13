@@ -91,7 +91,7 @@ def get_token_manager() -> TokenManager:
     if _token_manager is None:
         _token_manager = TokenManager(
             secret=settings.auth.USER_SESSION_SECRET.get_secret_value(),
-            ttl_hours=settings.anon.TTL_MINS / 60,
+            ttl_hours=settings.anon.TTL_HOURS,
         )
 
     return _token_manager

@@ -32,7 +32,7 @@ class CoreAppSettings(BaseSettings):
 
     ENV: str = Field(default=..., validation_alias="ENV")
     PORT: int = Field(default=..., validation_alias="PORT")
-    HOST: str = Field(default="0.0.0.0", validation_alias="HOST")
+    HOST: str = Field(default=..., validation_alias="HOST")
 
     # Internal API routing constants
     DEFAULT_VERSION: str = Field(default="1")
@@ -77,19 +77,6 @@ class DatabaseSettings(BaseSettings):
     model_config = _DEFAULT_MODEL_CONFIG
 
 
-class AnonymousUserSessionSettings(BaseSettings):
-    """Settings related to anonymous user session management."""
-
-    CLEANUP_ENABLED: bool = Field(default=..., validation_alias="USER_CLEANUP_ENABLED")
-    BATCH_SIZE: int = Field(default=100, validation_alias="USER_CLEANUP_BATCH_SIZE")
-    CLEANUP_INTERVAL_H: int = Field(
-        default=1, validation_alias="USER_CLEANUP_INTERVAL_HOURS"
-    )
-    TTL_MINS: int = Field(default=60, validation_alias="USER_TTL_MINS")
-
-    model_config = _DEFAULT_MODEL_CONFIG
-
-
 # ------------------------------------------------------------------
 # Authentication Settings
 # ------------------------------------------------------------------
@@ -110,6 +97,22 @@ class AuthSettings(BaseSettings):
     ANON_SESSION_COOKIE_DOMAIN: Optional[str] = Field(
         default=None, validation_alias="ANON_SESSION_COOKIE_DOMAIN"
     )
+
+    model_config = _DEFAULT_MODEL_CONFIG
+
+
+#------------------------------------------------------------------
+# Anonymous User Session Settings
+#------------------------------------------------------------------
+class AnonymousUserSessionSettings(BaseSettings):
+    """Settings related to anonymous user session management."""
+
+    CLEANUP_ENABLED: bool = Field(default=..., validation_alias="USER_CLEANUP_ENABLED")
+    BATCH_SIZE: int = Field(default=100, validation_alias="USER_CLEANUP_BATCH_SIZE")
+    CLEANUP_INTERVAL_H: int = Field(
+        default=1, validation_alias="USER_CLEANUP_INTERVAL_HOURS"
+    )
+    TTL_HOURS: int = Field(default=60, validation_alias="USER_TTL_HOURS")
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -140,10 +143,10 @@ class LLMIntegrationSettings(BaseSettings):
     """LLM integration configuration settings."""
 
     LLM_MODEL_NAME: str = Field(
-        default="gpt-3.5-turbo", validation_alias="LLM_MODEL_NAME"
+        default=..., validation_alias="LLM_MODEL_NAME"
     )
     EMBEDDING_MODEL_NAME: str = Field(
-        default="text-embedding-3-small", validation_alias="EMBEDDING_MODEL_NAME"
+        default=..., validation_alias="EMBEDDING_MODEL_NAME"
     )
     LLM_TEMPERATURE: float = Field(default=0.7, validation_alias="LLM_TEMPERATURE")
 
