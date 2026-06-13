@@ -33,6 +33,6 @@ def chat_query_limit() -> str:
 
 limiter = Limiter(
     key_func=get_remote_address,
-    default_limits=_global_default_limits(),
+    default_limits=_global_default_limits(),  # type: ignore[arg-type]
     enabled=settings.server.RATE_LIMIT_ENABLED,
 )

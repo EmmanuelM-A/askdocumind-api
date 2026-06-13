@@ -1,73 +1,52 @@
 """Middleware for header-based API version resolution."""
 
-from fastapi import Request, status
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 
 from src.config.configs import settings
 
 
 class APIVersionMiddleware(BaseHTTPMiddleware):
-	"""Resolve API version from the Accept-Version header."""
+    """Resolve API version from the Accept-Version header."""
 
-	@staticmethod
-	def _unprocessable_response(message: str) -> JSONResponse:
-		return JSONResponse(
-			status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-			content={"detail": message},
-		)
+    @staticmethod
+    def _normalize_version(raw_version: str | None) -> str | None:
+        if raw_version is None:
+            return None
 
-	@staticmethod
-	def _normalize_version(raw_version: str | None) -> str | None:
-		if raw_version is None:
-			return None
+        version = raw_version.strip().lower()
+        if version.startswith("v"):
+            version = version[1:]
 
-		version = raw_version.strip().lower()
-		if version.startswith("v"):
-			version = version[1:]
+        return version or None
 
-		return version or None
+    async def dispatch(
+        self, request: Request, call_next: RequestResponseEndpoint
+    ) -> Response:
+        if request.method == "OPTIONS":
+            return await call_next(request)
 
-	async def dispatch(
-		self, request: Request, call_next: RequestResponseEndpoint
-	) -> Response:
-		if request.method == "OPTIONS":
-			return await call_next(request)
+        path = request.url.path
 
-		path = request.url.path
+        if not path.startswith("/api/"):
+            return await call_next(request)
 
-		if not path.startswith("/api/"):
-			return await call_next(request)
+        header_version = self._normalize_version(request.headers.get("Accept-Version"))
 
-		supported_versions = set(settings.app.SUPPORTED_VERSIONS)
-		default_version = settings.app.DEFAULT_VERSION
+        requested_version = header_version or settings.app.DEFAULT_VERSION
 
-		header_version = self._normalize_version(request.headers.get("Accept-Version"))
+        request.state.api_version = requested_version
 
-		requested_version = header_version or default_version
+        response = await call_next(request)
 
-		is_legacy_v1_path = path == "/api/v1" or path.startswith("/api/v1/")
-		if is_legacy_v1_path and header_version is not None and header_version != "1":
-			return self._unprocessable_response(
-				"Accept-Version header conflicts with URL version. "
-				"Use /api routes with Accept-Version or /api/v1 without conflicting header."
-			)
+        response.headers["Content-Version"] = requested_version
 
-		if requested_version not in supported_versions:
-			return self._unprocessable_response(
-				f"Unsupported API version '{requested_version}'. "
-				f"Supported versions: {', '.join(sorted(supported_versions))}."
-			)
+        existing_vary = response.headers.get("Vary")
 
-		request.state.api_version = requested_version
+        if not existing_vary:
+            response.headers["Vary"] = "Accept-Version"
+        elif "accept-version" not in existing_vary.lower():
+            response.headers["Vary"] = f"{existing_vary}, Accept-Version"
 
-		response = await call_next(request)
-		response.headers["Content-Version"] = requested_version
-		existing_vary = response.headers.get("Vary")
-		if not existing_vary:
-			response.headers["Vary"] = "Accept-Version"
-		elif "accept-version" not in existing_vary.lower():
-			response.headers["Vary"] = f"{existing_vary}, Accept-Version"
-		return response
-
-
+        return response
