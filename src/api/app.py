@@ -30,6 +30,7 @@ async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded)
     """Delegate SlowAPI limit errors to the library-provided response builder."""
     return _rate_limit_exceeded_handler(request, exc)
 
+
 API_PREFIX = "/api"
 
 
@@ -63,7 +64,14 @@ async def lifespan(app: FastAPI):
 def create_app():
     """Create and configure the FastAPI application."""
 
-    app = FastAPI(title="DocuChatAPI", version="1.0.0", docs_url=None, redoc_url=None, lifespan=lifespan, redirect_slashes=False)
+    app = FastAPI(
+        title="DocuChatAPI",
+        version="1.0.0",
+        docs_url="/api/docs",
+        redoc_url=None,
+        lifespan=lifespan,
+        redirect_slashes=False,
+    )
     app.state.limiter = limiter  # type: ignore[attr-defined]
 
     # --- Middleware ---

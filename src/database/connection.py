@@ -5,6 +5,7 @@ Handles connections to the database and session management.
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Optional
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from src.errors.custom_exceptions import database_error
@@ -90,7 +91,7 @@ class DatabaseConnection:
     async def ping_database(self) -> None:
         """Ping the database to check connectivity."""
         async with self.get_session() as session:
-            await session.execute("SELECT 1")
+            await session.execute(text("SELECT 1"))
 
 
 # Global database connection instance
