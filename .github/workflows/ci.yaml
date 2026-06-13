@@ -53,3 +53,9 @@ jobs:
     uses: ./.github/workflows/unit-tests.yaml
     with:
       python-version: "3.12"
+
+  docker-build:
+    name: Docker Build
+    needs: unit-tests
+    uses: ./.github/workflows/build-dockerfile.yaml
+    secrets: inherit

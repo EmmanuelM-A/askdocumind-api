@@ -32,7 +32,7 @@ class CoreAppSettings(BaseSettings):
 
     ENV: str = Field(default=..., validation_alias="ENV")
     PORT: int = Field(default=..., validation_alias="PORT")
-    HOST: str = Field(default=..., validation_alias="HOST")
+    HOST: str = Field(default="0.0.0.0", validation_alias="HOST")
 
     # Internal API routing constants
     DEFAULT_VERSION: str = Field(default="1")
