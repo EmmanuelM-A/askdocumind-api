@@ -4,7 +4,7 @@ Responsible for defining all the database models used in the application.
 
 import uuid
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import (
@@ -54,12 +54,12 @@ class User(Base):
     id = Column(UUID, primary_key=True, default=uuid.uuid4)
     created_at = Column(
         DateTime,
-        default=lambda: datetime.now(),
+        default=lambda: datetime.now(timezone.utc),
         index=True,
     )
     last_seen_at = Column(
         DateTime,
-        default=lambda: datetime.now(),
+        default=lambda: datetime.now(timezone.utc),
         index=True,
     )
 
@@ -94,7 +94,7 @@ class ChatSession(Base):
     )
     title = Column(Text, nullable=True)
     total_messages = Column(Integer, default=0, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now())
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     messages = relationship(
@@ -149,11 +149,11 @@ class Document(Base):
     processing_status = Column(
         Enum(ProcessingStatus), default=ProcessingStatus.PROCESSING, nullable=False
     )
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now())
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(),
-        onupdate=lambda: datetime.now(),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     # Relationship
@@ -205,7 +205,7 @@ class DocumentChunk(Base):
     chunk_text = Column(Text, nullable=False)
     embedding = Column(Vector(1536), nullable=False)
 
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now())
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationship
     document = relationship("Document", back_populates="chunks")
@@ -265,7 +265,7 @@ class ChatMessage(Base):
     )
     role = Column(Enum(ChatMessageRole), nullable=False)
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now())
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationship
     session = relationship("ChatSession", back_populates="messages")
