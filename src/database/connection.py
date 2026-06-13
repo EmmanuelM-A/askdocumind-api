@@ -86,6 +86,11 @@ class DatabaseConnection:
             raise e
         finally:
             await session.close()
+    
+    async def ping_database(self) -> None:
+        """Ping the database to check connectivity."""
+        async with self.get_session() as session:
+            await session.execute("SELECT 1")
 
 
 # Global database connection instance
