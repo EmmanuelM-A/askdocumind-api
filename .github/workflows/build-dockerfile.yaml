@@ -48,6 +48,11 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Start container
+        env:
+          USER_SESSION_SECRET: ${{ secrets.USER_SESSION_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SEARCH_API_KEY: ${{ secrets.SEARCH_API_KEY }}
+          SEARCH_ENGINE_ID: ${{ secrets.SEARCH_ENGINE_ID }}
         run: |
           docker run -d \
             --name docuchat-ci \
@@ -61,10 +66,10 @@ jobs:
             -e EMBEDDING_MODEL_NAME=text-embedding-3-small \
             -e LLM_TEMPERATURE=0.7 \
             -e CORS_ORIGINS='["http://localhost:3000"]' \
-            -e USER_SESSION_SECRET=${{ secrets.USER_SESSION_SECRET }} \
-            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
-            -e SEARCH_API_KEY=${{ secrets.SEARCH_API_KEY }} \
-            -e SEARCH_ENGINE_ID=${{ secrets.SEARCH_ENGINE_ID }} \
+            -e "USER_SESSION_SECRET=$USER_SESSION_SECRET" \
+            -e "OPENAI_API_KEY=$OPENAI_API_KEY" \
+            -e "SEARCH_API_KEY=$SEARCH_API_KEY" \
+            -e "SEARCH_ENGINE_ID=$SEARCH_ENGINE_ID" \
             docuchat-api:ci
 
       - name: Wait for API to be ready

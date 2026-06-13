@@ -6,7 +6,7 @@ __pycache__/
 .pytest_cache/
 tests/
 logs/
-data/raw/
+data/sample/
 docs/
 .git/
 *.md
