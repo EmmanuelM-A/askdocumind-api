@@ -11,16 +11,15 @@ from src.api.middleware.rate_limiter import (
     user_key_func,
     limiter,
 )
-from src.api.services.validation.helper import ChatRequest
+from src.api.services.validation.chatbot import ChatRequest
 
 rag_chatbot_router = APIRouter(prefix="/chat", tags=["RAG Chatbot"])
 
 _controller = RAGChatbotController()
 
 
-@rag_chatbot_router.post("", summary="RAG Chatbot Interaction")
+@rag_chatbot_router.post("/", summary="RAG Chatbot Interaction")
 @limiter.limit(chat_query_limit, key_func=user_key_func)
 async def chat(request: Request, chat_request: ChatRequest):
     """Endpoint to handle chat requests."""
-
-    return await _controller.chat_endpoint(chat_request)
+    return await _controller.chat_endpoint(request, chat_request)

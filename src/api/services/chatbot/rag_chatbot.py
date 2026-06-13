@@ -2,11 +2,13 @@
 Service module for handling RAG chatbot interactions.
 """
 
+from uuid import UUID
+
 from src.api.services.validation.chatbot import ChatRequest
+from src.api.services.validation.helper import check_if_chat_exists
 from src.components.chatbot.core import RAGChatbot, ChatbotResponse
 from src.config.constants import ChatMessageRole
 from src.database.models import ChatMessage
-from src.api.services.validation.helper import check_if_chat_exists
 from src.database.repository.interfaces import (
     ChatSessionRepositoryInterface,
     ChatMessageRepositoryInterface,
@@ -28,13 +30,12 @@ class RAGChatbotService:
         self.chatbot = chatbot
         self._logger = BaseLogger(__name__)
 
-    async def handle_chat_request(self, request: ChatRequest) -> dict:
+    async def handle_chat_request(self, owner_id: UUID, request: ChatRequest) -> dict:
         """Handles a chat request."""
-
         await check_if_chat_exists(
             chat_id=request.chat_id,
-            owner_id=request.user_id,
-            chat_session_repo=self.chat_session_repo
+            owner_id=owner_id,
+            chat_session_repo=self.chat_session_repo,
         )
 
         self._logger.debug("Received chat request and chat session validated")
@@ -47,22 +48,18 @@ class RAGChatbotService:
 
         self._logger.debug("Chatbot processed the query and generated a response")
 
-        user_query_chat_message = ChatMessage(
-            session_id=request.chat_id,
-            role=ChatMessageRole.USER,
-            content=request.user_query,
-        )
-
-        assistant_response_chat_message = ChatMessage(
-            session_id=request.chat_id,
-            role=ChatMessageRole.ASSISTANT,
-            content=response.answer,
-        )
-
         await self.chat_message_repo.create_many(
             [
-                user_query_chat_message,
-                assistant_response_chat_message,
+                ChatMessage(
+                    session_id=request.chat_id,
+                    role=ChatMessageRole.USER,
+                    content=request.user_query,
+                ),
+                ChatMessage(
+                    session_id=request.chat_id,
+                    role=ChatMessageRole.ASSISTANT,
+                    content=response.answer,
+                ),
             ]
         )
 

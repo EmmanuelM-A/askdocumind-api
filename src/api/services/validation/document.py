@@ -39,7 +39,7 @@ class UploadDocumentsRequest(BaseModel):
 
 class FetchUploadedDocumentsRequest(BaseModel):
     """
-    Request model for fetching uploaded documents.
+    Request model for fetching uploaded documents by ID.
     """
 
     document_ids: Optional[List[UUID]] = Field(
@@ -49,24 +49,3 @@ class FetchUploadedDocumentsRequest(BaseModel):
         min_length=1,
     )
     chat_id: UUID = Field(..., description="The chat session identifier")
-
-
-class FetchDocumentMetadataRequest(BaseModel):
-    """
-    Request model for fetching document metadata.
-    """
-
-    chat_id: UUID = Field(..., description="The chat session identifier")
-    owner_id: UUID = Field(
-        ..., description="The user identifier of the chat session owner"
-    )
-
-
-class DeleteUploadedDocumentRequest(BaseModel):
-    """Request model for deleting an uploaded document that belongs to a chat session."""
-
-    chat_id: UUID = Field(..., description="The chat session identifier")
-    owner_id: UUID = Field(
-        ..., description="The user identifier of the chat session owner"
-    )
-    document_id: UUID = Field(..., description="The document identifier")

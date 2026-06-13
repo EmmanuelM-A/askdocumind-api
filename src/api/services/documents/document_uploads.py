@@ -9,7 +9,7 @@ from uuid import UUID
 
 from fastapi import UploadFile
 
-from src.api.services.validation.document import DeleteUploadedDocumentRequest, FetchDocumentMetadataRequest, UploadDocumentsRequest
+from src.api.services.validation.document import UploadDocumentsRequest
 from src.api.services.validation.helper import check_if_chat_exists
 from src.components.ingestion.vector_processor import VectorProcessor
 from src.config.configs import settings
@@ -48,33 +48,28 @@ class UploadDocumentService:
         self._chat_session_repo = chat_session_repo
         self._document_repo = document_repo
         self._tx_factory = tx_factory
-
         self._logger = BaseLogger(__name__)
 
-    async def handle_document_uploads(self, request: UploadDocumentsRequest) -> int:
+    async def handle_document_uploads(
+        self, owner_id: UUID, request: UploadDocumentsRequest
+    ) -> int:
         """
         Handle the document upload process, including validation, storage, and vector processing.
         Returns the number of successfully uploaded documents.
         """
-
         await check_if_chat_exists(
             chat_id=request.chat_id,
-            owner_id=request.chat_id,
+            owner_id=owner_id,
             chat_session_repo=self._chat_session_repo,
         )
 
-        self._logger.debug(
-            f"The chat {request.chat_id} has been validated successfully"
-        )
+        self._logger.debug(f"Chat {request.chat_id} validated for user {owner_id}")
 
         await self._assert_no_duplicate_uploads(request)
 
         entities: List[Document] = []
         documents: List[Tuple[UUID, str, bytes]] = []
         files_that_exceed_chat_limit: List[str] = []
-        
-        # NOTE: Consider a best-effort approach to upload files
-        # rather than failing the entire request if one file fails some validation
 
         for uploaded_file in request.documents:
             filename = self._normalize_filename(
@@ -105,12 +100,8 @@ class UploadDocumentService:
             entities.append(document)
             documents.append((cast(UUID, document.id), filename, data))
 
-        self._logger.debug(
-            f"{len(documents)} document(s) entities created successfully"
-        )
-        self._logger.warning(
-            f"{len(files_that_exceed_chat_limit)} files exceed chat limit"
-        )
+        self._logger.debug(f"{len(documents)} document(s) entities created successfully")
+        self._logger.warning(f"{len(files_that_exceed_chat_limit)} files exceed chat limit")
 
         if len(files_that_exceed_chat_limit) == len(request.documents):
             raise conflict_error(
@@ -127,9 +118,7 @@ class UploadDocumentService:
                 tx=tx,
             )
 
-            self._logger.debug(
-                f"Created {len(created_entities)} document entities successfully"
-            )
+            self._logger.debug(f"Created {len(created_entities)} document entities successfully")
 
             await self._vector_processor.process_and_save_vectors_from_uploads(
                 chat_session_id=request.chat_id, documents=documents, tx=tx
@@ -144,53 +133,51 @@ class UploadDocumentService:
         return len(created_entities)
 
     async def fetch_uploaded_document_metadata(
-        self, request: FetchDocumentMetadataRequest
+        self, chat_id: UUID, owner_id: UUID
     ) -> List[dict]:
-        """
-        Fetch metadata for uploaded documents associated with a chat session.
-        """
+        """Fetch metadata for uploaded documents associated with a chat session."""
         await check_if_chat_exists(
-            chat_id=request.chat_id,
-            owner_id=request.owner_id,
+            chat_id=chat_id,
+            owner_id=owner_id,
             chat_session_repo=self._chat_session_repo,
         )
 
         documents = await self._document_repo.list_by(
-            criteria=DocumentSearchCriteria(session_id=request.chat_id)
+            criteria=DocumentSearchCriteria(session_id=chat_id)
         )
 
         return [document.to_dict() for document in documents]
 
     async def delete_uploaded_document(
-        self, request: DeleteUploadedDocumentRequest
+        self, chat_id: UUID, owner_id: UUID, document_id: UUID
     ) -> None:
-
+        """Delete an uploaded document after verifying chat ownership."""
         await check_if_chat_exists(
-            chat_id=request.chat_id,
-            owner_id=request.owner_id,
+            chat_id=chat_id,
+            owner_id=owner_id,
             chat_session_repo=self._chat_session_repo,
         )
 
         document = await self._document_repo.get_by_criteria(
             criteria=DocumentSearchCriteria(
-                id=request.document_id,
-                session_id=request.chat_id,
+                id=document_id,
+                session_id=chat_id,
             )
         )
 
         if document is None:
             raise not_found_error(
                 message=(
-                    f"Document with ID {request.document_id} "
-                    f"was not found for chat {request.chat_id}."
+                    f"Document with ID {document_id} "
+                    f"was not found for chat {chat_id}."
                 ),
                 error_code="DOCUMENT_NOT_FOUND",
             )
 
-        await self._document_repo.delete(request.document_id)
+        await self._document_repo.delete(document_id)
 
         self._logger.info(
-            f"Document with ID {request.document_id} has been deleted from chat {request.chat_id}."
+            f"Document {document_id} deleted from chat {chat_id}."
         )
 
     # ========================== HELPER METHODS ==========================
@@ -225,9 +212,9 @@ class UploadDocumentService:
             criteria=DocumentSearchCriteria(session_id=request.chat_id)
         )
         existing_names = {
-            self._normalize_filename(document.filename) # type: ignore
+            self._normalize_filename(document.filename)  # type: ignore
             for document in existing_documents
-            if document.filename # type: ignore
+            if document.filename  # type: ignore
         }
 
         duplicates_in_chat = sorted(
@@ -247,11 +234,7 @@ class UploadDocumentService:
             )
 
     async def _read_data_from_upload(self, upload: UploadFile) -> bytes:
-        """
-        Read data from upload and return as bytes.
-        """
         try:
-            # Offload potentially blocking file read to a thread
             data = await asyncio.to_thread(upload.file.read)
         except (FileNotFoundError, IOError) as e:
             raise database_error(
@@ -274,10 +257,6 @@ class UploadDocumentService:
     async def _do_incoming_bytes_exceed_chat_limit(
         self, chat_session_id: UUID, incoming_bytes: int
     ) -> bool:
-        """
-        Check if the total size of documents in a chat session,
-        including incoming bytes, exceeds the maximum allowed size.
-        """
         current_mb_in_chat = await self._document_repo.get_total_size_mb(
             chat_session_id=chat_session_id
         )

@@ -1,33 +1,27 @@
 """
 Routes for the document upload endpoints.
-Provides API routes for interacting with the Chat Session.
 """
 
 from uuid import UUID
 
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, Request, UploadFile, File, Form
 
 from src.api.controllers.document_uploads_controller import DocumentUploadController
-from src.api.services.validation.helper import (
-    FetchDocumentMetadataRequest,
-    UploadDocumentsRequest,
-    DeleteUploadedDocumentRequest,
-)
+from src.api.services.validation.document import UploadDocumentsRequest
 
 documents_router = APIRouter(prefix="/documents", tags=["Documents"])
 
 _controller = DocumentUploadController()
 
 
-@documents_router.get("", summary="List uploaded documents")
-async def list_uploaded_documents(chat_id: UUID):
+@documents_router.get("/", summary="List uploaded documents")
+async def list_uploaded_documents(request: Request, chat_id: UUID):
     """Get all uploaded document metadata for a chat session."""
-    request = FetchDocumentMetadataRequest(chat_id=chat_id)
-    return await _controller.list_uploaded_documents_endpoint(request)
+    return await _controller.list_uploaded_documents_endpoint(request, chat_id)
 
 
 @documents_router.post(
-    "",
+    "/",
     summary="Upload documents",
     openapi_extra={
         "requestBody": {
@@ -55,6 +49,7 @@ async def list_uploaded_documents(chat_id: UUID):
     },
 )
 async def upload_documents(
+    request: Request,
     documents: list[UploadFile] = File(
         ..., description="List of document files to upload (PDF, DOCX, TXT, MD)"
     ),
@@ -73,19 +68,11 @@ async def upload_documents(
     - **chat_id**: UUID of the target chat session
     - **Allowed formats**: .pdf, .docx, .txt, .md
     """
-    request = UploadDocumentsRequest(documents=documents, chat_id=chat_id)
-    return await _controller.upload_documents_endpoint(request)
+    upload_request = UploadDocumentsRequest(documents=documents, chat_id=chat_id)
+    return await _controller.upload_documents_endpoint(request, upload_request)
 
 
 @documents_router.delete("/{document_id}", summary="Delete uploaded document")
-async def delete_uploaded_document(document_id: UUID, chat_id: UUID):
+async def delete_uploaded_document(request: Request, document_id: UUID, chat_id: UUID):
     """Delete an uploaded document by ID within a chat session."""
-
-    request = DeleteUploadedDocumentRequest(chat_id=chat_id, document_id=document_id)
-    return await _controller.delete_uploaded_document_endpoint(request)
-
-
-# @documents_router.post("/metadata", summary="Fetch document metadata")
-# async def fetch_uploaded_document(request: FetchUploadedDocumentsRequest):
-#     """Fetch metadata for specific document IDs for a given chat."""
-#     return await _controller.fetch_document_endpoint(request)
+    return await _controller.delete_uploaded_document_endpoint(request, document_id, chat_id)
