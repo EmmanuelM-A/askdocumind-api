@@ -8,6 +8,7 @@ import sys
 from typing import List, Optional
 from src.logger.logging_utils import (
     ColorFormatter,
+    JsonFormatter,
     LogLevel,
     LogTo,
     get_log_level,
@@ -53,14 +54,18 @@ class BaseLogger:
             return
 
         # Formatter setup
-        file_formatter = logging.Formatter(
-            fmt=settings.logging.LOG_FORMAT,
-            datefmt=settings.logging.DATE_FORMAT,
-        )
-        console_formatter = ColorFormatter(
-            fmt=settings.logging.LOG_FORMAT,
-            datefmt=settings.logging.DATE_FORMAT,
-        )
+        if settings.logging.LOG_AS_JSON:
+            file_formatter = JsonFormatter()
+            console_formatter = JsonFormatter()
+        else:
+            file_formatter = logging.Formatter(
+                fmt=settings.logging.LOG_FORMAT,
+                datefmt=settings.logging.DATE_FORMAT,
+            )
+            console_formatter = ColorFormatter(
+                fmt=settings.logging.LOG_FORMAT,
+                datefmt=settings.logging.DATE_FORMAT,
+            )
 
         match log_to:
             case "CONSOLE":
@@ -78,7 +83,7 @@ class BaseLogger:
                 return
 
     def _log_to_console(
-        self, log_level: int, console_formatter: ColorFormatter
+        self, log_level: int, console_formatter: logging.Formatter
     ) -> None:
         """Sets up console logging handler"""
         console_handler = logging.StreamHandler(sys.stdout)

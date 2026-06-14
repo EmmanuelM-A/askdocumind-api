@@ -2,7 +2,9 @@
 Contains logging utils used only for logging purposes.
 """
 
+import json
 import logging
+from datetime import datetime, timezone
 from typing import Literal
 
 
@@ -28,6 +30,21 @@ class ColorFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         color = self.COLORS.get(record.levelno, self.RESET)
         return f"{color}{super().format(record)}{self.RESET}"
+
+
+class JsonFormatter(logging.Formatter):
+    """Formats log records as single-line JSON objects."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+        return json.dumps(payload)
 
 
 def get_log_level(level: str) -> int:
