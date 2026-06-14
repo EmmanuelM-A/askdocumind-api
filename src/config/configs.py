@@ -6,7 +6,7 @@ Each configuration class handles a specific domain of settings.
 from pathlib import Path
 from typing import List, Literal, Optional
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
@@ -49,6 +49,11 @@ class CoreAppSettings(BaseSettings):
     )
 
     MAX_CHATS_PER_USER: int = Field(default=1, validation_alias="MAX_CHATS_PER_USER")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_empty_strings(cls, values: dict) -> dict:
+        return {k: v for k, v in values.items() if v != ""}
 
     model_config = _DEFAULT_MODEL_CONFIG
 
