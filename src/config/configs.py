@@ -222,6 +222,7 @@ class LoggingSettings(BaseSettings):
     LOG_FORMAT: str = Field(
         default="%(asctime)s [%(levelname)s] [%(name)s]: %(message)s"
     )
+    LOG_AS_JSON: bool = Field(default=False, validation_alias="LOG_AS_JSON")
     DATE_FORMAT: str = Field(default="%Y-%m-%d %H:%M:%S")
     LOG_MAX_MB: int = Field(default=10)
 

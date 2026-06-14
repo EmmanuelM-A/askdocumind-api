@@ -4,6 +4,7 @@ the application.
 """
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from contextlib import suppress
 
@@ -61,8 +62,15 @@ async def lifespan(app: FastAPI):
     await get_database_connection().disconnect()
 
 
+def _configure_third_party_loggers() -> None:
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
+
+
 def create_app():
     """Create and configure the FastAPI application."""
+
+    _configure_third_party_loggers()
 
     app = FastAPI(
         title="DocuChatAPI",
