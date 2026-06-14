@@ -14,14 +14,14 @@ documents_router = APIRouter(prefix="/documents", tags=["Documents"])
 _controller = DocumentUploadController()
 
 
-@documents_router.get("/", summary="List uploaded documents")
+@documents_router.get("", summary="List uploaded documents")
 async def list_uploaded_documents(request: Request, chat_id: UUID):
     """Get all uploaded document metadata for a chat session."""
     return await _controller.list_uploaded_documents_endpoint(request, chat_id)
 
 
 @documents_router.post(
-    "/",
+    "",
     summary="Upload documents",
     openapi_extra={
         "requestBody": {

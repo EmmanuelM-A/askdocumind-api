@@ -15,7 +15,7 @@ chat_session_router = APIRouter(prefix="/sessions", tags=["Chat Session"])
 _controller = ChatSessionController()
 
 
-@chat_session_router.post("/", summary="Create chat session")
+@chat_session_router.post("", summary="Create chat session")
 async def create_chat_session(request: Request, input: CreateChatSessionData):
     return await _controller.create_chat_session_endpoint(request, input)
 
