@@ -167,9 +167,9 @@ class VectorStoreSettings(BaseSettings):
     """Vector store configuration settings."""
 
     CHUNK_SIZE: int = Field(default=1000)
-    CHUNK_OVERLAP: int = Field(default=20)
+    CHUNK_OVERLAP: int = Field(default=60)
     RETRIEVAL_TOP_K: int = Field(default=3, validation_alias="RETRIEVAL_TOP_K")
-    SIMILARITY_THRESHOLD: float = Field(default=0.7)
+    SIMILARITY_THRESHOLD: float = Field(default=0.4)
     MAX_QUERY_LENGTH: int = Field(default=1000)
     MAX_VECTORS_IN_MEMORY: int = Field(default=10000)
     VECTOR_BATCH_SIZE: int = Field(default=100)
@@ -216,6 +216,8 @@ class LoggingSettings(BaseSettings):
     """Logging configuration settings."""
 
     LOG_LEVEL: str = Field(default="DEBUG", validation_alias="LOG_LEVEL")
+    LOG_TO: Literal["CONSOLE", "FILE", "BOTH"] = Field(
+        default="FILE", validation_alias="LOG_TO")
     LOG_DIRECTORY: str = Field(default=f"{PROJECT_ROOT}/logs")
     LOG_FORMAT: str = Field(
         default="%(asctime)s [%(levelname)s] [%(name)s]: %(message)s"

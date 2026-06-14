@@ -26,7 +26,7 @@ class BaseLogger:
         self,
         name: str,
         log_path: Optional[str] = None,
-        log_to: LogTo = LogTo.FILE,
+        log_to: LogTo = settings.logging.LOG_TO,
     ) -> None:
         """
         Initialize a base logger with console and optional file output.
@@ -63,16 +63,19 @@ class BaseLogger:
         )
 
         match log_to:
-            case LogTo.CONSOLE:
+            case "CONSOLE":
                 # Add console handler only
                 self._log_to_console(log_level, console_formatter)
-            case LogTo.FILE:
+                return
+            case "FILE":
                 # Add file handler only
                 self._log_to_file(file_formatter)
-            case LogTo.BOTH:
+                return
+            case "BOTH":
                 # Add both handlers
                 self._log_to_console(log_level, console_formatter)
                 self._log_to_file(file_formatter)
+                return
 
     def _log_to_console(
         self, log_level: int, console_formatter: ColorFormatter
@@ -142,7 +145,7 @@ class BaseLogger:
         """
         self.logger.warning(message, extra=kwargs or None)
 
-    def error(self, message: str, exception: Exception = None, **kwargs) -> None:
+    def error(self, message: str, exception: Optional[Exception] = None, **kwargs) -> None:
         """
         Logs error messages for failed operations or exceptions.
 
@@ -164,7 +167,7 @@ class BaseLogger:
         else:
             self.logger.error(message, extra=kwargs or None)
 
-    def critical(self, message: str, exception: Exception = None, **kwargs) -> None:
+    def critical(self, message: str, exception: Optional[Exception] = None, **kwargs) -> None:
         """
         Logs critical messages for severe errors causing application shutdown.
 

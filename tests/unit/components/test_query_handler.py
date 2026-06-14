@@ -51,7 +51,7 @@ async def test_search_for_vector_success(query_handler):
         "src.components.chatbot.query_handler.settings"
     ) as mock_settings:
         mock_settings.vector.RETRIEVAL_TOP_K = 3
-        mock_settings.vector.SIMILARITY_THRESHOLD = 0.7
+        mock_settings.vector.SIMILARITY_THRESHOLD = 0.4
 
         result = await query_handler.search_for_vector("  test query  ", chat_session_id)
 
@@ -62,7 +62,7 @@ async def test_search_for_vector_success(query_handler):
         chat_session_id=chat_session_id,
         vector=[0.1, 0.2, 0.3, 0.4, 0.5],
         top_k=3,
-        threshold=0.7,
+        threshold=0.4,
     )
     query_handler.document_chunk_repo.get_filenames_for_chunks.assert_awaited_once_with(
         chunks=chunks,
