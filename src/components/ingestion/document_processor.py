@@ -57,7 +57,7 @@ class DocumentProcessor:
             return False, None
 
         if len(content) > settings.app.MAX_DOCUMENT_CONTENT_LENGTH:
-            if settings.app.IS_TRUNCATION_ENABLED:
+            if settings.app.IS_QUERY_TRUNCATION_ENABLED:
                 _logger.warning(f"Document {filename} too large, truncating")
                 content = (
                     content[: settings.app.MAX_DOCUMENT_CONTENT_LENGTH]
