@@ -216,6 +216,8 @@ class LoggingSettings(BaseSettings):
     """Logging configuration settings."""
 
     LOG_LEVEL: str = Field(default="DEBUG", validation_alias="LOG_LEVEL")
+    LOG_TO: Literal["CONSOLE", "FILE", "BOTH"] = Field(
+        default="FILE", validation_alias="LOG_TO")
     LOG_DIRECTORY: str = Field(default=f"{PROJECT_ROOT}/logs")
     LOG_FORMAT: str = Field(
         default="%(asctime)s [%(levelname)s] [%(name)s]: %(message)s"

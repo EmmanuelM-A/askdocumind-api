@@ -4,26 +4,14 @@ Contains logging utils used only for logging purposes.
 
 from enum import Enum
 import logging
+from typing import Literal
 
 
-class LogTo(str, Enum):
-    """All possible log destinations a logger can take."""
 
-    CONSOLE = "CONSOLE"
-    FILE = "FILE"
-    BOTH = "BOTH"
+LogTo = Literal["CONSOLE", "FILE", "BOTH"]
 
 
-class LogLevel(str, Enum):
-    """All possible log levels a logger can take."""
-
-    CRITICAL = "CRITICAL"
-    FATAL = "FATAL"
-    ERROR = "ERROR"
-    WARNING = "WARNING"
-    WARN = "WARN"
-    INFO = "INFO"
-    DEBUG = "DEBUG"
+LogLevel = Literal["CRITICAL", "FATAL", "ERROR", "WARNING", "WARN", "INFO", "DEBUG"]
 
 
 class ColorFormatter(logging.Formatter):
@@ -43,19 +31,19 @@ class ColorFormatter(logging.Formatter):
         return f"{color}{super().format(record)}{self.RESET}"
 
 
-def get_log_level(level: LogLevel) -> int:
+def get_log_level(level: str) -> int:
     """
     Converts the log level string into its numerical counterpart.
     """
 
     level_mappings = {
-        LogLevel.CRITICAL: 50,
-        LogLevel.FATAL: 50,
-        LogLevel.ERROR: 40,
-        LogLevel.WARNING: 30,
-        LogLevel.WARN: 30,
-        LogLevel.INFO: 20,
-        LogLevel.DEBUG: 10,
+        "CRITICAL": 50,
+        "FATAL": 50,
+        "ERROR": 40,
+        "WARNING": 30,
+        "WARN": 30,
+        "INFO": 20,
+        "DEBUG": 10,
     }
 
     return level_mappings.get(level.upper(), 20)
