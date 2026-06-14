@@ -24,10 +24,19 @@ _DEFAULT_MODEL_CONFIG = SettingsConfigDict(
 )
 
 
+class _BaseSettings(BaseSettings):
+    """Shared base: treats empty-string env vars as unset, falling back to field defaults."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_empty_strings(cls, values: dict) -> dict:
+        return {k: v for k, v in values.items() if v != ""}
+
+
 # ------------------------------------------------------------------
 # Core Settings
 # ------------------------------------------------------------------
-class CoreAppSettings(BaseSettings):
+class CoreAppSettings(_BaseSettings):
     """Core application configuration settings."""
 
     ENV: str = Field(default=..., validation_alias="ENV")
@@ -50,18 +59,13 @@ class CoreAppSettings(BaseSettings):
 
     MAX_CHATS_PER_USER: int = Field(default=1, validation_alias="MAX_CHATS_PER_USER")
 
-    @model_validator(mode="before")
-    @classmethod
-    def _drop_empty_strings(cls, values: dict) -> dict:
-        return {k: v for k, v in values.items() if v != ""}
-
     model_config = _DEFAULT_MODEL_CONFIG
 
 
 # ------------------------------------------------------------------
 # Database Settings
 # ------------------------------------------------------------------
-class DatabaseSettings(BaseSettings):
+class DatabaseSettings(_BaseSettings):
     """Database configuration settings."""
 
     DATABASE_URL: SecretStr = Field(default=..., validation_alias="DATABASE_URL")
@@ -89,7 +93,7 @@ class DatabaseSettings(BaseSettings):
 # ------------------------------------------------------------------
 # Authentication Settings
 # ------------------------------------------------------------------
-class AuthSettings(BaseSettings):
+class AuthSettings(_BaseSettings):
     """Authentication and authorization configuration settings."""
 
     USER_SESSION_SECRET: SecretStr = Field(
@@ -116,7 +120,7 @@ class AuthSettings(BaseSettings):
 # ------------------------------------------------------------------
 # Anonymous User Session Settings
 # ------------------------------------------------------------------
-class AnonymousUserSessionSettings(BaseSettings):
+class AnonymousUserSessionSettings(_BaseSettings):
     """Settings related to anonymous user session management."""
 
     CLEANUP_ENABLED: bool = Field(default=..., validation_alias="USER_CLEANUP_ENABLED")
@@ -132,7 +136,7 @@ class AnonymousUserSessionSettings(BaseSettings):
 # ------------------------------------------------------------------
 # File Processing Settings
 # ------------------------------------------------------------------
-class FileProcessingSettings(BaseSettings):
+class FileProcessingSettings(_BaseSettings):
     """File processing configuration settings."""
 
     ALLOWED_FILE_EXTENSIONS: List[str] = Field(default=[".pdf", ".docx", ".txt", ".md"])
@@ -151,7 +155,7 @@ class FileProcessingSettings(BaseSettings):
 # ------------------------------------------------------------------
 # LLM Integration
 # ------------------------------------------------------------------
-class LLMIntegrationSettings(BaseSettings):
+class LLMIntegrationSettings(_BaseSettings):
     """LLM integration configuration settings."""
 
     LLM_MODEL_NAME: str = Field(default=..., validation_alias="LLM_MODEL_NAME")
@@ -170,7 +174,7 @@ class LLMIntegrationSettings(BaseSettings):
 # ------------------------------------------------------------------
 # Vector Store
 # ------------------------------------------------------------------
-class VectorStoreSettings(BaseSettings):
+class VectorStoreSettings(_BaseSettings):
     """Vector store configuration settings."""
 
     CHUNK_SIZE: int = Field(default=1000, validation_alias="CHUNK_SIZE")
@@ -188,7 +192,7 @@ class VectorStoreSettings(BaseSettings):
 # ------------------------------------------------------------------
 # Web Search
 # ------------------------------------------------------------------
-class WebSearchSettings(BaseSettings):
+class WebSearchSettings(_BaseSettings):
     """Web search configuration settings."""
 
     IS_WEB_SEARCH_ENABLED: bool = Field(
@@ -220,7 +224,7 @@ class WebSearchSettings(BaseSettings):
 # ------------------------------------------------------------------
 # Logging
 # ------------------------------------------------------------------
-class LoggingSettings(BaseSettings):
+class LoggingSettings(_BaseSettings):
     """Logging configuration settings."""
 
     LOG_LEVEL: str = Field(default="DEBUG", validation_alias="LOG_LEVEL")
@@ -241,7 +245,7 @@ class LoggingSettings(BaseSettings):
 # ------------------------------------------------------------------
 # API Server
 # ------------------------------------------------------------------
-class APIServerSettings(BaseSettings):
+class APIServerSettings(_BaseSettings):
     """API server configuration settings."""
 
     WORKERS: int = Field(default=1)
