@@ -72,7 +72,7 @@ class UploadDocumentService:
         files_that_exceed_chat_limit: List[str] = []
 
         for uploaded_file in request.documents:
-            filename = self._normalize_filename(
+            filename = self._clean_filename(
                 uploaded_file.filename or "Unnamed file"
             )
             self._logger.debug(f"Processing uploaded file '{filename}'")
@@ -185,6 +185,10 @@ class UploadDocumentService:
     @staticmethod
     def _normalize_filename(filename: str) -> str:
         return filename.strip().lower()
+
+    @staticmethod
+    def _clean_filename(filename: str) -> str:
+        return filename.strip()
 
     async def _assert_no_duplicate_uploads(
         self, request: UploadDocumentsRequest
