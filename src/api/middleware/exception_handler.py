@@ -29,7 +29,7 @@ async def api_exception_handler(request: Request, exc: ApiException) -> JSONResp
     error = ErrorInfo(
         code=exc.error.code,
         details=exc.error.details,
-        stack_trace=exc.error.stack_trace or backup_traceback,
+        stack_trace=exc_traceback or backup_traceback,
     )
 
     error_response_model = ErrorResponseModel(
