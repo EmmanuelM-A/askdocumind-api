@@ -48,7 +48,7 @@ class ChatSessionService:
         self._logger.info(f"Created new chat session {created_id} for user {owner_id}")
         return created_id
 
-    async def init_chat_session(self, user_id: UUID, title: str) -> UUID:
+    async def init_chat_session(self, user_id: UUID, data: CreateChatSessionData) -> UUID:
         """
         Return the user's most recent chat session, or create a new one if none exists.
         """
@@ -60,7 +60,7 @@ class ChatSessionService:
             )
             return cast(UUID, chat.id)
 
-        new_chat = ChatSession(title=title or "New Chat", user_id=user_id)
+        new_chat = ChatSession(title=data.title, user_id=user_id)
         created_id = await self._chat_session_repo.create(data=new_chat)
 
         self._logger.info(f"Created new chat session {created_id} for user {user_id}")

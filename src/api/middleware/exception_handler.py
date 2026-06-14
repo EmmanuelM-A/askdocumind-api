@@ -22,11 +22,14 @@ async def api_exception_handler(request: Request, exc: ApiException) -> JSONResp
     """
     Handle all exceptions derived from ApiException (custom application errors).
     """
+    
+    exc_traceback = exc.error.stack_trace if settings.app.ENV == "development" else None
+    backup_traceback = traceback.format_exc() if settings.app.ENV == "development" else None
 
     error = ErrorInfo(
         code=exc.error.code,
         details=exc.error.details,
-        stack_trace=exc.error.stack_trace if settings.app.ENV == "development" else None,
+        stack_trace=exc.error.stack_trace or backup_traceback,
     )
 
     error_response_model = ErrorResponseModel(

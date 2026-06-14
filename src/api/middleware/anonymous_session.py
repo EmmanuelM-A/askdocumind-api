@@ -34,7 +34,7 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS" or not current_path.startswith("/api/"):
             return await call_next(request)
         
-        if current_path.startswith("/api/docs") or current_path.startswith("/api/openapi.json"):
+        if current_path.startswith("/api/docs"):
             return await call_next(request)
 
         if current_path.startswith("/api/auth/anonymous"):

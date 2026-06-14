@@ -56,7 +56,7 @@ class ChatSessionController:
         assert self._chat_service is not None
 
         owner_id: UUID = request.state.anonymous_user_id
-        chat_id = await self._chat_service.init_chat_session(user_id=owner_id, title=input.title)
+        chat_id = await self._chat_service.init_chat_session(user_id=owner_id, data=input)
 
         response_model = SuccessResponseModel(
             message="Chat session initialized successfully.",

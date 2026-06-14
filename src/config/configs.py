@@ -4,7 +4,7 @@ Each configuration class handles a specific domain of settings.
 """
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -87,16 +87,19 @@ class AuthSettings(BaseSettings):
         default=..., validation_alias="USER_SESSION_SECRET"
     )
     COOKIE_NAME: str = Field(default="docu_chat_user_cookie")
-
-    ANON_SESSION_COOKIE_SECURE: bool = Field(
-        default=False, validation_alias="ANON_SESSION_COOKIE_SECURE"
+    COOKIE_SAMESITE: Literal["lax", "strict", "none"] = Field(
+        default="none", validation_alias="ANON_SESSION_COOKIE_SAMESITE"
     )
-    ANON_SESSION_COOKIE_SAMESITE: str = Field(
-        default="lax", validation_alias="ANON_SESSION_COOKIE_SAMESITE"
-    )
-    ANON_SESSION_COOKIE_DOMAIN: Optional[str] = Field(
+    COOKIE_DOMAIN: Optional[str] = Field(
         default=None, validation_alias="ANON_SESSION_COOKIE_DOMAIN"
     )
+
+    @field_validator("COOKIE_DOMAIN", mode="before")
+    @classmethod
+    def _coerce_none_string(cls, v: object) -> object:
+        if isinstance(v, str) and v.strip().lower() == "none":
+            return None
+        return v
 
     model_config = _DEFAULT_MODEL_CONFIG
 
