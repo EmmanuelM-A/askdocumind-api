@@ -20,13 +20,6 @@ on:
       - synchronize
       - reopened
       - ready_for_review
-    paths:
-      - "src/**"
-      - "tests/**"
-      - "alembic/**"
-      - "requirements.txt"
-      - "pytest.ini"
-      - ".github/workflows/**"
   workflow_dispatch:
 
 permissions:
