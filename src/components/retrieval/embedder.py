@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Iterable, Iterator
 from langchain_openai import OpenAIEmbeddings
 
 from src.config.configs import settings
-from src.errors.custom_exceptions import server_error
+from src.errors.custom_exceptions import server_error, unprocessable_entity_error
 from src.logger.base_logger import BaseLogger
 
 
@@ -78,7 +78,7 @@ class Embedder:
         """
 
         if not query or not query.strip():
-            raise server_error(
+            raise unprocessable_entity_error(
                 message="Query is empty or contains only whitespace.",
                 error_code="NO_QUERY_PROVIDED",
             )

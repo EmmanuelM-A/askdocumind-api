@@ -81,13 +81,17 @@ class RAGChatbot:
         results, sources = await self.query_handler.search_for_vector(
             query, chat_session_id
         )
+        
+        include_web_search = " or through web search" if web_enabled else ""
 
         # Default response object (AT THE START)
         response_data = ChatbotResponse(
-            answer="I couldn't find relevant information to answer your "
-            "question in my documents or through web search. Please "
-            "try rephrasing your question or ask about a different "
-            "topic.",
+            answer=(
+                "I couldn't find relevant information to answer your "
+                f"question in the uploaded documents{include_web_search}. Please "
+                "try rephrasing your question or ask about a different "
+                "topic."
+            ),
             sources=[],
         )
 
