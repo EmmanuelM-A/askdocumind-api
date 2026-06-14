@@ -2,7 +2,6 @@
 Contains logging utils used only for logging purposes.
 """
 
-from enum import Enum
 import logging
 from typing import Literal
 
