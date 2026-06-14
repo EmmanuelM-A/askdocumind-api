@@ -169,7 +169,7 @@ class VectorStoreSettings(BaseSettings):
     CHUNK_SIZE: int = Field(default=1000)
     CHUNK_OVERLAP: int = Field(default=60)
     RETRIEVAL_TOP_K: int = Field(default=3, validation_alias="RETRIEVAL_TOP_K")
-    SIMILARITY_THRESHOLD: float = Field(default=0.5)
+    SIMILARITY_THRESHOLD: float = Field(default=0.4)
     MAX_QUERY_LENGTH: int = Field(default=1000)
     MAX_VECTORS_IN_MEMORY: int = Field(default=10000)
     VECTOR_BATCH_SIZE: int = Field(default=100)

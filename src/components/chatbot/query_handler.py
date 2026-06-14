@@ -64,7 +64,7 @@ class QueryHandler:
             chat_session_id=chat_session_id,
             vector=query_vector,
             top_k=settings.vector.RETRIEVAL_TOP_K,
-            # threshold=settings.vector.SIMILARITY_THRESHOLD,
+            threshold=settings.vector.SIMILARITY_THRESHOLD,
         )
 
         sources: List[str] = await self.document_chunk_repo.get_filenames_for_chunks(
