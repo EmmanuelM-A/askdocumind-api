@@ -6,7 +6,7 @@ Each configuration class handles a specific domain of settings.
 from pathlib import Path
 from typing import List, Literal, Optional
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
@@ -38,13 +38,22 @@ class CoreAppSettings(BaseSettings):
     DEFAULT_VERSION: str = Field(default="1")
 
     # Business-logic thresholds
-    MIN_QUERY_LENGTH: int = Field(default=10)
-    MAX_QUERY_LENGTH: int = Field(default=2000)
-    IS_TRUNCATION_ENABLED: bool = Field(default=False)
-    MIN_DOCUMENT_CONTENT_LENGTH: int = Field(default=10)
-    MAX_DOCUMENT_CONTENT_LENGTH: int = Field(default=1000000)
+    MIN_QUERY_LENGTH: int = Field(default=10, validation_alias="MIN_QUERY_LENGTH")
+    MAX_QUERY_LENGTH: int = Field(default=2000, validation_alias="MAX_QUERY_LENGTH")
+    IS_QUERY_TRUNCATION_ENABLED: bool = Field(default=False, validation_alias="IS_QUERY_TRUNCATION_ENABLED")
+    MIN_DOCUMENT_CONTENT_LENGTH: int = Field(
+        default=10, validation_alias="MIN_DOCUMENT_CONTENT_LENGTH"
+    )
+    MAX_DOCUMENT_CONTENT_LENGTH: int = Field(
+        default=1000000, validation_alias="MAX_DOCUMENT_CONTENT_LENGTH"
+    )
 
-    MAX_CHATS_PER_USER: int = Field(default=1)
+    MAX_CHATS_PER_USER: int = Field(default=1, validation_alias="MAX_CHATS_PER_USER")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_empty_strings(cls, values: dict) -> dict:
+        return {k: v for k, v in values.items() if v != ""}
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -104,9 +113,9 @@ class AuthSettings(BaseSettings):
     model_config = _DEFAULT_MODEL_CONFIG
 
 
-#------------------------------------------------------------------
+# ------------------------------------------------------------------
 # Anonymous User Session Settings
-#------------------------------------------------------------------
+# ------------------------------------------------------------------
 class AnonymousUserSessionSettings(BaseSettings):
     """Settings related to anonymous user session management."""
 
@@ -145,9 +154,7 @@ class FileProcessingSettings(BaseSettings):
 class LLMIntegrationSettings(BaseSettings):
     """LLM integration configuration settings."""
 
-    LLM_MODEL_NAME: str = Field(
-        default=..., validation_alias="LLM_MODEL_NAME"
-    )
+    LLM_MODEL_NAME: str = Field(default=..., validation_alias="LLM_MODEL_NAME")
     EMBEDDING_MODEL_NAME: str = Field(
         default=..., validation_alias="EMBEDDING_MODEL_NAME"
     )
@@ -166,11 +173,12 @@ class LLMIntegrationSettings(BaseSettings):
 class VectorStoreSettings(BaseSettings):
     """Vector store configuration settings."""
 
-    CHUNK_SIZE: int = Field(default=1000)
-    CHUNK_OVERLAP: int = Field(default=60)
+    CHUNK_SIZE: int = Field(default=1000, validation_alias="CHUNK_SIZE")
+    CHUNK_OVERLAP: int = Field(default=60, validation_alias="CHUNK_OVERLAP")
     RETRIEVAL_TOP_K: int = Field(default=3, validation_alias="RETRIEVAL_TOP_K")
-    SIMILARITY_THRESHOLD: float = Field(default=0.4)
-    MAX_QUERY_LENGTH: int = Field(default=1000)
+    SIMILARITY_THRESHOLD: float = Field(
+        default=0.4, validation_alias="SIMILARITY_THRESHOLD"
+    )
     MAX_VECTORS_IN_MEMORY: int = Field(default=10000)
     VECTOR_BATCH_SIZE: int = Field(default=100)
 
@@ -191,9 +199,9 @@ class WebSearchSettings(BaseSettings):
         default=..., validation_alias="SEARCH_ENGINE_ID"
     )
 
-    MAX_WEB_SEARCH_RESULTS: int = Field(default=3)
+    MAX_WEB_SEARCH_RESULTS: int = Field(default=3, validation_alias="MAX_WEB_SEARCH_RESULTS")
     MAX_WEB_REQUEST_RESULTS: int = Field(default=5)
-    WEB_REQUEST_TIMEOUT_SECS: int = Field(default=15)
+    WEB_REQUEST_TIMEOUT_SECS: int = Field(default=15, validation_alias="WEB_REQUEST_TIMEOUT_SECS")
     WEB_REQUEST_DELAY_SECS: int = Field(default=1)
     WEB_SEARCH_FALLBACK_ENABLED: bool = Field(default=True)
 
@@ -217,7 +225,8 @@ class LoggingSettings(BaseSettings):
 
     LOG_LEVEL: str = Field(default="DEBUG", validation_alias="LOG_LEVEL")
     LOG_TO: Literal["CONSOLE", "FILE", "BOTH"] = Field(
-        default="FILE", validation_alias="LOG_TO")
+        default="FILE", validation_alias="LOG_TO"
+    )
     LOG_DIRECTORY: str = Field(default=f"{PROJECT_ROOT}/logs")
     LOG_FORMAT: str = Field(
         default="%(asctime)s [%(levelname)s] [%(name)s]: %(message)s"

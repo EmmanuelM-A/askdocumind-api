@@ -86,7 +86,7 @@ def validate_and_sanitize_query(query: str, logger: BaseLogger) -> str:
             changed = True
 
     # Truncate if too long (operate on the canonical cleaned text length)
-    max_len = settings.vector.MAX_QUERY_LENGTH
+    max_len = settings.app.MAX_QUERY_LENGTH
     if max_len and len(cleaned) > max_len:
         cleaned = cleaned[:max_len]
         changed = True
