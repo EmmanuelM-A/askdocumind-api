@@ -20,9 +20,8 @@ class ChatSessionSearchCriteria(BaseModel):
     title: Optional[str] = None
     total_messages: Optional[int] = None
 
-
 class UpdatedChatSessionData(BaseModel):
-    """Schema for updating chat session fields."""
+    """Data structure for updating a chat session."""
 
     title: Optional[str] = None
 
@@ -75,6 +74,19 @@ class ChatSessionRepositoryInterface(ABC):
         :param session_id: The UUID of the chat session to retrieve.
         :param tx: Optional db transaction to wrap a db operation in.
         :return: The ChatSession entity if found, None otherwise.
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    async def get_by_user_id(
+        self, user_id: UUID, tx: Optional[DBTransaction] = None
+    ) -> Optional[ChatSession]:
+        """
+        Retrieve the most recently created chat session for a given user.
+
+        :param user_id: The UUID of the user whose chat session to retrieve.
+        :param tx: Optional db transaction to wrap a db operation in.
+        :return: The most recent ChatSession entity for the user if found, None otherwise.
         """
         raise NotImplementedError
 

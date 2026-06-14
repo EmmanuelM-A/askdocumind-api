@@ -11,7 +11,7 @@ app = create_app()
 
 HOST = settings.app.HOST
 PORT = settings.app.PORT
+ENV = settings.app.ENV
 
 if __name__ == "__main__":
-    print(f"Docs available at http://{HOST}:{PORT}/docs")
-    uvicorn.run("src.api.server:app", host=HOST, port=PORT, reload=settings.app.ENV == "development")
+    uvicorn.run("src.api.server:app", host=HOST, port=PORT, reload=ENV == "development")

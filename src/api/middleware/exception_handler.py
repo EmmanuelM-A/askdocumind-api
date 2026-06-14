@@ -23,12 +23,13 @@ async def api_exception_handler(request: Request, exc: ApiException) -> JSONResp
     Handle all exceptions derived from ApiException (custom application errors).
     """
     
-    stack_trace = traceback.format_exc() if settings.app.ENV == "development" else None
+    exc_traceback = exc.error.stack_trace if settings.app.ENV == "development" else None
+    backup_traceback = traceback.format_exc() if settings.app.ENV == "development" else None
 
     error = ErrorInfo(
-        code="INTERNAL_SERVER_ERROR",
-        details=str(exc.error.details) if exc.error.details else None,
-        stack_trace=stack_trace,
+        code=exc.error.code,
+        details=exc.error.details,
+        stack_trace=exc_traceback or backup_traceback,
     )
 
     error_response_model = ErrorResponseModel(
@@ -48,7 +49,11 @@ async def api_exception_handler(request: Request, exc: ApiException) -> JSONResp
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Handle FastAPI's built-in HTTPExceptions."""
 
-    error = ErrorInfo(code="HTTP_EXCEPTION", details=str(exc.detail))
+    error = ErrorInfo(
+        code="HTTP_EXCEPTION",
+        details=str(exc.detail),
+        stack_trace=traceback.format_exc() if settings.app.ENV == "development" else None,
+    )
 
     error_response_model = ErrorResponseModel(
         success=False, message=str(exc.detail), error=error
@@ -69,12 +74,10 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     Catch-all handler for unexpected runtime exceptions.
     """
 
-    stack_trace = traceback.format_exc() if settings.app.ENV == "development" else None
-
     error = ErrorInfo(
         code="INTERNAL_SERVER_ERROR",
         details=str(exc),
-        stack_trace=stack_trace,
+        stack_trace=traceback.format_exc() if settings.app.ENV == "development" else None,
     )
 
     error_response_model = ErrorResponseModel(

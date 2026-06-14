@@ -4,18 +4,17 @@ Each configuration class handles a specific domain of settings.
 """
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
-
 # ------------------------------------------------------------------
 # Environment Setup
 # ------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-ENV_FILE = PROJECT_ROOT / ".env.prod"
+ENV_FILE = PROJECT_ROOT / ".env"
 
 if ENV_FILE.exists():
     load_dotenv(ENV_FILE)
@@ -32,12 +31,10 @@ class CoreAppSettings(BaseSettings):
     """Core application configuration settings."""
 
     ENV: str = Field(default=..., validation_alias="ENV")
-    APP_NAME: str = Field(default="DocuChatAPI")
     PORT: int = Field(default=..., validation_alias="PORT")
     HOST: str = Field(default="0.0.0.0", validation_alias="HOST")
 
     # Internal API routing constants
-    SUPPORTED_VERSIONS: List[str] = Field(default=["1"])
     DEFAULT_VERSION: str = Field(default="1")
 
     # Business-logic thresholds
@@ -46,6 +43,8 @@ class CoreAppSettings(BaseSettings):
     IS_TRUNCATION_ENABLED: bool = Field(default=False)
     MIN_DOCUMENT_CONTENT_LENGTH: int = Field(default=10)
     MAX_DOCUMENT_CONTENT_LENGTH: int = Field(default=1000000)
+
+    MAX_CHATS_PER_USER: int = Field(default=1)
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -64,10 +63,10 @@ class DatabaseSettings(BaseSettings):
         url = v if isinstance(v, str) else str(v)
         for sync_prefix in ("postgresql+psycopg2://", "postgresql://", "postgres://"):
             if url.startswith(sync_prefix):
-                return "postgresql+asyncpg://" + url[len(sync_prefix):]
+                return "postgresql+asyncpg://" + url[len(sync_prefix) :]
         return url
 
-    # Pool tuning — sensible defaults, override in env only if needed
+    # Pool tuning
     DB_POOL_SIZE: int = Field(default=10)
     DB_MAX_OVERFLOW: int = Field(default=20)
     DB_POOL_TIMEOUT_SECS: int = Field(default=30)
@@ -87,20 +86,36 @@ class AuthSettings(BaseSettings):
     USER_SESSION_SECRET: SecretStr = Field(
         default=..., validation_alias="USER_SESSION_SECRET"
     )
-    ANON_SESSION_USER_COOKIE_NAME: str = Field(default="docu_chat_user_cookie")
-    ANON_SESSION_TTL_HOURS: float = Field(default=24.0, validation_alias="ANON_SESSION_TTL_HOURS")
-    ANON_SESSION_COOKIE_SECURE: bool = Field(
-        default=False, validation_alias="ANON_SESSION_COOKIE_SECURE"
+    COOKIE_NAME: str = Field(default="docu_chat_user_cookie")
+    COOKIE_SAMESITE: Literal["lax", "strict", "none"] = Field(
+        default="none", validation_alias="ANON_SESSION_COOKIE_SAMESITE"
     )
-    ANON_SESSION_COOKIE_SAMESITE: str = Field(
-        default="lax", validation_alias="ANON_SESSION_COOKIE_SAMESITE"
-    )
-    ANON_SESSION_COOKIE_DOMAIN: Optional[str] = Field(
+    COOKIE_DOMAIN: Optional[str] = Field(
         default=None, validation_alias="ANON_SESSION_COOKIE_DOMAIN"
     )
 
-    USER_SESSION_CLEANUP_ENABLED: bool = Field(default=True)
-    USER_SESSION_CLEANUP_INTERVAL_MINUTES: int = Field(default=60)
+    @field_validator("COOKIE_DOMAIN", mode="before")
+    @classmethod
+    def _coerce_none_string(cls, v: object) -> object:
+        if isinstance(v, str) and v.strip().lower() == "none":
+            return None
+        return v
+
+    model_config = _DEFAULT_MODEL_CONFIG
+
+
+#------------------------------------------------------------------
+# Anonymous User Session Settings
+#------------------------------------------------------------------
+class AnonymousUserSessionSettings(BaseSettings):
+    """Settings related to anonymous user session management."""
+
+    CLEANUP_ENABLED: bool = Field(default=..., validation_alias="USER_CLEANUP_ENABLED")
+    BATCH_SIZE: int = Field(default=100, validation_alias="USER_CLEANUP_BATCH_SIZE")
+    CLEANUP_INTERVAL_H: int = Field(
+        default=1, validation_alias="USER_CLEANUP_INTERVAL_HOURS"
+    )
+    TTL_HOURS: int = Field(default=60, validation_alias="USER_TTL_HOURS")
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -112,8 +127,12 @@ class FileProcessingSettings(BaseSettings):
     """File processing configuration settings."""
 
     ALLOWED_FILE_EXTENSIONS: List[str] = Field(default=[".pdf", ".docx", ".txt", ".md"])
-    MAX_FILE_SIZE_MB: float = Field(default=0.5, validation_alias="MAX_FILE_SIZE_MB")  # Max size per file
-    MAX_FILES_PER_CHAT_MB: int = Field(default=1, validation_alias="MAX_FILES_PER_CHAT_MB")  # Max total size of all files per chat
+    MAX_FILE_SIZE_MB: float = Field(
+        default=0.5, validation_alias="MAX_FILE_SIZE_MB"
+    )  # Max size per file
+    MAX_FILES_PER_CHAT_MB: int = Field(
+        default=1, validation_alias="MAX_FILES_PER_CHAT_MB"
+    )  # Max total size of all files per chat
 
     LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{PROJECT_ROOT}/data/local/documents")
 
@@ -126,8 +145,12 @@ class FileProcessingSettings(BaseSettings):
 class LLMIntegrationSettings(BaseSettings):
     """LLM integration configuration settings."""
 
-    LLM_MODEL_NAME: str = Field(default="gpt-3.5-turbo", validation_alias="LLM_MODEL_NAME")
-    EMBEDDING_MODEL_NAME: str = Field(default="text-embedding-3-small", validation_alias="EMBEDDING_MODEL_NAME")
+    LLM_MODEL_NAME: str = Field(
+        default=..., validation_alias="LLM_MODEL_NAME"
+    )
+    EMBEDDING_MODEL_NAME: str = Field(
+        default=..., validation_alias="EMBEDDING_MODEL_NAME"
+    )
     LLM_TEMPERATURE: float = Field(default=0.7, validation_alias="LLM_TEMPERATURE")
 
     RESPONSE_PROMPT_FILEPATH: str = Field(
@@ -160,7 +183,9 @@ class VectorStoreSettings(BaseSettings):
 class WebSearchSettings(BaseSettings):
     """Web search configuration settings."""
 
-    IS_WEB_SEARCH_ENABLED: bool = Field(default=False, validation_alias="IS_WEB_SEARCH_ENABLED")
+    IS_WEB_SEARCH_ENABLED: bool = Field(
+        default=False, validation_alias="IS_WEB_SEARCH_ENABLED"
+    )
     SEARCH_API_KEY: SecretStr = Field(default=..., validation_alias="SEARCH_API_KEY")
     SEARCH_ENGINE_ID: SecretStr = Field(
         default=..., validation_alias="SEARCH_ENGINE_ID"
@@ -180,18 +205,6 @@ class WebSearchSettings(BaseSettings):
 
     MAX_WEB_CONTENT_LENGTH: int = Field(default=10000)
     MIN_WEB_CONTENT_LENGTH: int = Field(default=100)
-
-    model_config = _DEFAULT_MODEL_CONFIG
-
-
-# ------------------------------------------------------------------
-# AWS
-# ------------------------------------------------------------------
-class AWSSettings(BaseSettings):
-    """AWS configuration settings."""
-
-    REGION: str = Field(default="eu-west-2", validation_alias="AWS_REGION")
-    S3_BUCKET_NAME: str = Field(default="", validation_alias="AWS_S3_BUCKET_NAME")
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -220,11 +233,9 @@ class APIServerSettings(BaseSettings):
     """API server configuration settings."""
 
     WORKERS: int = Field(default=1)
-    DOCS_URL: Optional[str] = Field(default="/docs", validation_alias="DOCS_URL")
-    REDOC_URL: Optional[str] = Field(default="/redoc", validation_alias="REDOC_URL")
 
     CORS_ORIGINS: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:5173"],
+        default=...,
         validation_alias="CORS_ORIGINS",
     )
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
@@ -239,8 +250,6 @@ class APIServerSettings(BaseSettings):
     RATE_LIMIT_REQUESTS: int = Field(default=100)
     RATE_LIMIT_WINDOW: int = Field(default=60)
 
-    MAX_CHATS_PER_USER: int = Field(default=1)
-    MAX_DOCUMENTS_PER_CHAT: int = Field(default=5)
     MAX_CHAT_QUERIES_PER_MINUTE: int = Field(default=10)
 
     model_config = _DEFAULT_MODEL_CONFIG
@@ -255,13 +264,13 @@ class Settings(BaseSettings):
     app: CoreAppSettings = CoreAppSettings()
     database: DatabaseSettings = DatabaseSettings()
     auth: AuthSettings = AuthSettings()
+    anon: AnonymousUserSessionSettings = AnonymousUserSessionSettings()
     files: FileProcessingSettings = FileProcessingSettings()
     llm: LLMIntegrationSettings = LLMIntegrationSettings()
     vector: VectorStoreSettings = VectorStoreSettings()
     web: WebSearchSettings = WebSearchSettings()
     logging: LoggingSettings = LoggingSettings()
     server: APIServerSettings = APIServerSettings()
-    aws: AWSSettings = AWSSettings()
 
     model_config = _DEFAULT_MODEL_CONFIG
 

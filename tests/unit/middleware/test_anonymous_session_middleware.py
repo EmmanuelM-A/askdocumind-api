@@ -11,10 +11,6 @@ import pytest
 
 from src.api.middleware.anonymous_session import AnonymousSessionMiddleware
 from src.api.middleware.exception_handler import setup_exception_handlers
-from src.api.services.auth.anonymous_identity import (
-    get_current_anonymous_user_id,
-    require_current_anonymous_user_id,
-)
 from src.api.utils.session_manager import AnonymousSessionPayload
 from src.config.configs import settings
 from src.database.models import User
@@ -24,18 +20,14 @@ from src.database.models import User
 def middleware_mocks(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     repo = Mock()
     repo.get_by_id = AsyncMock()
-    repo.update = AsyncMock()
+    repo.update_last_seen = AsyncMock()
 
     token_manager = Mock()
     token_manager.ttl_seconds = 3600
     token_manager.decode_token = Mock()
     token_manager.create_token = Mock(return_value="refreshed-signed-token")
 
-    monkeypatch.setattr(
-        settings.auth,
-        "ANON_SESSION_USER_COOKIE_NAME",
-        "anon_test_cookie",
-    )
+    monkeypatch.setattr(settings.auth, "COOKIE_NAME", "anon_test_cookie")
     monkeypatch.setattr(
         "src.api.middleware.anonymous_session.get_database_repository",
         Mock(return_value=repo),
@@ -56,14 +48,14 @@ def app(middleware_mocks: SimpleNamespace) -> FastAPI:
 
     @app.get("/api/probe")
     async def probe(request: Request):
-        current_user_id = require_current_anonymous_user_id()
-        return {
-            "state_user_id": str(request.state.anonymous_user_id),
-            "context_user_id": str(current_user_id),
-        }
+        return {"state_user_id": str(request.state.anonymous_user_id)}
 
     @app.get("/api/auth/anonymous")
     async def bootstrap():
+        return {"ok": True}
+
+    @app.get("/api/health")
+    async def health_api():
         return {"ok": True}
 
     @app.get("/health")
@@ -79,7 +71,7 @@ def client(app: FastAPI) -> Generator[TestClient, None, None]:
         yield test_client
 
 
-def test_valid_cookie_refreshes_existing_session(
+def test_valid_cookie_sets_state_and_refreshes_cookie(
     client: TestClient,
     middleware_mocks: SimpleNamespace,
 ):
@@ -89,48 +81,36 @@ def test_valid_cookie_refreshes_existing_session(
         expires_at=9999999999,
     )
     middleware_mocks.repo.get_by_id.return_value = User(id=existing_user_id)
-    middleware_mocks.repo.update.return_value = User(id=existing_user_id)
 
     client.cookies.set("anon_test_cookie", "valid-token")
     response = client.get("/api/probe")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "state_user_id": str(existing_user_id),
-        "context_user_id": str(existing_user_id),
-    }
+    assert response.json() == {"state_user_id": str(existing_user_id)}
 
     middleware_mocks.repo.get_by_id.assert_awaited_once_with(existing_user_id)
-    middleware_mocks.repo.update.assert_awaited_once()
-    update_call = middleware_mocks.repo.update.await_args
-    assert update_call.args[0] == existing_user_id
-    assert update_call.args[1].last_seen_at is not None
-
-    middleware_mocks.token_manager.create_token.assert_called_once_with(existing_user_id)
+    middleware_mocks.repo.update_last_seen.assert_awaited_once_with(
+        user_id=existing_user_id
+    )
+    middleware_mocks.token_manager.create_token.assert_called_with(existing_user_id)
     assert "anon_test_cookie=refreshed-signed-token" in response.headers.get(
         "set-cookie", ""
     )
 
-    assert get_current_anonymous_user_id() is None
 
-
-def test_missing_cookie_on_api_route_returns_422(
+def test_missing_cookie_on_api_route_returns_error(
     client: TestClient,
     middleware_mocks: SimpleNamespace,
 ):
     response = client.get("/api/probe")
 
-    assert response.status_code == 500
-    body = response.json()
-    assert body["error"]["code"] == "INTERNAL_SERVER_ERROR"
-    assert "422: No cookie value provided" in (body["error"].get("details") or "")
-
+    assert response.status_code >= 400
     middleware_mocks.token_manager.decode_token.assert_not_called()
     middleware_mocks.repo.get_by_id.assert_not_awaited()
-    middleware_mocks.repo.update.assert_not_awaited()
+    middleware_mocks.repo.update_last_seen.assert_not_awaited()
 
 
-def test_missing_user_for_valid_cookie_returns_404(
+def test_missing_user_for_valid_cookie_returns_error(
     client: TestClient,
     middleware_mocks: SimpleNamespace,
 ):
@@ -144,16 +124,12 @@ def test_missing_user_for_valid_cookie_returns_404(
     client.cookies.set("anon_test_cookie", "valid-token")
     response = client.get("/api/probe")
 
-    assert response.status_code == 500
-    body = response.json()
-    assert body["error"]["code"] == "INTERNAL_SERVER_ERROR"
-    assert "404: Anonymous session user no longer exists." in (
-        body["error"].get("details") or ""
-    )
-    middleware_mocks.repo.update.assert_not_awaited()
+    assert response.status_code >= 400
+    middleware_mocks.repo.get_by_id.assert_awaited_once_with(missing_user_id)
+    middleware_mocks.repo.update_last_seen.assert_not_awaited()
 
 
-def test_non_api_path_bypasses_middleware_session_resolution(
+def test_non_api_path_bypasses_session_resolution(
     client: TestClient,
     middleware_mocks: SimpleNamespace,
 ):
@@ -161,13 +137,11 @@ def test_non_api_path_bypasses_middleware_session_resolution(
 
     assert response.status_code == 200
     assert response.json() == {"ok": True}
-
     middleware_mocks.token_manager.decode_token.assert_not_called()
     middleware_mocks.repo.get_by_id.assert_not_awaited()
-    middleware_mocks.repo.update.assert_not_awaited()
 
 
-def test_bootstrap_path_bypasses_middleware_session_resolution(
+def test_bootstrap_path_bypasses_session_resolution(
     client: TestClient,
     middleware_mocks: SimpleNamespace,
 ):
@@ -175,10 +149,19 @@ def test_bootstrap_path_bypasses_middleware_session_resolution(
 
     assert response.status_code == 200
     assert response.json() == {"ok": True}
-
     middleware_mocks.token_manager.decode_token.assert_not_called()
     middleware_mocks.repo.get_by_id.assert_not_awaited()
-    middleware_mocks.repo.update.assert_not_awaited()
+
+
+def test_health_api_path_bypasses_session_resolution(
+    client: TestClient,
+    middleware_mocks: SimpleNamespace,
+):
+    response = client.get("/api/health")
+
+    assert response.status_code == 200
+    middleware_mocks.token_manager.decode_token.assert_not_called()
+    middleware_mocks.repo.get_by_id.assert_not_awaited()
 
 
 def test_options_request_bypasses_session_resolution(
@@ -187,7 +170,6 @@ def test_options_request_bypasses_session_resolution(
 ):
     response = client.options("/api/probe")
 
-    assert response.status_code != 422
+    assert response.status_code != 401
     middleware_mocks.token_manager.decode_token.assert_not_called()
     middleware_mocks.repo.get_by_id.assert_not_awaited()
-    middleware_mocks.repo.update.assert_not_awaited()

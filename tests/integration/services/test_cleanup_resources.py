@@ -1,213 +1,92 @@
-"""Unit tests for anonymous resource cleanup service."""
+"""Tests for the anonymous user session cleanup scheduler."""
 
 import asyncio
-import importlib
-from datetime import datetime
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
-from uuid import uuid4
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-
-class _ScalarResult:
-    def __init__(self, values):
-        self._values = values
-
-    def all(self):
-        return self._values
-
-
-class _Result:
-    def __init__(self, values):
-        self._values = values
-
-    def scalars(self):
-        return _ScalarResult(self._values)
-
-
-class _TxContext:
-    def __init__(self, tx):
-        self.tx = tx
-
-    async def __aenter__(self):
-        return self.tx
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return None
-
-
-class _TxFactory:
-    def __init__(self, txs):
-        self._txs = iter(txs)
-
-    def create(self):
-        return _TxContext(next(self._txs))
-
-
-@pytest.fixture
-def cleanup_module(monkeypatch: pytest.MonkeyPatch):
-    # Patch module-level dependencies before importing the module under test.
-    import src.components.chatbot.chatbot_factory as chatbot_factory
-    import src.database.repository as repository_pkg
-    import src.database.repository.database_repository_factory as tx_factory_pkg
-    import src.database.storage as storage_pkg
-
-    monkeypatch.setattr(chatbot_factory, "get_chatbot", lambda: Mock())
-    monkeypatch.setattr(repository_pkg, "get_database_repository", lambda _model: Mock())
-    monkeypatch.setattr(tx_factory_pkg, "get_tx_factory", lambda: Mock())
-    monkeypatch.setattr(storage_pkg, "get_storage_service", lambda: Mock())
-
-    module = importlib.import_module("src.api.services.cleanup.cleanup_resources")
-    return importlib.reload(module)
+from src.config.configs import settings
 
 
 @pytest.mark.asyncio
-async def test_get_expired_user_ids_returns_values_from_transaction(cleanup_module):
-    tx = Mock()
-    expected_ids = [uuid4(), uuid4()]
-    tx.execute = AsyncMock(return_value=_Result(expected_ids))
-
-    service = cleanup_module.CleanupAnonymousUserResources(
-        user_repo=Mock(),
-        chat_repo=Mock(),
-        tx_factory=_TxFactory([tx]),
-        chatbot=Mock(),
-        storage_service=Mock(),
-    )
-
-    result = await service._get_expired_user_ids(datetime(2026, 4, 9, 12, 0, 0))
-
-    assert result == expected_ids
-    tx.execute.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_cleanup_sessions_deletes_user_when_resources_are_cleared(cleanup_module):
-    user_id = uuid4()
-    tx = Mock()
-
-    chat_repo = Mock()
-    chat_repo.list_by = AsyncMock(return_value=[SimpleNamespace(id=uuid4())])
-
-    user_repo = Mock()
-    user_repo.delete = AsyncMock(return_value=True)
-
-    service = cleanup_module.CleanupAnonymousUserResources(
-        user_repo=user_repo,
-        chat_repo=chat_repo,
-        tx_factory=_TxFactory([tx]),
-        chatbot=Mock(),
-        storage_service=Mock(),
-    )
-    service._get_expired_user_ids = AsyncMock(return_value=[user_id])
-    service._clear_additional_resources = Mock(return_value=True)
-    service._clear_caches = Mock()
-
-    deleted_count = await service._cleanup_expired_anonymous_user_sessions()
-
-    assert deleted_count == 1
-    chat_repo.list_by.assert_awaited_once()
-    called_criteria = chat_repo.list_by.await_args.kwargs["criteria"]
-    assert called_criteria.user_id == user_id
-    assert chat_repo.list_by.await_args.kwargs["tx"] is tx
-    user_repo.delete.assert_awaited_once_with(user_id, tx=tx)
-
-
-@pytest.mark.asyncio
-async def test_cleanup_sessions_skips_user_delete_when_resource_cleanup_fails(cleanup_module):
-    user_id = uuid4()
-    tx = Mock()
-
-    chat_repo = Mock()
-    chat_repo.list_by = AsyncMock(return_value=[SimpleNamespace(id=uuid4())])
-
-    user_repo = Mock()
-    user_repo.delete = AsyncMock(return_value=True)
-
-    service = cleanup_module.CleanupAnonymousUserResources(
-        user_repo=user_repo,
-        chat_repo=chat_repo,
-        tx_factory=_TxFactory([tx]),
-        chatbot=Mock(),
-        storage_service=Mock(),
-    )
-    service._get_expired_user_ids = AsyncMock(return_value=[user_id])
-    service._clear_additional_resources = Mock(return_value=False)
-
-    deleted_count = await service._cleanup_expired_anonymous_user_sessions()
-
-    assert deleted_count == 0
-    user_repo.delete.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_cleanup_sessions_continues_after_user_transaction_error(cleanup_module):
-    user_1 = uuid4()
-    user_2 = uuid4()
-    tx_1 = Mock()
-    tx_2 = Mock()
-
-    chat_repo = Mock()
-    chat_repo.list_by = AsyncMock(side_effect=[RuntimeError("boom"), []])
-
-    user_repo = Mock()
-    user_repo.delete = AsyncMock(return_value=True)
-
-    service = cleanup_module.CleanupAnonymousUserResources(
-        user_repo=user_repo,
-        chat_repo=chat_repo,
-        tx_factory=_TxFactory([tx_1, tx_2]),
-        chatbot=Mock(),
-        storage_service=Mock(),
-    )
-    service._get_expired_user_ids = AsyncMock(return_value=[user_1, user_2])
-    service._clear_additional_resources = Mock(return_value=True)
-
-    deleted_count = await service._cleanup_expired_anonymous_user_sessions()
-
-    assert deleted_count == 1
-    user_repo.delete.assert_awaited_once_with(user_2, tx=tx_2)
-
-
-def test_clear_additional_resources_returns_false_when_any_cleanup_step_fails(cleanup_module):
-    storage = Mock()
-    storage.delete_all.side_effect = [None, RuntimeError("storage error")]
-
-    service = cleanup_module.CleanupAnonymousUserResources(
-        user_repo=Mock(),
-        chat_repo=Mock(),
-        tx_factory=Mock(),
-        chatbot=Mock(),
-        storage_service=storage,
-    )
-
-    result = service._clear_additional_resources(["chat-1", "chat-2"])
-
-    assert result is False
-    assert storage.delete_all.call_count == 2
-
-
-@pytest.mark.asyncio
-async def test_run_scheduler_stops_when_event_is_set(cleanup_module):
-    service = cleanup_module.CleanupAnonymousUserResources(
-        user_repo=Mock(),
-        chat_repo=Mock(),
-        tx_factory=Mock(),
-        chatbot=Mock(),
-        storage_service=Mock(),
-    )
+async def test_run_scheduler_calls_cleanup_until_stop_event_is_set():
+    """Scheduler calls delete_expired_anonymous_user_sessions each iteration."""
+    from src.api.services.cleanup.cleanup_resources import _run_scheduler
 
     stop_event = asyncio.Event()
-    calls = {"count": 0}
+    call_count = 0
 
-    async def _cleanup_once():
-        calls["count"] += 1
+    async def _fake_cleanup():
+        nonlocal call_count
+        call_count += 1
         stop_event.set()
 
-    service._cleanup_expired_anonymous_user_sessions = _cleanup_once
+    service = Mock()
+    service.delete_expired_anonymous_user_sessions = _fake_cleanup
 
-    await service.run_scheduler(stop_event=stop_event, interval_minutes=1)
+    await _run_scheduler(service, stop_event, interval_minutes=1)
 
-    assert calls["count"] == 1
+    assert call_count == 1
 
+
+@pytest.mark.asyncio
+async def test_run_scheduler_does_not_run_when_stop_event_already_set():
+    """Scheduler exits immediately if the stop event is already set on entry."""
+    from src.api.services.cleanup.cleanup_resources import _run_scheduler
+
+    stop_event = asyncio.Event()
+    stop_event.set()
+
+    service = Mock()
+    service.delete_expired_anonymous_user_sessions = AsyncMock()
+
+    await _run_scheduler(service, stop_event, interval_minutes=1)
+
+    service.delete_expired_anonymous_user_sessions.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_init_cleanup_returns_early_when_disabled(monkeypatch: pytest.MonkeyPatch):
+    """init_anon_user_sessions_cleanup should no-op when CLEANUP_ENABLED is False."""
+    from src.api.services.cleanup.cleanup_resources import init_anon_user_sessions_cleanup
+
+    monkeypatch.setattr(settings.anon, "CLEANUP_ENABLED", False)
+
+    with patch(
+        "src.api.services.cleanup.cleanup_resources._run_scheduler"
+    ) as mock_scheduler:
+        await init_anon_user_sessions_cleanup()
+
+    mock_scheduler.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_init_cleanup_passes_configured_interval_to_scheduler(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """init_anon_user_sessions_cleanup converts CLEANUP_INTERVAL_H to minutes."""
+    from src.api.services.cleanup.cleanup_resources import init_anon_user_sessions_cleanup
+
+    monkeypatch.setattr(settings.anon, "CLEANUP_ENABLED", True)
+    monkeypatch.setattr(settings.anon, "CLEANUP_INTERVAL_H", 2)
+
+    stop_event = asyncio.Event()
+    stop_event.set()
+
+    fake_service = Mock()
+    fake_service.delete_expired_anonymous_user_sessions = AsyncMock()
+
+    with patch(
+        "src.api.services.cleanup.cleanup_resources.get_anonymous_user_service",
+        return_value=fake_service,
+    ), patch(
+        "src.api.services.cleanup.cleanup_resources._run_scheduler",
+        new_callable=AsyncMock,
+    ) as mock_scheduler:
+        await init_anon_user_sessions_cleanup(stop_event=stop_event)
+
+    mock_scheduler.assert_awaited_once_with(
+        anonymous_user_services=fake_service,
+        stop_event=stop_event,
+        interval_minutes=120,
+    )

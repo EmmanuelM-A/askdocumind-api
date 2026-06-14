@@ -2,11 +2,13 @@
 Service module for handling RAG chatbot interactions.
 """
 
+from uuid import UUID
+
+from src.api.services.validation.chatbot import ChatRequest
+from src.api.services.validation.helper import check_if_chat_exists
 from src.components.chatbot.core import RAGChatbot, ChatbotResponse
 from src.config.constants import ChatMessageRole
 from src.database.models import ChatMessage
-from src.api.services.validation.rag_validation import ChatRequest, check_if_chat_exists
-from src.api.utils.api_responses import SuccessResponseModel
 from src.database.repository.interfaces import (
     ChatSessionRepositoryInterface,
     ChatMessageRepositoryInterface,
@@ -28,11 +30,12 @@ class RAGChatbotService:
         self.chatbot = chatbot
         self._logger = BaseLogger(__name__)
 
-    async def handle_chat_request(self, request: ChatRequest) -> SuccessResponseModel:
+    async def handle_chat_request(self, owner_id: UUID, request: ChatRequest) -> dict:
         """Handles a chat request."""
-
         await check_if_chat_exists(
-            chat_id=request.chat_id, chat_session_repo=self.chat_session_repo
+            chat_id=request.chat_id,
+            owner_id=owner_id,
+            chat_session_repo=self.chat_session_repo,
         )
 
         self._logger.debug("Received chat request and chat session validated")
@@ -45,28 +48,21 @@ class RAGChatbotService:
 
         self._logger.debug("Chatbot processed the query and generated a response")
 
-        user_query_chat_message = ChatMessage(
-            session_id=request.chat_id,
-            role=ChatMessageRole.USER,
-            content=request.user_query,
-        )
-
-        assistant_response_chat_message = ChatMessage(
-            session_id=request.chat_id,
-            role=ChatMessageRole.ASSISTANT,
-            content=response.answer,
-        )
-
         await self.chat_message_repo.create_many(
             [
-                user_query_chat_message,
-                assistant_response_chat_message,
+                ChatMessage(
+                    session_id=request.chat_id,
+                    role=ChatMessageRole.USER,
+                    content=request.user_query,
+                ),
+                ChatMessage(
+                    session_id=request.chat_id,
+                    role=ChatMessageRole.ASSISTANT,
+                    content=response.answer,
+                ),
             ]
         )
 
         self._logger.info("Chatbot query and response have been saved")
 
-        return SuccessResponseModel(
-            message="The chat query was processed successfully.",
-            data=response.to_dict(),
-        )
+        return response.to_dict()

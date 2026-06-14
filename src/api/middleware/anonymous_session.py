@@ -2,23 +2,22 @@
 Middleware that ensures each API request has a signed anonymous session.
 """
 
-from datetime import datetime
-from typing import cast
-
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.responses import JSONResponse, Response
+from starlette.responses import Response
 
-from src.api.services.auth.anonymous_identity import (
-    reset_current_anonymous_user_id,
-    set_current_anonymous_user_id,
-)
+from src.api.utils.api_responses import ErrorInfo, ErrorResponseModel
 from src.api.utils.cookie_manager import set_cookie
+from src.api.utils.response_delivery import create_error_response
 from src.api.utils.session_manager import get_token_manager
 from src.config.configs import settings
 from src.database.repository import get_database_repository
-from src.database.repository.interfaces.user_repository import UpdatedUserData
 from src.database.repository.sqlalchemy.user_repository import UserRepository
+from src.errors.api_exceptions import ApiException
+from src.errors.custom_exceptions import not_found_error, unprocessable_entity_error
+from src.logger.base_logger import BaseLogger
+
+_logger = BaseLogger(__name__)
 
 
 class AnonymousSessionMiddleware(BaseHTTPMiddleware):
@@ -30,63 +29,74 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        token_manager = get_token_manager()
-        cookie_name = settings.auth.ANON_SESSION_USER_COOKIE_NAME
-        api_prefix = "/api"
-        anonymous_bootstrap_path = f"{api_prefix}/auth/anonymous"
-        health_prefix = f"{api_prefix}/health"
-        normalized_path = request.url.path.rstrip("/") or "/"
-        is_api_path = normalized_path == api_prefix or normalized_path.startswith(f"{api_prefix}/")
+        current_path = request.url.path
 
-        if request.method == "OPTIONS" or not is_api_path:
+        if request.method == "OPTIONS" or not current_path.startswith("/api/"):
+            return await call_next(request)
+        
+        if current_path.startswith("/api/docs"):
             return await call_next(request)
 
-        if normalized_path == anonymous_bootstrap_path:
+        if current_path.startswith("/api/auth/anonymous"):
             return await call_next(request)
 
-        if normalized_path == health_prefix or normalized_path.startswith(
-            f"{health_prefix}/"
-        ):
+        if current_path.startswith("/api/health"):
             return await call_next(request)
 
-        cookie_value = request.cookies.get(cookie_name)
-        user_repo: UserRepository = cast(
-            UserRepository, get_database_repository("USER")
-        )
-
-        if not cookie_value:
-            return JSONResponse(
-                status_code=422,
-                content={"error": {"code": "NO_COOKIE_VALUE", "message": "No cookie value provided"}},
-            )
-
-        anonymous_id = token_manager.decode_token(cookie_value).user_id
-
-        existing_user = await user_repo.get_by_id(anonymous_id)
-        if existing_user is None:
-            return JSONResponse(
-                status_code=404,
-                content={"error": {"code": "ANONYMOUS_USER_NOT_FOUND", "message": "Anonymous session user no longer exists."}},
-            )
-
-        await user_repo.update(
-            anonymous_id,
-            UpdatedUserData(last_seen_at=datetime.now().isoformat()),
-        )
-
-        request.state.anonymous_user_id = anonymous_id
-        context_token = set_current_anonymous_user_id(anonymous_id)
+        _logger.debug(f"Processing request for path: {current_path}")
 
         try:
+            cookie_value = request.cookies.get(settings.auth.COOKIE_NAME)
+
+            if not cookie_value:
+                raise unprocessable_entity_error(
+                    message="No cookie value provided",
+                    error_code="NO_COOKIE_VALUE",
+                )
+
+            anonymous_id = get_token_manager().decode_token(cookie_value).user_id
+
+            user_repo: UserRepository = get_database_repository("USER")  # type: ignore
+
+            existing_user = await user_repo.get_by_id(anonymous_id)
+            if existing_user is None:
+                raise not_found_error(
+                    message=f"Anonymous session user with ID {anonymous_id} not found.",
+                    error_code="ANONYMOUS_USER_NOT_FOUND",
+                )
+
+            await user_repo.update_last_seen(user_id=anonymous_id)
+
+            _logger.debug(f"Anonymous session validated for user ID: {anonymous_id}")
+
+            request.state.anonymous_user_id = anonymous_id
+
             response = await call_next(request)
-        finally:
-            reset_current_anonymous_user_id(context_token)
 
-        set_cookie(
-            response=response,
-            cookie_name=cookie_name,
-            cookie_value=token_manager.create_token(anonymous_id),
-            max_age_seconds=token_manager.ttl_seconds,
-        )
+            set_cookie(
+                response=response,
+                cookie_name=settings.auth.COOKIE_NAME,
+                cookie_value=get_token_manager().create_token(anonymous_id),
+                max_age_seconds=get_token_manager().ttl_seconds,
+            )
 
-        return response
+            return response
+
+        except ApiException as exc:
+            # Raising inside BaseHTTPMiddleware.dispatch bypasses FastAPI's
+            # exception handlers — return the structured response directly.
+            _logger.warning(
+                f"Session error | path={current_path} | "
+                f"status={exc.status_code} | code={exc.error.code}"
+            )
+            return create_error_response(
+                status_code=exc.status_code,
+                error_response_model=ErrorResponseModel(
+                    success=False,
+                    message=exc.detail,
+                    error=ErrorInfo(
+                        code=exc.error.code,
+                        details=exc.error.details,
+                    ),
+                ),
+            )

@@ -2,7 +2,7 @@
 Responsible for managing chat session storage in the remote database.
 """
 
-from typing import Optional, List
+from typing import Optional, List, cast
 from uuid import UUID
 
 from sqlalchemy import select, func, delete
@@ -44,13 +44,13 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 await tx.add(data)
                 await tx.flush()
                 self._logger.debug(f"New chat session created: {data.id}")
-                return data.id
+                return cast(UUID, data.id)
 
             async with self._db.get_session() as session:
                 session.add(data)
                 await session.flush()
                 self._logger.debug(f"New chat session created: {data.id}")
-                return data.id
+                return cast(UUID, data.id)
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise database_error(
@@ -121,6 +121,38 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
             raise database_error(
                 message="An error occurred while getting chat session by id.",
                 error_code="CHAT_SESSION_GET_ERROR",
+                stack_trace=str(e),
+            )
+
+    async def get_by_user_id(
+        self, user_id: UUID, tx: Optional[DBTransaction] = None
+    ) -> Optional[ChatSession]:
+        try:
+            stmt = (
+                select(ChatSession)
+                .where(ChatSession.user_id == user_id)
+                .order_by(ChatSession.created_at.desc())
+                .limit(1)
+            )
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                chat_session = result.scalar_one_or_none()
+                if chat_session:
+                    self._logger.debug(f"Found most recent chat session for user: {user_id}")
+                return chat_session
+
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
+                chat_session = result.scalar_one_or_none()
+                if chat_session:
+                    self._logger.debug(f"Found most recent chat session for user: {user_id}")
+                return chat_session
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise database_error(
+                message="An error occurred while getting chat session by user ID.",
+                error_code="CHAT_SESSION_GET_BY_USER_ERROR",
                 stack_trace=str(e),
             )
 
@@ -221,12 +253,12 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def exists(self, entity_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
+    async def exists(self, chat_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
         try:
             stmt = (
                 select(func.count())
                 .select_from(ChatSession)
-                .where(ChatSession.id == entity_id)
+                .where(ChatSession.id == chat_id)
             )
 
             if tx is not None:
@@ -281,14 +313,14 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 await tx.flush()
                 created_ids = [entity.id for entity in entities]
                 self._logger.debug(f"Created {len(created_ids)} chat sessions")
-                return created_ids
+                return cast(List[UUID], created_ids)
 
             async with self._db.get_session() as session:
                 session.add_all(entities)
                 await session.flush()
                 created_ids = [entity.id for entity in entities]
                 self._logger.debug(f"Created {len(created_ids)} chat sessions")
-                return created_ids
+                return cast(List[UUID], created_ids)
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise database_error(
@@ -298,13 +330,13 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
             )
 
     async def delete_many(
-        self, session_ids: List[UUID], tx: Optional[DBTransaction] = None
+        self, chat_ids: List[UUID], tx: Optional[DBTransaction] = None
     ) -> int:
-        if not session_ids:
+        if not chat_ids:
             return 0
 
         try:
-            stmt = delete(ChatSession).where(ChatSession.id.in_(session_ids))
+            stmt = delete(ChatSession).where(ChatSession.id.in_(chat_ids))
 
             if tx is not None:
                 result = await tx.execute(stmt)

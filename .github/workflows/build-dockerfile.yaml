@@ -1,0 +1,92 @@
+name: Build & Smoke Test Dockerfile
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  docker-build:
+    name: Build & Smoke Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: docu_chat
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: docu_chat_postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: docuchat-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Start container
+        env:
+          USER_SESSION_SECRET: ${{ secrets.USER_SESSION_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SEARCH_API_KEY: ${{ secrets.SEARCH_API_KEY }}
+          SEARCH_ENGINE_ID: ${{ secrets.SEARCH_ENGINE_ID }}
+        run: |
+          docker run -d \
+            --name docuchat-ci \
+            --network host \
+            -e ENV=development \
+            -e PORT=5000 \
+            -e HOST=0.0.0.0 \
+            -e DATABASE_URL=postgresql+asyncpg://docu_chat:secret@localhost:5432/docu_chat_postgres \
+            -e USER_CLEANUP_ENABLED=false \
+            -e LLM_MODEL_NAME=gpt-4o-mini \
+            -e EMBEDDING_MODEL_NAME=text-embedding-3-small \
+            -e LLM_TEMPERATURE=0.7 \
+            -e CORS_ORIGINS='["http://localhost:3000"]' \
+            -e "USER_SESSION_SECRET=$USER_SESSION_SECRET" \
+            -e "OPENAI_API_KEY=$OPENAI_API_KEY" \
+            -e "SEARCH_API_KEY=$SEARCH_API_KEY" \
+            -e "SEARCH_ENGINE_ID=$SEARCH_ENGINE_ID" \
+            docuchat-api:ci
+
+      - name: Wait for API to be ready
+        run: |
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:5000/api/health/api; then
+              echo ""
+              echo "API is up"
+              exit 0
+            fi
+            echo "Attempt $i: not ready yet, retrying in 3s..."
+            sleep 3
+          done
+          echo "API failed to become ready"
+          docker logs docuchat-ci
+          exit 1
+
+      - name: Print container logs on failure
+        if: failure()
+        run: docker logs docuchat-ci

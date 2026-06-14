@@ -1,36 +1,45 @@
 """
-Controller layer fot the RAG chatbot interactions.
+Controller layer for the RAG chatbot interactions.
 """
 
-from fastapi import status
+from typing import Optional
+from uuid import UUID
+
+from fastapi import Request, status
 from starlette.responses import JSONResponse
 
+from src.api.services.chatbot.rag_chatbot import RAGChatbotService
 from src.api.services.service_factory import get_rag_chatbot_service
-from src.api.services.validation.rag_validation import ChatRequest
+from src.api.services.validation.chatbot import ChatRequest
+from src.api.utils.api_responses import SuccessResponseModel
 from src.api.utils.response_delivery import create_success_response
 
 
 class RAGChatbotController:
     """
-    Orchestrates RAG chatbot requests between API and service layers
+    Orchestrates RAG chatbot requests between API and service layers.
     """
 
     def __init__(self):
-        self.rag_chatbot_service = None
+        self._rag_chatbot_service: Optional[RAGChatbotService] = None
 
-    async def chat_endpoint(self, request: ChatRequest) -> JSONResponse:
-        """
-        Processes a chat request and returns the chatbot's response.
+    def _lazy_init(self) -> None:
+        if self._rag_chatbot_service is None:
+            self._rag_chatbot_service = get_rag_chatbot_service()
 
-        :param request: ChatRequest object containing user query and context.
-        :return: JSONResponse with the chatbot's answer.
-        """
+    async def chat_endpoint(self, request: Request, input: ChatRequest) -> JSONResponse:
+        self._lazy_init()
+        assert self._rag_chatbot_service is not None
 
-        if self.rag_chatbot_service is None:
-            self.rag_chatbot_service = get_rag_chatbot_service()
+        owner_id: UUID = request.state.anonymous_user_id
+        response = await self._rag_chatbot_service.handle_chat_request(
+            owner_id=owner_id, request=input
+        )
 
-        chat_response = await self.rag_chatbot_service.handle_chat_request(request)
-
+        response_model = SuccessResponseModel(
+            message="Chatbot response generated successfully.",
+            data=response,
+        )
         return create_success_response(
-            status_code=status.HTTP_200_OK, success_response_model=chat_response
+            status_code=status.HTTP_200_OK, success_response_model=response_model
         )
