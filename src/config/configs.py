@@ -40,7 +40,7 @@ class CoreAppSettings(BaseSettings):
     # Business-logic thresholds
     MIN_QUERY_LENGTH: int = Field(default=10, validation_alias="MIN_QUERY_LENGTH")
     MAX_QUERY_LENGTH: int = Field(default=2000, validation_alias="MAX_QUERY_LENGTH")
-    IS_QUERY_TRUNCATION_ENABLED: bool = Field(default=False)
+    IS_QUERY_TRUNCATION_ENABLED: bool = Field(default=False, validation_alias="IS_QUERY_TRUNCATION_ENABLED")
     MIN_DOCUMENT_CONTENT_LENGTH: int = Field(
         default=10, validation_alias="MIN_DOCUMENT_CONTENT_LENGTH"
     )
@@ -174,7 +174,6 @@ class VectorStoreSettings(BaseSettings):
     SIMILARITY_THRESHOLD: float = Field(
         default=0.4, validation_alias="SIMILARITY_THRESHOLD"
     )
-    MAX_QUERY_LENGTH: int = Field(default=1000, validation_alias="MAX_QUERY_LENGTH")
     MAX_VECTORS_IN_MEMORY: int = Field(default=10000)
     VECTOR_BATCH_SIZE: int = Field(default=100)
 
