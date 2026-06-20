@@ -1,4 +1,4 @@
-# DocuChat Backend Development
+# AskDocuMind — Backend
 
 ## Setup Instructions
 
@@ -84,13 +84,13 @@ Using the credentials `PGADMIN_EMAIL` and `PGADMIN_PASSWORD`.
 
 ### 3. Add a new Server in the pgAdmin UI with these connection details:
 
-   - Name: docu_chat_local
+   - Name: ask_docu_mind_local
 
    - Host: `database`
 
    - Port: 5432 (or `${DB_PORT}` mapped port)
 
-   - Maintenance DB: docu_chat_postgres
+   - Maintenance DB: ask_docu_mind_postgres
 
    - Username: `${DB_USER}`
 

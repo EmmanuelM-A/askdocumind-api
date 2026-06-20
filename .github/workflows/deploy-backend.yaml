@@ -14,6 +14,6 @@ jobs:
               run: npm install -g @railway/cli
 
             - name: Deploy to Railway
-              run: railway up --service docuchat-backend --detach
+              run: railway up --service askdocumind-backend --detach
               env:
                 RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

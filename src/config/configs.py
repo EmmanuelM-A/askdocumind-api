@@ -1,5 +1,5 @@
 """
-Configuration settings for the DocuChatAPI application.
+Configuration settings for the AskDocuMind API application.
 Each configuration class handles a specific domain of settings.
 """
 
@@ -93,7 +93,7 @@ class AuthSettings(_BaseSettings):
     """Authentication and authorization configuration settings."""
 
     USER_SESSION_SECRET: SecretStr = Field(default=...)
-    COOKIE_NAME: str = Field(default="docu_chat_user_cookie")
+    COOKIE_NAME: str = Field(default="askdocumind_user_cookie")
     COOKIE_SAMESITE: Literal["lax", "strict", "none"] = Field(
         default="none", validation_alias="ANON_SESSION_COOKIE_SAMESITE"
     )

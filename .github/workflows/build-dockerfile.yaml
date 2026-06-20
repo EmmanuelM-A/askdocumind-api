@@ -19,9 +19,9 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_USER: docu_chat
+          POSTGRES_USER: ask_docu_mind
           POSTGRES_PASSWORD: secret
-          POSTGRES_DB: docu_chat_postgres
+          POSTGRES_DB: ask_docu_mind_postgres
         ports:
           - 5432:5432
         options: >-
@@ -43,7 +43,7 @@ jobs:
           context: .
           push: false
           load: true
-          tags: docuchat-api:ci
+          tags: askdocumind-api:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -55,12 +55,12 @@ jobs:
           SEARCH_ENGINE_ID: ${{ secrets.SEARCH_ENGINE_ID }}
         run: |
           docker run -d \
-            --name docuchat-ci \
+            --name askdocumind-ci \
             --network host \
             -e ENV=development \
             -e PORT=5000 \
             -e HOST=0.0.0.0 \
-            -e DATABASE_URL=postgresql+asyncpg://docu_chat:secret@localhost:5432/docu_chat_postgres \
+            -e DATABASE_URL=postgresql+asyncpg://ask_docu_mind:secret@localhost:5432/ask_docu_mind_postgres \
             -e USER_CLEANUP_ENABLED=false \
             -e OPENAI_LLM_MODEL_NAME=gpt-4o-mini \
             -e OPENAI_EMBEDDING_MODEL_NAME=text-embedding-3-small \
@@ -70,7 +70,7 @@ jobs:
             -e "OPENAI_API_KEY=$OPENAI_API_KEY" \
             -e "SEARCH_API_KEY=$SEARCH_API_KEY" \
             -e "SEARCH_ENGINE_ID=$SEARCH_ENGINE_ID" \
-            docuchat-api:ci
+            askdocumind-api:ci
 
       - name: Wait for API to be ready
         run: |
@@ -84,9 +84,9 @@ jobs:
             sleep 3
           done
           echo "API failed to become ready"
-          docker logs docuchat-ci
+          docker logs askdocumind-ci
           exit 1
 
       - name: Print container logs on failure
         if: failure()
-        run: docker logs docuchat-ci
+        run: docker logs askdocumind-ci

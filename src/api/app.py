@@ -75,7 +75,7 @@ def create_app():
     _configure_third_party_loggers()
 
     app = FastAPI(
-        title="DocuChatAPI",
+        title="AskDocuMindAPI",
         version="1.0.0",
         docs_url="/api/docs",
         redoc_url=None,
