@@ -153,7 +153,7 @@ class WebSearcher:
             List of search results with title, snippet, and url.
         """
 
-        num_results: int = settings.web.MAX_WEB_SEARCH_RESULTS
+        num_results: int = min(settings.web.MAX_WEB_SEARCH_RESULTS, 10)  # 10 is the HARD MAX for Google Custom Search API
 
         # Validate API credentials
         if not self.search_api_key or not self.search_engine_id:
@@ -169,7 +169,7 @@ class WebSearcher:
                 "key": self.search_api_key,
                 "cx": self.search_engine_id,
                 "q": query,
-                "num": min(num_results, settings.web.MAX_WEB_REQUEST_RESULTS),
+                "num": num_results,
             }
 
             # Make the API request
@@ -191,7 +191,7 @@ class WebSearcher:
                     WebSearchResult(
                         title=item.get("title", ""),
                         snippet=item.get("snippet", ""),
-                        url=item.get("url", ""),
+                        url=item.get("link", ""),
                     )
                 )
 
