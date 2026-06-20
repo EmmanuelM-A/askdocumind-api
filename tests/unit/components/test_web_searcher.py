@@ -245,7 +245,7 @@ def test_fetch_and_full_content_success(web_searcher):
         "src.components.retrieval.web_searcher.settings"
     ) as mock_settings:
         mock_fetch.return_value = mock_page_content
-        mock_settings.web.MIN_WEB_CONTENT_LENGTH = 10
+        mock_settings.app.MIN_DOCUMENT_CONTENT_LENGTH = 10
 
         content = web_searcher._fetch_and_full_content(result)
 
@@ -267,7 +267,7 @@ def test_fetch_and_full_content_short_content_uses_snippet(web_searcher):
         "src.components.retrieval.web_searcher.settings"
     ) as mock_settings:
         mock_fetch.return_value = "Short"  # Too short
-        mock_settings.web.MIN_WEB_CONTENT_LENGTH = 100
+        mock_settings.app.MIN_DOCUMENT_CONTENT_LENGTH = 100
 
         content = web_searcher._fetch_and_full_content(result)
 

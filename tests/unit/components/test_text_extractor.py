@@ -162,7 +162,7 @@ def test_pdf_extractor_multi_page():
 def test_docx_extractor_success():
     """Test successful text extraction from DOCX bytes."""
     extractor = DocxDocumentExtractor()
-    docx_bytes = b"PK mock docx"
+    docx_bytes = b"PK\x03\x04mock docx"
 
     with patch("src.components.extraction.text_extractor.docx") as mock_docx:
         mock_para1 = Mock()
@@ -199,4 +199,4 @@ def test_docx_extractor_missing_dependency_raises_error():
 def test_text_document_extractor_is_abstract():
     """Test that TextDocumentExtractor cannot be instantiated directly."""
     with pytest.raises(TypeError, match="Can't instantiate abstract class"):
-        TextDocumentExtractor()
+        TextDocumentExtractor() # type: ignore
