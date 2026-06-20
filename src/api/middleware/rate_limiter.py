@@ -8,9 +8,6 @@ from src.config.configs import settings
 
 
 def _global_default_limits() -> list[str]:
-    if not settings.server.RATE_LIMIT_ENABLED:
-        return []
-
     return [
         f"{settings.server.RATE_LIMIT_REQUESTS}/{settings.server.RATE_LIMIT_WINDOW}second"
     ]
@@ -34,5 +31,5 @@ def chat_query_limit() -> str:
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=_global_default_limits(),  # type: ignore[arg-type]
-    enabled=settings.server.RATE_LIMIT_ENABLED,
+    enabled=True,  # Enable rate limiting by default
 )

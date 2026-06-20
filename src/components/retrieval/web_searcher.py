@@ -263,7 +263,7 @@ class WebSearcher:
 
             content = self._fetch_page_content(url)
 
-            if content and len(content.strip()) >= settings.web.MIN_WEB_CONTENT_LENGTH:
+            if content and len(content.strip()) >= settings.app.MIN_DOCUMENT_CONTENT_LENGTH:
                 full_content = (
                     f"Title: {title}\n\nSummary: {snippet}\n\nContent: {content}"
                 )

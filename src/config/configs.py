@@ -13,14 +13,14 @@ from dotenv import load_dotenv
 # ------------------------------------------------------------------
 # Environment Setup
 # ------------------------------------------------------------------
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-ENV_FILE = PROJECT_ROOT / ".env"
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_ENV_FILE = _PROJECT_ROOT / ".env"
 
-if ENV_FILE.exists():
-    load_dotenv(ENV_FILE)
+if _ENV_FILE.exists():
+    load_dotenv(_ENV_FILE)
 
 _DEFAULT_MODEL_CONFIG = SettingsConfigDict(
-    env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore"
+    env_file=_ENV_FILE, env_file_encoding="utf-8", extra="ignore"
 )
 
 
@@ -39,25 +39,21 @@ class _BaseSettings(BaseSettings):
 class CoreAppSettings(_BaseSettings):
     """Core application configuration settings."""
 
-    ENV: str = Field(default=..., validation_alias="ENV")
-    PORT: int = Field(default=..., validation_alias="PORT")
-    HOST: str = Field(default="0.0.0.0", validation_alias="HOST")
+    ENV: str = Field(default=...)
+    PORT: int = Field(default=...)
+    HOST: str = Field(default="0.0.0.0")
 
     # Internal API routing constants
     DEFAULT_VERSION: str = Field(default="1")
 
     # Business-logic thresholds
-    MIN_QUERY_LENGTH: int = Field(default=10, validation_alias="MIN_QUERY_LENGTH")
-    MAX_QUERY_LENGTH: int = Field(default=2000, validation_alias="MAX_QUERY_LENGTH")
-    IS_QUERY_TRUNCATION_ENABLED: bool = Field(default=False, validation_alias="IS_QUERY_TRUNCATION_ENABLED")
-    MIN_DOCUMENT_CONTENT_LENGTH: int = Field(
-        default=10, validation_alias="MIN_DOCUMENT_CONTENT_LENGTH"
-    )
-    MAX_DOCUMENT_CONTENT_LENGTH: int = Field(
-        default=1000000, validation_alias="MAX_DOCUMENT_CONTENT_LENGTH"
-    )
+    MIN_QUERY_LENGTH: int = Field(default=10)
+    MAX_QUERY_LENGTH: int = Field(default=2000)
+    IS_QUERY_TRUNCATION_ENABLED: bool = Field(default=False)
+    MIN_DOCUMENT_CONTENT_LENGTH: int = Field(default=10)
+    MAX_DOCUMENT_CONTENT_LENGTH: int = Field(default=1000000)
 
-    MAX_CHATS_PER_USER: int = Field(default=1, validation_alias="MAX_CHATS_PER_USER")
+    MAX_CHATS_PER_USER: int = Field(default=1)
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -68,7 +64,7 @@ class CoreAppSettings(_BaseSettings):
 class DatabaseSettings(_BaseSettings):
     """Database configuration settings."""
 
-    DATABASE_URL: SecretStr = Field(default=..., validation_alias="DATABASE_URL")
+    DATABASE_URL: SecretStr = Field(default=...)
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
@@ -83,7 +79,7 @@ class DatabaseSettings(_BaseSettings):
     DB_POOL_SIZE: int = Field(default=10)
     DB_MAX_OVERFLOW: int = Field(default=20)
     DB_POOL_TIMEOUT_SECS: int = Field(default=30)
-    DB_ECHO: bool = Field(default=False, validation_alias="DB_ECHO")
+    DB_ECHO: bool = Field(default=False)
     DB_IS_POOL_PRE_PING_ENABLED: bool = Field(default=True)
     DB_SAFETY_ENABLED: bool = Field(default=True)
 
@@ -96,9 +92,7 @@ class DatabaseSettings(_BaseSettings):
 class AuthSettings(_BaseSettings):
     """Authentication and authorization configuration settings."""
 
-    USER_SESSION_SECRET: SecretStr = Field(
-        default=..., validation_alias="USER_SESSION_SECRET"
-    )
+    USER_SESSION_SECRET: SecretStr = Field(default=...)
     COOKIE_NAME: str = Field(default="docu_chat_user_cookie")
     COOKIE_SAMESITE: Literal["lax", "strict", "none"] = Field(
         default="none", validation_alias="ANON_SESSION_COOKIE_SAMESITE"
@@ -140,14 +134,12 @@ class FileProcessingSettings(_BaseSettings):
     """File processing configuration settings."""
 
     ALLOWED_FILE_EXTENSIONS: List[str] = Field(default=[".pdf", ".docx", ".txt", ".md"])
-    MAX_FILE_SIZE_MB: float = Field(
-        default=0.5, validation_alias="MAX_FILE_SIZE_MB"
-    )  # Max size per file
+    MAX_FILE_SIZE_MB: float = Field(default=0.5)  # Max size per file
     MAX_FILES_PER_CHAT_MB: int = Field(
-        default=1, validation_alias="MAX_FILES_PER_CHAT_MB"
+        default=1
     )  # Max total size of all files per chat
 
-    LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{PROJECT_ROOT}/data/local/documents")
+    LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{_PROJECT_ROOT}/data/local/documents")
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -158,14 +150,12 @@ class FileProcessingSettings(_BaseSettings):
 class LLMIntegrationSettings(_BaseSettings):
     """LLM integration configuration settings."""
 
-    LLM_MODEL_NAME: str = Field(default=..., validation_alias="LLM_MODEL_NAME")
-    EMBEDDING_MODEL_NAME: str = Field(
-        default=..., validation_alias="EMBEDDING_MODEL_NAME"
-    )
-    LLM_TEMPERATURE: float = Field(default=0.7, validation_alias="LLM_TEMPERATURE")
+    LLM_MODEL_NAME: str = Field(default=...)
+    EMBEDDING_MODEL_NAME: str = Field(default=...)
+    LLM_TEMPERATURE: float = Field(default=0.7)
 
     RESPONSE_PROMPT_FILEPATH: str = Field(
-        default=f"{PROJECT_ROOT}/data/prompts/default_response_prompt.yaml"
+        default=f"{_PROJECT_ROOT}/data/prompts/default_response_prompt.yaml"
     )
 
     model_config = _DEFAULT_MODEL_CONFIG
@@ -177,12 +167,10 @@ class LLMIntegrationSettings(_BaseSettings):
 class VectorStoreSettings(_BaseSettings):
     """Vector store configuration settings."""
 
-    CHUNK_SIZE: int = Field(default=1000, validation_alias="CHUNK_SIZE")
-    CHUNK_OVERLAP: int = Field(default=60, validation_alias="CHUNK_OVERLAP")
-    RETRIEVAL_TOP_K: int = Field(default=3, validation_alias="RETRIEVAL_TOP_K")
-    SIMILARITY_THRESHOLD: float = Field(
-        default=0.4, validation_alias="SIMILARITY_THRESHOLD"
-    )
+    CHUNK_SIZE: int = Field(default=1000)
+    CHUNK_OVERLAP: int = Field(default=60)
+    RETRIEVAL_TOP_K: int = Field(default=3)
+    SIMILARITY_THRESHOLD: float = Field(default=0.4)
     MAX_VECTORS_IN_MEMORY: int = Field(default=10000)
     VECTOR_BATCH_SIZE: int = Field(default=100)
 
@@ -195,17 +183,13 @@ class VectorStoreSettings(_BaseSettings):
 class WebSearchSettings(_BaseSettings):
     """Web search configuration settings."""
 
-    IS_WEB_SEARCH_ENABLED: bool = Field(
-        default=False, validation_alias="IS_WEB_SEARCH_ENABLED"
-    )
-    SEARCH_API_KEY: SecretStr = Field(default=..., validation_alias="SEARCH_API_KEY")
-    SEARCH_ENGINE_ID: SecretStr = Field(
-        default=..., validation_alias="SEARCH_ENGINE_ID"
-    )
+    IS_WEB_SEARCH_ENABLED: bool = Field(default=False)
+    SEARCH_API_KEY: SecretStr = Field(default=...)
+    SEARCH_ENGINE_ID: SecretStr = Field(default=...)
 
-    MAX_WEB_SEARCH_RESULTS: int = Field(default=3, validation_alias="MAX_WEB_SEARCH_RESULTS")
+    MAX_WEB_SEARCH_RESULTS: int = Field(default=3)
     MAX_WEB_REQUEST_RESULTS: int = Field(default=5)
-    WEB_REQUEST_TIMEOUT_SECS: int = Field(default=15, validation_alias="WEB_REQUEST_TIMEOUT_SECS")
+    WEB_REQUEST_TIMEOUT_SECS: int = Field(default=15)
     WEB_REQUEST_DELAY_SECS: int = Field(default=1)
     WEB_SEARCH_FALLBACK_ENABLED: bool = Field(default=True)
 
@@ -214,9 +198,6 @@ class WebSearchSettings(_BaseSettings):
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/91.0.4472.124 Safari/537.36"
     )
-
-    MAX_WEB_CONTENT_LENGTH: int = Field(default=10000)
-    MIN_WEB_CONTENT_LENGTH: int = Field(default=100)
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -227,15 +208,13 @@ class WebSearchSettings(_BaseSettings):
 class LoggingSettings(_BaseSettings):
     """Logging configuration settings."""
 
-    LOG_LEVEL: str = Field(default="DEBUG", validation_alias="LOG_LEVEL")
-    LOG_TO: Literal["CONSOLE", "FILE", "BOTH"] = Field(
-        default="FILE", validation_alias="LOG_TO"
-    )
-    LOG_DIRECTORY: str = Field(default=f"{PROJECT_ROOT}/logs")
+    LOG_LEVEL: str = Field(default="DEBUG")
+    LOG_TO: Literal["CONSOLE", "FILE", "BOTH"] = Field(default="FILE")
+    LOG_DIRECTORY: str = Field(default=f"{_PROJECT_ROOT}/logs")
     LOG_FORMAT: str = Field(
         default="%(asctime)s [%(levelname)s] [%(name)s]: %(message)s"
     )
-    LOG_AS_JSON: bool = Field(default=False, validation_alias="LOG_AS_JSON")
+    LOG_AS_JSON: bool = Field(default=False)
     DATE_FORMAT: str = Field(default="%Y-%m-%d %H:%M:%S")
     LOG_MAX_MB: int = Field(default=10)
 
@@ -250,10 +229,7 @@ class APIServerSettings(_BaseSettings):
 
     WORKERS: int = Field(default=1)
 
-    CORS_ORIGINS: List[str] = Field(
-        default=...,
-        validation_alias="CORS_ORIGINS",
-    )
+    CORS_ORIGINS: List[str] = Field(default=...)
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
     CORS_ALLOW_METHODS: List[str] = Field(
         default=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
@@ -262,7 +238,6 @@ class APIServerSettings(_BaseSettings):
         default=["Content-Type", "Accept-Version", "Authorization", "X-Requested-With"]
     )
 
-    RATE_LIMIT_ENABLED: bool = Field(default=True)
     RATE_LIMIT_REQUESTS: int = Field(default=100)
     RATE_LIMIT_WINDOW: int = Field(default=60)
 
