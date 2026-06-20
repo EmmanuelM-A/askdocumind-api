@@ -199,4 +199,4 @@ def test_docx_extractor_missing_dependency_raises_error():
 def test_text_document_extractor_is_abstract():
     """Test that TextDocumentExtractor cannot be instantiated directly."""
     with pytest.raises(TypeError, match="Can't instantiate abstract class"):
-        TextDocumentExtractor() # type: ignore
+        TextDocumentExtractor()  # type: ignore

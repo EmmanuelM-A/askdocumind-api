@@ -15,7 +15,6 @@ from src.components.retrieval.web_searcher import (
     WebSearchResult,
 )
 
-
 # ==================== INITIALIZATION TESTS ====================
 
 
@@ -160,7 +159,6 @@ def test_search_web_missing_api_credentials_uses_fallback(web_searcher):
         web_searcher._search_web(query)
 
     mock_fallback.assert_called_once()
-
 
 
 # ==================== FALLBACK SEARCH TESTS ====================
@@ -491,6 +489,7 @@ async def test_search_and_ingest_web_content_no_results(web_searcher):
     assert result == 0
     web_searcher._vector_processor.process_and_save_vectors_from_web.assert_not_called()
 
+
 # ==================== SEARCH AND RETRIEVE CONTENT TESTS ====================
 
 
@@ -526,9 +525,7 @@ def test_search_and_retrieve_content_invalid_urls(web_searcher):
 
     search_results = [
         WebSearchResult(title="Invalid URL", snippet="Test", url="not-a-url"),
-        WebSearchResult(
-            title="FTP URL", snippet="Test", url="ftp://invalid.com"
-        ),
+        WebSearchResult(title="FTP URL", snippet="Test", url="ftp://invalid.com"),
     ]
 
     with patch.object(web_searcher, "_search_web") as mock_search:
@@ -544,9 +541,7 @@ def test_search_and_retrieve_content_mixed_valid_invalid_urls(web_searcher):
     query = "test query"
 
     search_results = [
-        WebSearchResult(
-            title="Invalid", snippet="Test", url="not-a-url"
-        ),  # Invalid
+        WebSearchResult(title="Invalid", snippet="Test", url="not-a-url"),  # Invalid
         WebSearchResult(
             title="Valid 1",
             snippet="Test",
@@ -706,9 +701,7 @@ def test_search_and_retrieve_content_critical_error(web_searcher):
 
 def test_web_content_creation():
     """Test WebContent dataclass creation."""
-    content = WebContent(
-        content="Test content", source="https://example.com"
-    )
+    content = WebContent(content="Test content", source="https://example.com")
 
     assert content.content == "Test content"
     assert content.source == "https://example.com"
@@ -725,4 +718,3 @@ def test_web_search_result_creation():
     assert result.title == "Test Title"
     assert result.snippet == "Test snippet"
     assert result.url == "https://example.com"
-
