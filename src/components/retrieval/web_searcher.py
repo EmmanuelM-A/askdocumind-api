@@ -220,7 +220,7 @@ class WebSearcher:
             search_url = f"https://duckduckgo.com/html/?q={quote_plus(query)}"
             headers = {"User-Agent": settings.web.WEB_USER_AGENT}
 
-            response = requests.get(search_url, headers=headers, timeout=10)
+            response = requests.get(search_url, headers=headers, timeout=settings.web.WEB_REQUEST_TIMEOUT_SECS)
             response.raise_for_status()
 
             soup = BeautifulSoup(response.content, "html.parser")

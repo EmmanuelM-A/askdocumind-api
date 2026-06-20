@@ -41,7 +41,8 @@ class QueryHandler:
             model=settings.llm.LLM_MODEL_NAME,
             temperature=settings.llm.LLM_TEMPERATURE,
             timeout=settings.llm.LLM_REQUEST_TIMEOUT_SECS,
-            max_retries=settings.llm.LLM_MAX_RETRIES
+            max_retries=settings.llm.LLM_MAX_RETRIES,
+            max_tokens=settings.llm.LLM_MAX_OUTPUT_TOKENS,
         )
         self._prompt_template = create_prompt_template(
             settings.llm.RESPONSE_PROMPT_FILEPATH
