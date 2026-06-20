@@ -62,8 +62,8 @@ jobs:
             -e HOST=0.0.0.0 \
             -e DATABASE_URL=postgresql+asyncpg://docu_chat:secret@localhost:5432/docu_chat_postgres \
             -e USER_CLEANUP_ENABLED=false \
-            -e LLM_MODEL_NAME=gpt-4o-mini \
-            -e EMBEDDING_MODEL_NAME=text-embedding-3-small \
+            -e OPENAI_LLM_MODEL_NAME=gpt-4o-mini \
+            -e OPENAI_EMBEDDING_MODEL_NAME=text-embedding-3-small \
             -e LLM_TEMPERATURE=0.7 \
             -e CORS_ORIGINS='["http://localhost:3000"]' \
             -e "USER_SESSION_SECRET=$USER_SESSION_SECRET" \
