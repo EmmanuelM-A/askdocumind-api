@@ -248,6 +248,9 @@ class APIServerSettings(_BaseSettings):
     RATE_LIMIT_WINDOW: int = Field(default=60)
 
     MAX_CHAT_QUERIES_PER_MINUTE: int = Field(default=10)
+    MAX_UPLOAD_REQUESTS_PER_MINUTE: int = Field(default=5)
+    MAX_SESSION_REQUESTS_PER_MINUTE: int = Field(default=10)
+    MAX_CONCURRENT_REQUESTS: int = Field(default=50)
 
     model_config = _DEFAULT_MODEL_CONFIG
 

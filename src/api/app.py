@@ -21,6 +21,7 @@ from src.api.services.cleanup.cleanup_resources import init_anon_user_sessions_c
 from src.config.configs import settings
 from src.database.connection import get_database_connection
 from src.api.middleware.anonymous_session import AnonymousSessionMiddleware
+from src.api.middleware.concurrent_request_limit import ConcurrentRequestLimitMiddleware
 from src.api.middleware.handle_version import APIVersionMiddleware
 from src.api.middleware.request_size_limit import RequestSizeLimitMiddleware
 from src.api.routes.health_check_routes import health_check_router
@@ -84,6 +85,10 @@ def create_app():
     app.state.limiter = limiter  # type: ignore[attr-defined]
 
     # --- Middleware ---
+    app.add_middleware(
+        ConcurrentRequestLimitMiddleware,
+        max_concurrent_requests=settings.server.MAX_CONCURRENT_REQUESTS,
+    )
     app.add_middleware(
         RequestSizeLimitMiddleware,
         max_body_size_bytes=int(settings.server.MAX_REQUEST_BODY_SIZE_MB * 1024 * 1024),

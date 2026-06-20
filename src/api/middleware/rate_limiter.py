@@ -28,6 +28,16 @@ def chat_query_limit() -> str:
     return f"{settings.server.MAX_CHAT_QUERIES_PER_MINUTE}/minute"
 
 
+def upload_limit() -> str:
+    """Per-anonymous-session document upload limit expression for SlowAPI."""
+    return f"{settings.server.MAX_UPLOAD_REQUESTS_PER_MINUTE}/minute"
+
+
+def session_limit() -> str:
+    """Per-anonymous-session chat session mutation limit expression for SlowAPI."""
+    return f"{settings.server.MAX_SESSION_REQUESTS_PER_MINUTE}/minute"
+
+
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=_global_default_limits(),  # type: ignore[arg-type]
