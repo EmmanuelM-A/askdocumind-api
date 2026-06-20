@@ -151,7 +151,9 @@ class LLMIntegrationSettings(_BaseSettings):
     """LLM integration configuration settings."""
 
     LLM_MODEL_NAME: str = Field(default=..., validation_alias="OPENAI_LLM_MODEL_NAME")
-    EMBEDDING_MODEL_NAME: str = Field(default=..., validation_alias="OPENAI_EMBEDDING_MODEL_NAME")
+    EMBEDDING_MODEL_NAME: str = Field(
+        default=..., validation_alias="OPENAI_EMBEDDING_MODEL_NAME"
+    )
     LLM_TEMPERATURE: float = Field(default=0.7)
 
     RESPONSE_PROMPT_FILEPATH: str = Field(
@@ -237,6 +239,8 @@ class APIServerSettings(_BaseSettings):
     CORS_ALLOW_HEADERS: List[str] = Field(
         default=["Content-Type", "Accept-Version", "Authorization", "X-Requested-With"]
     )
+
+    MAX_REQUEST_BODY_SIZE_MB: float = Field(default=10.0)
 
     RATE_LIMIT_REQUESTS: int = Field(default=100)
     RATE_LIMIT_WINDOW: int = Field(default=60)
