@@ -59,7 +59,7 @@ class WebSearcher:
     # ======================== WEB SEARCH METHODS ========================
 
     async def search_and_ingest_web_content(
-        self, query: str, chat_session_id: UUID, tx: DBTransaction
+        self, query: str, chat_session_id: UUID, tx: Optional[DBTransaction] = None
     ) -> int:
 
         self._logger.debug(f"Processing query via web search: '{query}'")

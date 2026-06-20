@@ -129,10 +129,9 @@ class RAGChatbot:
 
         self._logger.info(f"Attempting web search for query: '{query}'.")
 
-        async with self._tx_factory.create() as tx:
-            await self.web_searcher.search_and_ingest_web_content(
-                query=query, chat_session_id=chat_session_id, tx=tx
-            )
+        await self.web_searcher.search_and_ingest_web_content(
+            query=query, chat_session_id=chat_session_id,
+        )
 
         web_results, web_sources = await self.query_handler.search_for_vector(
             query, chat_session_id
