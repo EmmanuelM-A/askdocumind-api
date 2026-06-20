@@ -238,7 +238,7 @@ class WebSearcher:
                         WebSearchResult(
                             title=title_elem.get_text(strip=True),
                             snippet=snippet_elem.get_text(strip=True),
-                            url=title_elem.get("href", ""),
+                            url=str(title_elem.get("href", "")),
                         )
                     )
 
