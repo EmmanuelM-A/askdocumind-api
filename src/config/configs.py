@@ -138,6 +138,7 @@ class FileProcessingSettings(_BaseSettings):
     MAX_FILES_PER_CHAT_MB: int = Field(
         default=1
     )  # Max total size of all files per chat
+    MAX_DOCUMENTS_PER_CHAT: int = Field(default=10)
 
     LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{_PROJECT_ROOT}/data/local/documents")
 
