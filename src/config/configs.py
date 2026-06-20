@@ -155,6 +155,8 @@ class LLMIntegrationSettings(_BaseSettings):
         default=..., validation_alias="OPENAI_EMBEDDING_MODEL_NAME"
     )
     LLM_TEMPERATURE: float = Field(default=0.7)
+    LLM_REQUEST_TIMEOUT_SECS: int = Field(default=30)
+    LLM_MAX_RETRIES: int = Field(default=2)
 
     RESPONSE_PROMPT_FILEPATH: str = Field(
         default=f"{_PROJECT_ROOT}/data/prompts/default_response_prompt.yaml"
