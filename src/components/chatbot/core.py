@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import List
 from uuid import UUID
 
-from src.components.chatbot.query_handler import QueryHandler
+from src.components.chatbot.query_handler import PossibleResponse, QueryHandler
 from src.components.ingestion.document_processor import (
     UploadedDocumentProcessor,
 )
@@ -76,13 +76,13 @@ class RAGChatbot:
         performing a web search if no relevant results are found.
         """
 
-        web_enabled = settings.web.IS_WEB_SEARCH_ENABLED
+        is_web_enabled = settings.web.IS_WEB_SEARCH_ENABLED and web_search_enabled
 
         results, sources = await self.query_handler.search_for_vector(
             query, chat_session_id
         )
-        
-        include_web_search = " or through web search" if web_enabled else ""
+
+        include_web_search = " or through web search" if is_web_enabled else ""
 
         # Default response object (AT THE START)
         response_data = ChatbotResponse(
@@ -100,13 +100,26 @@ class RAGChatbot:
             f"the query '{query}'."
         )
 
-        if len(results) == 0 and not web_enabled:
+        # If no results are found and web search is not enabled, return the default response.
+        if len(results) == 0 and not is_web_enabled:
+            return response_data
+        elif len(results) == 0:
+            return response_data  # If web search is enabled, we will handle it below.
+
+        response: PossibleResponse = self.query_handler.generate_responses(
+            query=query, retrieved_chunks=results
+        )
+
+        if response is None or response == "OUT_OF_SCOPE":
+            self._logger.info(
+                f"No relevant information found for the query: '{query}'."
+            )
             return response_data
 
-        if web_search_enabled:
+        # Only perform if web search is indicated by the LLM and when web search fallback is enabled in the user request
+        if response == "NEED_WEB_SEARCH" and web_search_enabled:
             self._logger.info(
-                f"No results found in vector store for query: '{query}'. "
-                "Attempting web search..."
+                f"LLM indicated a need for web search for the query: '{query}'."
             )
 
             async with self._tx_factory.create() as tx:
@@ -121,27 +134,30 @@ class RAGChatbot:
             if len(web_results) == 0:
                 return response_data
 
-            web_response = self.query_handler.generate_responses(
+            web_response: PossibleResponse = self.query_handler.generate_responses(
                 query=query, retrieved_chunks=web_results, from_web_search=True
             )
 
-            if web_response:
+            if web_response is None or web_response == "OUT_OF_SCOPE":
                 self._logger.info(
-                    f"Generated response from web search for the query: '{query}'."
+                    f"No relevant information found from web search for the query: '{query}'."
                 )
-                response_data.answer = web_response
-                response_data.sources = web_sources
                 return response_data
 
-        response = self.query_handler.generate_responses(
-            query=query, retrieved_chunks=results
-        )
+            if web_response == "NEED_WEB_SEARCH":
+                return response_data  # Only return the default response if web search is needed again.
 
-        if response:
-            response_data.answer = response
-            response_data.sources = sources
-            self._logger.info(f"Generated response for query: '{query}'.")
+            # If we have a valid response from the web search, return it.
+            self._logger.info(
+                f"Generated response from web search for the query: '{query}'."
+            )
+            response_data.answer = web_response
+            response_data.sources = web_sources
             return response_data
 
-        self._logger.info(f"No relevant information found for the query: '{query}'.")
+        # If we have a valid response from the initial search, return it.
+        response_data.answer = response
+        response_data.sources = sources
+
+        self._logger.info(f"Generated response for query: '{query}'.")
         return response_data
