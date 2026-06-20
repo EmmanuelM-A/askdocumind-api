@@ -23,6 +23,16 @@ class UploadDocumentsRequest(BaseModel):
     @field_validator("documents", mode="before")
     @classmethod
     def validate_file_extensions(cls, files: List[UploadFile]) -> List[UploadFile]:
+        double_ext = [
+            f.filename
+            for f in files
+            if len(Path(f.filename or "").suffixes) > 1
+        ]
+        if double_ext:
+            raise ValueError(
+                f"Files with multiple extensions are not allowed: {', '.join(double_ext)}"  # type: ignore
+            )
+
         allowed = {ext.lstrip(".") for ext in settings.files.ALLOWED_FILE_EXTENSIONS}
         invalid = [
             f.filename

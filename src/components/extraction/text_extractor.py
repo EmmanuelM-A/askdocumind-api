@@ -15,7 +15,7 @@ except ImportError:
 import pymupdf
 
 from src.errors.api_exceptions import ApiException
-from src.errors.custom_exceptions import server_error
+from src.errors.custom_exceptions import server_error, unprocessable_entity_error
 from src.logger.base_logger import BaseLogger
 
 _logger = BaseLogger(__name__)
@@ -44,6 +44,12 @@ class TxtDocumentExtractor(TextDocumentExtractor):
     """Text extractor for TXT documents."""
 
     def extract_text_from(self, data: bytes, filename: str) -> str:
+        if b"\x00" in data[:512]:
+            raise unprocessable_entity_error(
+                message=f"File {filename} appears to be a binary file, not plain text.",
+                error_code="INVALID_FILE_CONTENT",
+            )
+
         try:
             content = data.decode("utf-8")
         except UnicodeDecodeError:
@@ -66,6 +72,12 @@ class MarkdownDocumentExtractor(TextDocumentExtractor):
     """Text extractor for Markdown documents."""
 
     def extract_text_from(self, data: bytes, filename: str) -> str:
+        if b"\x00" in data[:512]:
+            raise unprocessable_entity_error(
+                message=f"File {filename} appears to be a binary file, not plain text.",
+                error_code="INVALID_FILE_CONTENT",
+            )
+
         try:
             content = data.decode("utf-8")
         except UnicodeDecodeError:
@@ -88,6 +100,12 @@ class PDFDocumentExtractor(TextDocumentExtractor):
     """Text extractor for PDF documents."""
 
     def extract_text_from(self, data: bytes, filename: str) -> str:
+        if data[:4] != b"%PDF":
+            raise unprocessable_entity_error(
+                message=f"File {filename} does not appear to be a valid PDF.",
+                error_code="INVALID_FILE_CONTENT",
+            )
+
         content = ""
 
         try:
@@ -142,6 +160,12 @@ class DocxDocumentExtractor(TextDocumentExtractor):
                 error_code="MISSING_PYTHON_DOCX",
             )
 
+        if data[:4] != b"PK\x03\x04":
+            raise unprocessable_entity_error(
+                message=f"File {filename} does not appear to be a valid DOCX file.",
+                error_code="INVALID_FILE_CONTENT",
+            )
+
         try:
             file_stream = BytesIO(data)
             doc = docx.Document(file_stream)
@@ -156,6 +180,13 @@ class DocxDocumentExtractor(TextDocumentExtractor):
             zipfile.BadZipFile,
             MemoryError,
         ) as e:
+            raise server_error(
+                message="An error occurred whilst extracting text from the file "
+                f"{filename}",
+                error_code="DOCX_EXTRACTION_ERROR",
+                stack_trace=str(e),
+            )
+        except Exception as e:
             raise server_error(
                 message="An error occurred whilst extracting text from the file "
                 f"{filename}",
