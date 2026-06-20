@@ -150,8 +150,8 @@ class FileProcessingSettings(_BaseSettings):
 class LLMIntegrationSettings(_BaseSettings):
     """LLM integration configuration settings."""
 
-    LLM_MODEL_NAME: str = Field(default=...)
-    EMBEDDING_MODEL_NAME: str = Field(default=...)
+    LLM_MODEL_NAME: str = Field(default=..., validation_alias="OPENAI_LLM_MODEL_NAME")
+    EMBEDDING_MODEL_NAME: str = Field(default=..., validation_alias="OPENAI_EMBEDDING_MODEL_NAME")
     LLM_TEMPERATURE: float = Field(default=0.7)
 
     RESPONSE_PROMPT_FILEPATH: str = Field(
