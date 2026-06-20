@@ -17,7 +17,7 @@ from src.database.models import DocumentChunk
 from src.database.repository.interfaces.document_chunk_repository import (
     DocumentChunkRepositoryInterface,
 )
-
+from src.errors.custom_exceptions import server_error
 from src.logger.base_logger import BaseLogger
 
 
@@ -42,7 +42,7 @@ class QueryHandler:
             temperature=settings.llm.LLM_TEMPERATURE,
             timeout=settings.llm.LLM_REQUEST_TIMEOUT_SECS,
             max_retries=settings.llm.LLM_MAX_RETRIES,
-            max_tokens=settings.llm.LLM_MAX_OUTPUT_TOKENS,
+            max_completion_tokens=settings.llm.LLM_MAX_OUTPUT_TOKENS,
         )
         self._prompt_template = create_prompt_template(
             settings.llm.RESPONSE_PROMPT_FILEPATH
@@ -107,10 +107,16 @@ class QueryHandler:
 
         context_text = "\n\n".join([cast(str, chunk.chunk_text) for chunk in retrieved_chunks])
 
-        # Create a chain for processing
         rag_chain = self._prompt_template | self._llm | StrOutputParser()
 
-        response = rag_chain.invoke({"context": context_text, "query": query})
+        try:
+            response = rag_chain.invoke({"context": context_text, "query": query})
+        except Exception as e:
+            raise server_error(
+                message="The AI service is temporarily unavailable. Please try again shortly.",
+                error_code="LLM_SERVICE_ERROR",
+                stack_trace=str(e),
+            )
 
         if response.strip() == "NEED_WEB_SEARCH" and not from_web_search:
             return None
