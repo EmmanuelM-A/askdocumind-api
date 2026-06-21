@@ -193,6 +193,7 @@ class WebSearchSettings(_BaseSettings):
     BRAVE_SEARCH_API_KEY: SecretStr = Field(default=...)
 
     MAX_WEB_SEARCH_RESULTS: int = Field(default=3)
+    MAX_WEB_SEARCHES_PER_SESSION: int = Field(default=3)
     WEB_REQUEST_TIMEOUT_SECS: int = Field(default=15)
     WEB_REQUEST_DELAY_SECS: int = Field(default=1)
     WEB_SEARCH_FALLBACK_ENABLED: bool = Field(default=True)
