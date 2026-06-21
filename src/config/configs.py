@@ -190,8 +190,7 @@ class WebSearchSettings(_BaseSettings):
     """Web search configuration settings."""
 
     IS_WEB_SEARCH_ENABLED: bool = Field(default=False)
-    SEARCH_API_KEY: SecretStr = Field(default=...)
-    SEARCH_ENGINE_ID: SecretStr = Field(default=...)
+    BRAVE_SEARCH_API_KEY: SecretStr = Field(default=...)
 
     MAX_WEB_SEARCH_RESULTS: int = Field(default=3)
     WEB_REQUEST_TIMEOUT_SECS: int = Field(default=15)
