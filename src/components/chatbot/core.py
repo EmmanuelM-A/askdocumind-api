@@ -3,11 +3,12 @@ Handles chatbot interactions using Retrieval-Augmented Generation (RAG).
 """
 
 import json
+from collections import defaultdict
 from dataclasses import dataclass
-from typing import List
+from typing import Dict, List
 from uuid import UUID
 
-from src.components.chatbot.query_handler import QueryHandler
+from src.components.chatbot.query_handler import PossibleResponse, QueryHandler
 from src.components.ingestion.document_processor import (
     UploadedDocumentProcessor,
 )
@@ -19,6 +20,10 @@ from src.database.repository.interfaces.document_chunk_repository import (
     DocumentChunkRepositoryInterface,
 )
 from src.logger.base_logger import BaseLogger
+
+# Per-session web search counter. Resets on server restart, which is acceptable
+# for keeping Brave API usage within the free tier (2,000 req/month).
+_web_search_counts: Dict[str, int] = defaultdict(int)
 
 
 @dataclass
@@ -76,13 +81,13 @@ class RAGChatbot:
         performing a web search if no relevant results are found.
         """
 
-        web_enabled = settings.web.IS_WEB_SEARCH_ENABLED
+        is_web_enabled = settings.web.IS_WEB_SEARCH_ENABLED and web_search_enabled
 
         results, sources = await self.query_handler.search_for_vector(
             query, chat_session_id
         )
-        
-        include_web_search = " or through web search" if web_enabled else ""
+
+        include_web_search = " or through web search" if is_web_enabled else ""
 
         # Default response object (AT THE START)
         response_data = ChatbotResponse(
@@ -100,48 +105,71 @@ class RAGChatbot:
             f"the query '{query}'."
         )
 
-        if len(results) == 0 and not web_enabled:
+        if len(results) > 0:
+            response: PossibleResponse = self.query_handler.generate_responses(
+                query=query, retrieved_chunks=results
+            )
+
+            if response == "OUT_OF_SCOPE":
+                self._logger.info(f"Query '{query}' is out of scope for the uploaded documents.")
+                return response_data
+
+            if response is None:
+                self._logger.info(f"No relevant information found for the query: '{query}'.")
+                return response_data
+
+            if response != "NEED_WEB_SEARCH":
+                response_data.answer = response
+                response_data.sources = sources
+                self._logger.info(f"Generated response for query: '{query}'.")
+                return response_data
+
+            # LLM signalled NEED_WEB_SEARCH — fall through to web search if enabled
+            if not is_web_enabled:
+                return response_data
+        else:
+            # No matching chunks at all — go straight to web search if enabled
+            if not is_web_enabled:
+                return response_data
+
+        session_key = str(chat_session_id)
+        if _web_search_counts[session_key] >= settings.web.MAX_WEB_SEARCHES_PER_SESSION:
+            self._logger.warning(
+                f"Web search limit ({settings.web.MAX_WEB_SEARCHES_PER_SESSION}) "
+                f"reached for session {chat_session_id}."
+            )
+            response_data.answer = (
+                "Web search is no longer available for this session — the limit has been reached. "
+                "Disable its usage! And try rephrasing your question based solely on your uploaded documents. "
+            )
             return response_data
+        _web_search_counts[session_key] += 1
 
-        if web_search_enabled:
-            self._logger.info(
-                f"No results found in vector store for query: '{query}'. "
-                "Attempting web search..."
-            )
-
-            async with self._tx_factory.create() as tx:
-                await self.web_searcher.search_and_ingest_web_content(
-                    query=query, chat_session_id=chat_session_id, tx=tx
-                )
-
-            web_results, web_sources = await self.query_handler.search_for_vector(
-                query, chat_session_id
-            )
-
-            if len(web_results) == 0:
-                return response_data
-
-            web_response = self.query_handler.generate_responses(
-                query=query, retrieved_chunks=web_results, from_web_search=True
-            )
-
-            if web_response:
-                self._logger.info(
-                    f"Generated response from web search for the query: '{query}'."
-                )
-                response_data.answer = web_response
-                response_data.sources = web_sources
-                return response_data
-
-        response = self.query_handler.generate_responses(
-            query=query, retrieved_chunks=results
+        self._logger.info(
+            f"Attempting web search for query: '{query}' "
+            f"(search {_web_search_counts[session_key]}/{settings.web.MAX_WEB_SEARCHES_PER_SESSION} for session)."
         )
 
-        if response:
-            response_data.answer = response
-            response_data.sources = sources
-            self._logger.info(f"Generated response for query: '{query}'.")
+        await self.web_searcher.search_and_ingest_web_content(
+            query=query, chat_session_id=chat_session_id,
+        )
+
+        web_results, web_sources = await self.query_handler.search_for_vector(
+            query, chat_session_id
+        )
+
+        if len(web_results) == 0:
             return response_data
 
-        self._logger.info(f"No relevant information found for the query: '{query}'.")
+        web_response: PossibleResponse = self.query_handler.generate_responses(
+            query=query, retrieved_chunks=web_results, from_web_search=True
+        )
+
+        if not web_response or web_response in ("OUT_OF_SCOPE", "NEED_WEB_SEARCH"):
+            self._logger.info(f"Web search did not produce a usable response for '{query}'.")
+            return response_data
+
+        self._logger.info(f"Generated response from web search for the query: '{query}'.")
+        response_data.answer = web_response
+        response_data.sources = web_sources
         return response_data

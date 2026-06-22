@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Request, UploadFile, File, Form
 
 from src.api.controllers.document_uploads_controller import DocumentUploadController
+from src.api.middleware.rate_limiter import limiter, upload_limit, user_key_func
 from src.api.services.validation.document import UploadDocumentsRequest
 
 documents_router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -15,6 +16,7 @@ _controller = DocumentUploadController()
 
 
 @documents_router.get("", summary="List uploaded documents")
+@limiter.limit(upload_limit, key_func=user_key_func)
 async def list_uploaded_documents(request: Request, chat_id: UUID):
     """Get all uploaded document metadata for a chat session."""
     return await _controller.list_uploaded_documents_endpoint(request, chat_id)
@@ -48,6 +50,7 @@ async def list_uploaded_documents(request: Request, chat_id: UUID):
         }
     },
 )
+@limiter.limit(upload_limit, key_func=user_key_func)
 async def upload_documents(
     request: Request,
     documents: list[UploadFile] = File(
@@ -73,6 +76,7 @@ async def upload_documents(
 
 
 @documents_router.delete("/{document_id}", summary="Delete uploaded document")
+@limiter.limit(upload_limit, key_func=user_key_func)
 async def delete_uploaded_document(request: Request, document_id: UUID, chat_id: UUID):
     """Delete an uploaded document by ID within a chat session."""
     return await _controller.delete_uploaded_document_endpoint(request, document_id, chat_id)

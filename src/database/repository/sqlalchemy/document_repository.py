@@ -3,6 +3,7 @@ Concrete implementation of the document repository, providing methods for CRUD
 operations and specific queries related to document entities.
 """
 
+from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
@@ -432,5 +433,53 @@ class DocumentRepository(DocumentRepositoryInterface):
             raise database_error(
                 message="An error occurred while updating processing statuses.",
                 error_code="DOCUMENT_UPDATE_ERROR",
+                stack_trace=str(e),
+            )
+
+    async def get_stuck_processing_ids(
+        self, cutoff: datetime, tx: Optional[DBTransaction] = None
+    ) -> List[UUID]:
+        try:
+            stmt = select(Document.id).where(
+                Document.processing_status == ProcessingStatus.PROCESSING,
+                Document.updated_at <= cutoff,
+            )
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                return list(result.scalars().all())
+
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
+                return list(result.scalars().all())
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise database_error(
+                message="An error occurred while fetching stuck processing document IDs.",
+                error_code="DOCUMENT_GET_STUCK_IDS_ERROR",
+                stack_trace=str(e),
+            )
+
+    async def get_all_failed_ids(
+        self, cutoff: datetime, tx: Optional[DBTransaction] = None
+    ) -> List[UUID]:
+        try:
+            stmt = select(Document.id).where(
+                Document.processing_status == ProcessingStatus.FAILED,
+                Document.updated_at <= cutoff,
+            )
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                return list(result.scalars().all())
+
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
+                return list(result.scalars().all())
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise database_error(
+                message="An error occurred while fetching failed document IDs.",
+                error_code="DOCUMENT_GET_FAILED_IDS_ERROR",
                 stack_trace=str(e),
             )

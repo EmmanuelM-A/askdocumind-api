@@ -6,6 +6,7 @@ This implementation follows patterns used in other repository classes in
 `search_similar` if the database does not provide a vector search operator.
 """
 
+from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 import math
@@ -370,6 +371,30 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
             raise database_error(
                 message="An error occurred while retrieving filenames for chunks.",
                 error_code="DOCUMENT_CHUNK_FILENAMES_ERROR",
+                stack_trace=str(e),
+            )
+
+    async def delete_orphaned_web_chunks(
+        self, cutoff: datetime, tx: Optional[DBTransaction] = None
+    ) -> int:
+        try:
+            stmt = delete(DocumentChunk).where(
+                DocumentChunk.document_id.is_(None),
+                DocumentChunk.created_at <= cutoff,
+            )
+
+            if tx is not None:
+                result = await tx.execute(stmt)
+                return result.rowcount or 0
+
+            async with self._db.get_session() as session:
+                result = await session.execute(stmt)
+                return result.rowcount or 0
+
+        except (IntegrityError, SQLAlchemyError, Exception) as e:
+            raise database_error(
+                message="An error occurred while deleting orphaned web chunks.",
+                error_code="DOCUMENT_CHUNK_DELETE_ORPHANED_ERROR",
                 stack_trace=str(e),
             )
 

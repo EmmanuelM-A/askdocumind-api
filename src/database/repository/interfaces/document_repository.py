@@ -3,8 +3,10 @@ Repository interface for document CRUD operations.
 """
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
+
 
 from pydantic import BaseModel
 
@@ -212,5 +214,31 @@ class DocumentRepositoryInterface(ABC):
         :param status: The ProcessingStatus value to set for all documents.
         :param tx: Optional db transaction to wrap a db operation in.
         :return: The number of documents successfully updated.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_stuck_processing_ids(
+        self, cutoff: datetime, tx: Optional[DBTransaction] = None
+    ) -> List[UUID]:
+        """
+        Return IDs of documents stuck in PROCESSING status since before the cutoff.
+
+        :param cutoff: Datetime threshold; documents with updated_at <= cutoff are returned.
+        :param tx: Optional db transaction to wrap a db operation in.
+        :return: List of document UUIDs in PROCESSING status older than the cutoff.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_all_failed_ids(
+        self, cutoff: datetime, tx: Optional[DBTransaction] = None
+    ) -> List[UUID]:
+        """
+        Return IDs of FAILED documents whose updated_at is at or before the cutoff.
+
+        :param cutoff: Datetime threshold; only FAILED docs updated before this are returned.
+        :param tx: Optional db transaction to wrap a db operation in.
+        :return: List of document UUIDs in FAILED status older than the cutoff.
         """
         raise NotImplementedError

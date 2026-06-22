@@ -13,6 +13,9 @@ from src.database.repository.interfaces.document_repository import (
 	DocumentSearchCriteria,
 	UpdatedDocumentData,
 )
+from src.database.repository.interfaces.document_chunk_repository import (
+	DocumentChunkRepositoryInterface,
+)
 from src.database.repository.interfaces.user_repository import (
 	UserRepositoryInterface,
 	UserSearchCriteria,
@@ -33,6 +36,7 @@ __all__ = [
 	"DocumentRepositoryInterface",
 	"DocumentSearchCriteria",
 	"UpdatedDocumentData",
+	"DocumentChunkRepositoryInterface",
 	"UserRepositoryInterface",
 	"UserSearchCriteria",
 	"UpdatedUserData",

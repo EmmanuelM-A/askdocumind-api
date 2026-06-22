@@ -23,7 +23,9 @@ class Embedder:
 
         try:
             self.embedding_model = OpenAIEmbeddings(
-                model=settings.llm.EMBEDDING_MODEL_NAME
+                model=settings.llm.EMBEDDING_MODEL_NAME,
+                timeout=settings.llm.LLM_REQUEST_TIMEOUT_SECS,
+                max_retries=settings.llm.LLM_MAX_RETRIES
             )
             self._logger.info(
                 f"Initialized embedder with the model: {settings.llm.EMBEDDING_MODEL_NAME}"

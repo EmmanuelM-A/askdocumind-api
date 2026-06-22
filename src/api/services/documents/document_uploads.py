@@ -66,6 +66,7 @@ class UploadDocumentService:
         self._logger.debug(f"Chat {request.chat_id} validated for user {owner_id}")
 
         await self._assert_no_duplicate_uploads(request)
+        await self._assert_document_count_limit(request.chat_id, len(request.documents))
 
         entities: List[Document] = []
         documents: List[Tuple[UUID, str, bytes]] = []
@@ -181,6 +182,22 @@ class UploadDocumentService:
         )
 
     # ========================== HELPER METHODS ==========================
+
+    async def _assert_document_count_limit(
+        self, chat_session_id: UUID, incoming_count: int
+    ) -> None:
+        existing = await self._document_repo.list_by(
+            criteria=DocumentSearchCriteria(session_id=chat_session_id)
+        )
+        limit = settings.files.MAX_DOCUMENTS_PER_CHAT
+        if len(existing) + incoming_count > limit:
+            raise conflict_error(
+                message=(
+                    f"Uploading these files would exceed the maximum of "
+                    f"{limit} documents allowed per chat session."
+                ),
+                error_code="MAX_DOCUMENTS_PER_CHAT_EXCEEDED",
+            )
 
     @staticmethod
     def _normalize_filename(filename: str) -> str:

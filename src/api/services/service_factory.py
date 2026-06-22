@@ -12,12 +12,14 @@ from src.database.repository.database_repository_factory import get_tx_factory
 if TYPE_CHECKING:
     from src.api.services.auth.anonymous_user import AnonymousUserSessionService
     from src.api.services.documents.document_uploads import UploadDocumentService
+    from src.api.services.documents.document_cleanup import DocumentCleanupService
     from src.api.services.chatbot.rag_chatbot import RAGChatbotService
 
 _rag_chatbot_service: "RAGChatbotService | None" = None
 _upload_service: "UploadDocumentService | None" = None
 _chat_service: "ChatSessionService | None" = None
 _anonymous_user_service: "AnonymousUserSessionService | None" = None
+_document_cleanup_service: "DocumentCleanupService | None" = None
 
 
 def get_rag_chatbot_service() -> "RAGChatbotService":
@@ -81,3 +83,18 @@ def get_anonymous_user_service() -> "AnonymousUserSessionService":
         )
 
     return _anonymous_user_service
+
+
+def get_document_cleanup_service() -> "DocumentCleanupService":
+    """Return a singleton instance of the document cleanup service."""
+    global _document_cleanup_service
+
+    if _document_cleanup_service is None:
+        from src.api.services.documents.document_cleanup import DocumentCleanupService
+
+        _document_cleanup_service = DocumentCleanupService(
+            document_repo=get_database_repository("DOCUMENT"),  # type: ignore
+            chunk_repo=get_database_repository("DOCUMENT_CHUNK"),  # type: ignore
+        )
+
+    return _document_cleanup_service

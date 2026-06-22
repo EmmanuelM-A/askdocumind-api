@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from uuid import UUID
 
 from src.config.configs import settings
@@ -33,7 +33,7 @@ class VectorProcessor:
         self,
         chat_session_id: UUID,
         documents: List[Tuple[UUID, str, bytes]],
-        tx: DBTransaction,
+        tx: Optional[DBTransaction] = None,
     ) -> int:
         if not documents:
             return 0
@@ -89,7 +89,7 @@ class VectorProcessor:
         self,
         chat_session_id: UUID,
         raw_web_contents: List[str],
-        tx: DBTransaction,
+        tx: Optional[DBTransaction] = None,
     ) -> int:
         """
         Process a list of raw web content strings into chunks, embed them in

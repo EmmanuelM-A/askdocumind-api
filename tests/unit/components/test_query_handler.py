@@ -151,7 +151,7 @@ def test_generate_responses_need_web_search(query_handler):
     ):
         result = query_handler.generate_responses(query, chunks)
 
-    assert result is None
+    assert result == "NEED_WEB_SEARCH"
 
 
 def test_generate_responses_need_web_search_overridden_for_web(query_handler):

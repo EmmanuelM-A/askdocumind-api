@@ -26,7 +26,7 @@ jobs:
       ENV: development
       HOST: "0.0.0.0"
       PORT: "5000"
-      DATABASE_URL: postgresql+asyncpg://docu_chat:secret@localhost:5432/docu_chat_postgres
+      DATABASE_URL: postgresql+asyncpg://ask_docu_mind:secret@localhost:5432/ask_docu_mind_postgres
       USER_SESSION_SECRET: test-user-session-secret
       ANON_SESSION_TTL_HOURS: "24"
       SEARCH_API_KEY: test-search-key

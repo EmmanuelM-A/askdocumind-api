@@ -1,11 +1,11 @@
 services:
   database:
     image: pgvector/pgvector:pg16
-    container_name: docu_chat_postgres
+    container_name: ask_docu_mind_postgres
     environment:
-      POSTGRES_USER: docu_chat
+      POSTGRES_USER: ask_docu_mind
       POSTGRES_PASSWORD: secret
-      POSTGRES_DB: docu_chat_postgres
+      POSTGRES_DB: ask_docu_mind_postgres
     ports:
       - "5432:5432"
     volumes:
@@ -14,7 +14,7 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: docu_chat_pgadmin
+    container_name: ask_docu_mind_pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin

@@ -50,8 +50,7 @@ class WebSearcher:
 
         self._logger = BaseLogger(__name__)
 
-        self.search_api_key = settings.web.SEARCH_API_KEY.get_secret_value()
-        self.search_engine_id = settings.web.SEARCH_ENGINE_ID.get_secret_value()
+        self.brave_api_key = settings.web.BRAVE_SEARCH_API_KEY.get_secret_value()
 
         self.embedder = embedder
         self._vector_processor = vector_processor
@@ -59,7 +58,7 @@ class WebSearcher:
     # ======================== WEB SEARCH METHODS ========================
 
     async def search_and_ingest_web_content(
-        self, query: str, chat_session_id: UUID, tx: DBTransaction
+        self, query: str, chat_session_id: UUID, tx: Optional[DBTransaction] = None
     ) -> int:
 
         self._logger.debug(f"Processing query via web search: '{query}'")
@@ -144,7 +143,7 @@ class WebSearcher:
 
     def _search_web(self, query: str) -> List[WebSearchResult]:
         """
-        Perform web search using Google Custom Search API.
+        Perform web search using Brave Search API.
 
         Args:
             query: The search query string
@@ -153,52 +152,52 @@ class WebSearcher:
             List of search results with title, snippet, and url.
         """
 
-        num_results: int = settings.web.MAX_WEB_SEARCH_RESULTS
+        num_results: int = min(settings.web.MAX_WEB_SEARCH_RESULTS, 20)
 
-        # Validate API credentials
-        if not self.search_api_key or not self.search_engine_id:
-            self._logger.critical("Search API credentials not configured")
+        if not self.brave_api_key:
+            self._logger.critical("Brave Search API key not configured")
             return self._fallback_search(query, num_results)
 
         self._logger.debug(f"Performing web search for: {query}")
 
         try:
-            # Google Custom Search API endpoint
-            url = "https://www.googleapis.com/customsearch/v1"
-            params = {
-                "key": self.search_api_key,
-                "cx": self.search_engine_id,
-                "q": query,
-                "num": min(num_results, settings.web.MAX_WEB_REQUEST_RESULTS),
+            url = "https://api.search.brave.com/res/v1/web/search"
+            headers = {
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip",
+                "X-Subscription-Token": self.brave_api_key,
             }
+            params = {"q": query, "count": num_results}
 
-            # Make the API request
             response = requests.get(
-                url, params=params, timeout=settings.web.WEB_REQUEST_TIMEOUT_SECS
+                url, headers=headers, params=params, timeout=settings.web.WEB_REQUEST_TIMEOUT_SECS
             )
             response.raise_for_status()
 
-            # Parse the JSON response
             data = response.json()
+            items = data.get("web", {}).get("results", [])
 
-            if "items" not in data:
+            if not items:
                 self._logger.warning("No search results found")
                 return []
 
-            results: List[WebSearchResult] = []
-            for item in data["items"]:
-                results.append(
-                    WebSearchResult(
-                        title=item.get("title", ""),
-                        snippet=item.get("snippet", ""),
-                        url=item.get("url", ""),
-                    )
+            results: List[WebSearchResult] = [
+                WebSearchResult(
+                    title=item.get("title", ""),
+                    snippet=item.get("description", ""),
+                    url=item.get("url", ""),
                 )
+                for item in items
+            ]
 
             self._logger.debug(f"Retrieved {len(results)} search results")
 
             return results
 
+        except requests.exceptions.HTTPError as e:
+            body = e.response.text if e.response is not None else "<no response body>"
+            self._logger.error(f"Error in web search: {e}, response body: {body}")
+            return self._fallback_search(query, num_results)
         except Exception as e:
             self._logger.error(f"Error in web search: {e}")
             return self._fallback_search(query, num_results)
@@ -220,7 +219,7 @@ class WebSearcher:
             search_url = f"https://duckduckgo.com/html/?q={quote_plus(query)}"
             headers = {"User-Agent": settings.web.WEB_USER_AGENT}
 
-            response = requests.get(search_url, headers=headers, timeout=10)
+            response = requests.get(search_url, headers=headers, timeout=settings.web.WEB_REQUEST_TIMEOUT_SECS)
             response.raise_for_status()
 
             soup = BeautifulSoup(response.content, "html.parser")
@@ -238,7 +237,7 @@ class WebSearcher:
                         WebSearchResult(
                             title=title_elem.get_text(strip=True),
                             snippet=snippet_elem.get_text(strip=True),
-                            url=title_elem.get("href", ""),
+                            url=str(title_elem.get("href", "")),
                         )
                     )
 
@@ -263,7 +262,7 @@ class WebSearcher:
 
             content = self._fetch_page_content(url)
 
-            if content and len(content.strip()) >= settings.web.MIN_WEB_CONTENT_LENGTH:
+            if content and len(content.strip()) >= settings.app.MIN_DOCUMENT_CONTENT_LENGTH:
                 full_content = (
                     f"Title: {title}\n\nSummary: {snippet}\n\nContent: {content}"
                 )
