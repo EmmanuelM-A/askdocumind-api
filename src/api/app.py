@@ -10,6 +10,11 @@ from contextlib import suppress
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -64,6 +69,27 @@ async def lifespan(app: FastAPI):
     await get_database_connection().disconnect()
 
 
+def _init_sentry() -> None:
+    dsn = settings.app.SENTRY_DSN
+    if not dsn:
+        return
+    sentry_sdk.init(
+        dsn=dsn,
+        environment=settings.app.SENTRY_ENVIRONMENT,
+        traces_sample_rate=settings.app.SENTRY_TRACES_SAMPLE_RATE,
+        integrations=[
+            StarletteIntegration(transaction_style="endpoint"),
+            FastApiIntegration(transaction_style="endpoint"),
+            SqlalchemyIntegration(),
+            LoggingIntegration(
+                level=logging.WARNING,  # WARNING+ logs captured as breadcrumbs
+                event_level=logging.ERROR,  # ERROR+ logs sent as Sentry events
+            ),
+        ],
+        send_default_pii=False,  # never send user PII to Sentry
+    )
+
+
 def _configure_third_party_loggers() -> None:
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.pool").setLevel(logging.WARNING)
@@ -72,6 +98,7 @@ def _configure_third_party_loggers() -> None:
 def create_app():
     """Create and configure the FastAPI application."""
 
+    _init_sentry()
     _configure_third_party_loggers()
 
     app = FastAPI(

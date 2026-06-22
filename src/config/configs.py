@@ -43,6 +43,11 @@ class CoreAppSettings(_BaseSettings):
     PORT: int = Field(default=...)
     HOST: str = Field(default="0.0.0.0")
 
+    # Sentry
+    SENTRY_DSN: Optional[str] = Field(default=None)
+    SENTRY_ENVIRONMENT: str = Field(default="production")
+    SENTRY_TRACES_SAMPLE_RATE: float = Field(default=0.1)
+
     # Internal API routing constants
     DEFAULT_VERSION: str = Field(default="1")
 
@@ -203,7 +208,9 @@ class WebSearchSettings(_BaseSettings):
     @model_validator(mode="after")
     def _require_api_key_when_enabled(self) -> "WebSearchSettings":
         if self.IS_WEB_SEARCH_ENABLED and not self.BRAVE_SEARCH_API_KEY:
-            raise ValueError("BRAVE_SEARCH_API_KEY is required when IS_WEB_SEARCH_ENABLED is true")
+            raise ValueError(
+                "BRAVE_SEARCH_API_KEY is required when IS_WEB_SEARCH_ENABLED is true"
+            )
         return self
 
     MAX_WEB_SEARCH_RESULTS: int = Field(default=3)
