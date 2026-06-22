@@ -21,10 +21,7 @@ from src.components.retrieval.web_searcher import (
 def test_web_searcher_initialization(mock_embedder, mock_vector_processor):
     """Test successful WebSearcher initialization with mocked dependencies."""
     with patch("src.components.retrieval.web_searcher.settings") as mock_settings:
-        mock_settings.web.SEARCH_API_KEY.get_secret_value.return_value = "test_api_key"
-        mock_settings.web.SEARCH_ENGINE_ID.get_secret_value.return_value = (
-            "test_engine_id"
-        )
+        mock_settings.web.BRAVE_SEARCH_API_KEY.get_secret_value.return_value = "test_api_key"
 
         searcher = WebSearcher(
             embedder=mock_embedder,
@@ -33,8 +30,7 @@ def test_web_searcher_initialization(mock_embedder, mock_vector_processor):
 
         assert searcher.embedder is mock_embedder
         assert searcher._vector_processor is mock_vector_processor
-        assert searcher.search_api_key == "test_api_key"
-        assert searcher.search_engine_id == "test_engine_id"
+        assert searcher.brave_api_key == "test_api_key"
 
 
 def test_web_searcher_initialization_with_empty_credentials(
@@ -42,16 +38,14 @@ def test_web_searcher_initialization_with_empty_credentials(
 ):
     """Test WebSearcher initialization handles empty API credentials."""
     with patch("src.components.retrieval.web_searcher.settings") as mock_settings:
-        mock_settings.web.SEARCH_API_KEY.get_secret_value.return_value = ""
-        mock_settings.web.SEARCH_ENGINE_ID.get_secret_value.return_value = ""
+        mock_settings.web.BRAVE_SEARCH_API_KEY.get_secret_value.return_value = ""
 
         searcher = WebSearcher(
             embedder=mock_embedder,
             vector_processor=mock_vector_processor,
         )
 
-        assert searcher.search_api_key == ""
-        assert searcher.search_engine_id == ""
+        assert searcher.brave_api_key == ""
 
 
 # ==================== SEARCH AND INGEST WEB CONTENT TESTS ====================
@@ -66,18 +60,20 @@ def test_search_web_success(web_searcher):
 
     mock_response = Mock()
     mock_response.json.return_value = {
-        "items": [
-            {
-                "title": "Python Tutorial",
-                "snippet": "Learn Python programming",
-                "url": "https://example.com/python",
-            },
-            {
-                "title": "Advanced Python",
-                "snippet": "Advanced Python concepts",
-                "url": "https://example.com/advanced",
-            },
-        ]
+        "web": {
+            "results": [
+                {
+                    "title": "Python Tutorial",
+                    "description": "Learn Python programming",
+                    "url": "https://example.com/python",
+                },
+                {
+                    "title": "Advanced Python",
+                    "description": "Advanced Python concepts",
+                    "url": "https://example.com/advanced",
+                },
+            ]
+        }
     }
     mock_response.raise_for_status = Mock()
 
@@ -147,8 +143,7 @@ def test_search_web_missing_api_credentials_uses_fallback(web_searcher):
     query = "test query"
 
     # Set credentials to empty
-    web_searcher.search_api_key = ""
-    web_searcher.search_engine_id = ""
+    web_searcher.brave_api_key = ""
 
     with patch.object(web_searcher, "_fallback_search") as mock_fallback, patch(
         "src.components.retrieval.web_searcher.settings"

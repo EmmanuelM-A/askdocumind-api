@@ -262,10 +262,7 @@ def web_searcher(mock_embedder, mock_vector_processor):
     from src.components.retrieval.web_searcher import WebSearcher
 
     with patch("src.components.retrieval.web_searcher.settings") as mock_settings:
-        mock_settings.web.SEARCH_API_KEY.get_secret_value.return_value = "test_api_key"
-        mock_settings.web.SEARCH_ENGINE_ID.get_secret_value.return_value = (
-            "test_engine_id"
-        )
+        mock_settings.web.BRAVE_SEARCH_API_KEY.get_secret_value.return_value = "test_api_key"
 
         searcher = WebSearcher(
             embedder=mock_embedder,
