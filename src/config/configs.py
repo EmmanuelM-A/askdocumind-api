@@ -190,7 +190,13 @@ class WebSearchSettings(_BaseSettings):
     """Web search configuration settings."""
 
     IS_WEB_SEARCH_ENABLED: bool = Field(default=False)
-    BRAVE_SEARCH_API_KEY: SecretStr = Field(default=...)
+    BRAVE_SEARCH_API_KEY: Optional[SecretStr] = Field(default=None)
+
+    @model_validator(mode="after")
+    def _require_api_key_when_enabled(self) -> "WebSearchSettings":
+        if self.IS_WEB_SEARCH_ENABLED and not self.BRAVE_SEARCH_API_KEY:
+            raise ValueError("BRAVE_SEARCH_API_KEY is required when IS_WEB_SEARCH_ENABLED is true")
+        return self
 
     MAX_WEB_SEARCH_RESULTS: int = Field(default=3)
     MAX_WEB_SEARCHES_PER_SESSION: int = Field(default=3)
