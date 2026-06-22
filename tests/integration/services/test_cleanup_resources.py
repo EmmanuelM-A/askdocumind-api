@@ -61,6 +61,51 @@ async def test_init_cleanup_returns_early_when_disabled(monkeypatch: pytest.Monk
 
 
 @pytest.mark.asyncio
+async def test_run_scheduler_calls_document_cleanup_when_service_provided():
+    """Scheduler calls all three document cleanup methods each iteration."""
+    from src.api.services.cleanup.cleanup_resources import _run_scheduler
+
+    stop_event = asyncio.Event()
+
+    anon_service = Mock()
+    anon_service.delete_expired_anonymous_user_sessions = AsyncMock(
+        side_effect=lambda: stop_event.set()
+    )
+
+    doc_service = Mock()
+    doc_service.mark_stuck_documents_as_failed = AsyncMock(return_value=0)
+    doc_service.delete_failed_documents = AsyncMock(return_value=0)
+    doc_service.delete_orphaned_web_chunks = AsyncMock(return_value=0)
+
+    await _run_scheduler(anon_service, stop_event, interval_minutes=1, document_cleanup_service=doc_service)
+
+    doc_service.mark_stuck_documents_as_failed.assert_awaited_once()
+    doc_service.delete_failed_documents.assert_awaited_once()
+    doc_service.delete_orphaned_web_chunks.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_run_scheduler_skips_document_cleanup_when_service_is_none():
+    """Existing anon-user cleanup is unaffected when no document cleanup service is provided."""
+    from src.api.services.cleanup.cleanup_resources import _run_scheduler
+
+    stop_event = asyncio.Event()
+    call_count = 0
+
+    async def _fake_anon_cleanup():
+        nonlocal call_count
+        call_count += 1
+        stop_event.set()
+
+    anon_service = Mock()
+    anon_service.delete_expired_anonymous_user_sessions = _fake_anon_cleanup
+
+    await _run_scheduler(anon_service, stop_event, interval_minutes=1, document_cleanup_service=None)
+
+    assert call_count == 1
+
+
+@pytest.mark.asyncio
 async def test_init_cleanup_passes_configured_interval_to_scheduler(
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -73,12 +118,17 @@ async def test_init_cleanup_passes_configured_interval_to_scheduler(
     stop_event = asyncio.Event()
     stop_event.set()
 
-    fake_service = Mock()
-    fake_service.delete_expired_anonymous_user_sessions = AsyncMock()
+    fake_anon_service = Mock()
+    fake_anon_service.delete_expired_anonymous_user_sessions = AsyncMock()
+
+    fake_doc_service = Mock()
 
     with patch(
         "src.api.services.cleanup.cleanup_resources.get_anonymous_user_service",
-        return_value=fake_service,
+        return_value=fake_anon_service,
+    ), patch(
+        "src.api.services.cleanup.cleanup_resources.get_document_cleanup_service",
+        return_value=fake_doc_service,
     ), patch(
         "src.api.services.cleanup.cleanup_resources._run_scheduler",
         new_callable=AsyncMock,
@@ -86,7 +136,8 @@ async def test_init_cleanup_passes_configured_interval_to_scheduler(
         await init_anon_user_sessions_cleanup(stop_event=stop_event)
 
     mock_scheduler.assert_awaited_once_with(
-        anonymous_user_services=fake_service,
+        anonymous_user_services=fake_anon_service,
+        document_cleanup_service=fake_doc_service,
         stop_event=stop_event,
         interval_minutes=120,
     )

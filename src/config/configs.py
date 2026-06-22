@@ -142,6 +142,14 @@ class FileProcessingSettings(_BaseSettings):
 
     LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{_PROJECT_ROOT}/data/local/documents")
 
+    # Document & web-chunk cleanup
+    DOC_CLEANUP_BATCH_SIZE: int = Field(default=100)
+    STUCK_PROCESSING_TIMEOUT_MINS: int = Field(
+        default=30, validation_alias="DOC_STUCK_PROCESSING_TIMEOUT_MINS"
+    )
+    FAILED_DOC_TTL_H: int = Field(default=24, validation_alias="DOC_FAILED_TTL_HOURS")
+    WEB_CHUNK_TTL_H: int = Field(default=24, validation_alias="DOC_WEB_CHUNK_TTL_HOURS")
+
     model_config = _DEFAULT_MODEL_CONFIG
 
 

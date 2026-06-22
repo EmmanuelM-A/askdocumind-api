@@ -8,6 +8,7 @@ operations and similarity search hooks.
 """
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
@@ -213,6 +214,19 @@ class DocumentChunkRepositoryInterface(ABC):
         :param chat_session_id: The chat session ID to filter documents by.
         :param tx: Optional database transaction.
         :return: List of unique filenames (no duplicates) from the specified chat session.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def delete_orphaned_web_chunks(
+        self, cutoff: datetime, tx: Optional[DBTransaction] = None
+    ) -> int:
+        """
+        Delete web-search chunks (document_id IS NULL) created before the cutoff.
+
+        :param cutoff: Datetime threshold; chunks with created_at <= cutoff are removed.
+        :param tx: Optional db transaction to wrap a db operation in.
+        :return: Number of chunks deleted.
         """
         raise NotImplementedError
 
