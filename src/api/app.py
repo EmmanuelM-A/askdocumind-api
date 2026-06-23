@@ -18,6 +18,7 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from src.api.middleware.request_logger import RequestLoggerMiddleware
 from src.api.routes.chat_session_routes import chat_session_router
 from src.api.routes.auth_routes import auth_router
 from src.api.routes.document_uploads_routes import documents_router
@@ -129,6 +130,7 @@ def create_app():
         allow_methods=settings.server.CORS_ALLOW_METHODS,
         allow_headers=settings.server.CORS_ALLOW_HEADERS,
     )
+    app.add_middleware(RequestLoggerMiddleware)
 
     # --- Routers ---
     app.include_router(prefix=API_PREFIX, router=health_check_router)
