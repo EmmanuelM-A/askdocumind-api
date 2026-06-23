@@ -38,6 +38,16 @@ def session_limit() -> str:
     return f"{settings.server.MAX_SESSION_REQUESTS_PER_MINUTE}/minute"
 
 
+def health_api_limit() -> str:
+    """Per-IP limit for the lightweight API health check endpoint."""
+    return "60/minute"
+
+
+def health_db_limit() -> str:
+    """Per-IP limit for the database ping health check endpoint."""
+    return "30/minute"
+
+
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=_global_default_limits(),  # type: ignore[arg-type]
