@@ -7,6 +7,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from slowapi.util import get_remote_address
 from starlette import status
+from starlette.responses import Response
 from src.api.middleware.rate_limiter import limiter, health_api_limit, health_db_limit
 from src.api.utils.api_responses import SuccessResponseModel
 from src.api.utils.response_delivery import create_success_response
@@ -32,6 +33,11 @@ def api_health_check(request: Request) -> JSONResponse:
     )
 
 
+@health_check_router.head("/api", include_in_schema=False)
+def api_health_check_head(request: Request) -> Response:
+    return Response(status_code=status.HTTP_200_OK)
+
+
 @health_check_router.get("/db", summary="Database Health Check")
 @limiter.limit(health_db_limit, key_func=get_remote_address)
 async def database_health_check(request: Request) -> JSONResponse:
@@ -49,3 +55,9 @@ async def database_health_check(request: Request) -> JSONResponse:
     return create_success_response(
         status_code=status.HTTP_200_OK, success_response_model=response_model
     )
+
+
+@health_check_router.head("/db", include_in_schema=False)
+async def database_health_check_head(request: Request) -> Response:
+    await get_database_connection().ping_database()
+    return Response(status_code=status.HTTP_200_OK)
