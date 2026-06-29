@@ -258,7 +258,7 @@ class APIServerSettings(_BaseSettings):
     CORS_ORIGINS: List[str] = Field(default=...)
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
     CORS_ALLOW_METHODS: List[str] = Field(
-        default=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+        default=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     )
     CORS_ALLOW_HEADERS: List[str] = Field(
         default=["Content-Type", "Accept-Version", "Authorization", "X-Requested-With"]
