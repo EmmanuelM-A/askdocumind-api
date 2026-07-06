@@ -7,7 +7,6 @@ from typing import Optional
 from src.components.chatbot.core import RAGChatbot
 from src.components.chatbot.query_handler import QueryHandler
 from src.components.ingestion.document_processor import (
-    ChunkingConfig,
     DocumentProcessor,
     get_chunking_config,
 )
