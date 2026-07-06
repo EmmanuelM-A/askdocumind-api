@@ -9,16 +9,9 @@ from typing import Dict, List
 from uuid import UUID
 
 from src.components.chatbot.query_handler import PossibleResponse, QueryHandler
-from src.components.ingestion.document_processor import (
-    UploadedDocumentProcessor,
-)
-from src.components.retrieval.embedder import Embedder
+from src.components.ingestion.document_processor import DocumentProcessor
 from src.components.retrieval.web_searcher import WebSearcher
 from src.config.configs import settings
-from src.database.repository.interfaces import DBTransactionFactory
-from src.database.repository.interfaces.document_chunk_repository import (
-    DocumentChunkRepositoryInterface,
-)
 from src.logger.base_logger import BaseLogger
 
 # Per-session web search counter. Resets on server restart, which is acceptable
@@ -45,15 +38,11 @@ class ChatbotResponse:
 
 class RAGChatbot:
     """Defines all methods related to RAG Chatbot interactions."""
-
     def __init__(
         self,
-        document_processor: UploadedDocumentProcessor,
-        embedder: Embedder,
         query_handler: QueryHandler,
-        web_searcher: WebSearcher,
-        tx_factory: DBTransactionFactory,
-        document_chunk_repo: DocumentChunkRepositoryInterface,
+        document_processor: DocumentProcessor,
+        web_searcher: WebSearcher
     ) -> None:
         """
         Initializes the RAGChatbot with its components.
@@ -63,12 +52,9 @@ class RAGChatbot:
         :param query_handler: The query handler instance.
         :param web_searcher: The web searcher instance.
         """
-        self.document_processor = document_processor
-        self.embedder = embedder
-        self.query_handler = query_handler
-        self.web_searcher = web_searcher
-        self._tx_factory = tx_factory
-        self.document_chunk_repo = document_chunk_repo
+        self._query_handler = query_handler
+        self._document_processor = document_processor
+        self._web_searcher = web_searcher
         self._logger = BaseLogger(__name__)
 
     # ========================== QUERY METHODS ==========================
@@ -83,7 +69,7 @@ class RAGChatbot:
 
         is_web_enabled = settings.web.IS_WEB_SEARCH_ENABLED and web_search_enabled
 
-        results, sources = await self.query_handler.search_for_vector(
+        results, sources = await self._query_handler.search_for_vectors(
             query, chat_session_id
         )
 
@@ -106,12 +92,12 @@ class RAGChatbot:
         )
 
         if len(results) > 0:
-            response: PossibleResponse = self.query_handler.generate_responses(
+            response: PossibleResponse = self._query_handler.generate_response(
                 query=query, retrieved_chunks=results
             )
 
             if response == "OUT_OF_SCOPE":
-                self._logger.info(f"Query '{query}' is out of scope for the uploaded documents.")
+                response_data.answer = f"The query '{query}' is outside of scope of the uploaded documents."
                 return response_data
 
             if response is None:
@@ -124,13 +110,13 @@ class RAGChatbot:
                 self._logger.info(f"Generated response for query: '{query}'.")
                 return response_data
 
-            # LLM signalled NEED_WEB_SEARCH — fall through to web search if enabled
-            if not is_web_enabled:
-                return response_data
-        else:
-            # No matching chunks at all — go straight to web search if enabled
-            if not is_web_enabled:
-                return response_data
+            # LLM signalled NEED_WEB_SEARCH — fall through to web search below
+            self._logger.info(f"LLM requested web search for query: '{query}'.")
+
+        # Either no matching chunks at all, or the LLM explicitly asked for a
+        # web search — proceed only if web search is enabled.
+        if not is_web_enabled:
+            return response_data
 
         session_key = str(chat_session_id)
         if _web_search_counts[session_key] >= settings.web.MAX_WEB_SEARCHES_PER_SESSION:
@@ -143,6 +129,7 @@ class RAGChatbot:
                 "Disable its usage! And try rephrasing your question based solely on your uploaded documents. "
             )
             return response_data
+
         _web_search_counts[session_key] += 1
 
         self._logger.info(
@@ -150,18 +137,19 @@ class RAGChatbot:
             f"(search {_web_search_counts[session_key]}/{settings.web.MAX_WEB_SEARCHES_PER_SESSION} for session)."
         )
 
-        await self.web_searcher.search_and_ingest_web_content(
+        await self._web_searcher.ingest_web_content(
             query=query, chat_session_id=chat_session_id,
         )
 
-        web_results, web_sources = await self.query_handler.search_for_vector(
+        web_results, web_sources = await self._query_handler.search_for_vectors(
             query, chat_session_id
         )
 
         if len(web_results) == 0:
+            self._logger.debug(f"No relevant web results found for the query: '{query}'.")
             return response_data
 
-        web_response: PossibleResponse = self.query_handler.generate_responses(
+        web_response: PossibleResponse = self._query_handler.generate_response(
             query=query, retrieved_chunks=web_results, from_web_search=True
         )
 

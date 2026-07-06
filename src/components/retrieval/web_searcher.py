@@ -10,12 +10,19 @@ from dataclasses import dataclass
 from html import escape
 from typing import List, Optional
 from urllib.parse import urlparse
+from uuid import UUID
 
 import requests
 from ddgs import DDGS
 from ddgs.exceptions import DDGSException
 
+from src.components.ingestion.document_processor import DocumentProcessor
 from src.config.configs import settings
+from src.database.models import Document
+from src.database.repository.interfaces.document_repository import (
+    DocumentRepositoryInterface,
+)
+from src.database.repository.interfaces.db_transaction import DBTransactionFactory
 from src.logger.base_logger import BaseLogger
 
 
@@ -37,18 +44,23 @@ class WebSearcher:
     Handles web search and raw content retrieval only.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        document_processor: DocumentProcessor,
+        document_repository: DocumentRepositoryInterface,
+        tx_factory: DBTransactionFactory,
+    ) -> None:
         """
         Initializes the WebSearcher instance.
         """
 
+        self._document_processor = document_processor
+        self._document_repository = document_repository
+        self._tx_factory = tx_factory
         self._logger = BaseLogger(__name__)
 
-        self.brave_api_key = (
-            settings.web.BRAVE_SEARCH_API_KEY.get_secret_value()
-            if settings.web.BRAVE_SEARCH_API_KEY
-            else None
-        )
+        brave_api_key = settings.web.BRAVE_SEARCH_API_KEY
+        self.brave_api_key = brave_api_key.get_secret_value() if brave_api_key else None
 
     # ======================== WEB SEARCH METHODS ========================
 
@@ -108,6 +120,56 @@ class WebSearcher:
         except Exception as e:
             self._logger.error(f"Critical error in web search: {e}", exc_info=True)
             return []
+
+    async def ingest_web_content(self, query: str, chat_session_id: UUID) -> int:
+        """
+        Search the web for relevant content based on the `query`, retrieve the raw HTML for each
+        result, save the content as a document and ingest it into the database as document chunks.
+        
+        Returns:
+            The total number of document chunks ingested into the database.
+        """
+
+        web_contents = self.search_and_retrieve_web_content(query)
+
+        if not web_contents:
+            self._logger.info(f"No web content retrieved for query: '{query}'")
+            return 0
+
+        total_saved = 0
+
+        for web_content in web_contents:
+            async with self._tx_factory.create() as tx:
+                web_doc_filename = f"web_{web_content.source or int(time.time())}.html"
+                
+                web_doc_id = await self._document_repository.create(
+                    data=Document(
+                        session_id=chat_session_id,
+                        filename=web_doc_filename,
+                        file_size=len(web_content.content.encode("utf-8")),
+                    ),
+                    tx=tx
+                )
+
+                docling_document = self._document_processor.extract(
+                    document_data=web_content.content.encode("utf-8"),
+                    filename=web_doc_filename,
+                )
+                chunks = self._document_processor.chunk(docling_document)
+
+                saved = await self._document_processor.save_document_chunks(
+                    chunks=chunks,
+                    chat_session_id=chat_session_id,
+                    document_id=web_doc_id,
+                    tx=tx
+                )
+                
+                total_saved += saved
+
+        self._logger.info(
+            f"Ingested {total_saved} web chunks for query '{query}' into chat {chat_session_id}"
+        )
+        return total_saved
 
     # ========================== HELPER METHODS ==========================
 

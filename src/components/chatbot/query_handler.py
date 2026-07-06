@@ -51,7 +51,7 @@ class QueryHandler:
         )
         self._logger = BaseLogger(__name__)
 
-    async def search_for_vector(
+    async def search_for_vectors(
         self, query: str, chat_session_id: UUID
     ) -> Tuple[List[DocumentChunk], List[str]]:
         """
@@ -88,7 +88,7 @@ class QueryHandler:
 
         return chunks, sources
 
-    def generate_responses(
+    def generate_response(
         self,
         query: str,
         retrieved_chunks: List[DocumentChunk],
