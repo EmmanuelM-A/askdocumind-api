@@ -15,7 +15,6 @@ from src.components.extraction.text_extractor import (
 _extractors: dict[str, type[TextDocumentExtractor]] = {
     "pdf": PDFDocumentExtractor,
     "docx": DocxDocumentExtractor,
-    "markdown": MarkdownDocumentExtractor,
     "txt": TxtDocumentExtractor,
     "md": MarkdownDocumentExtractor,
 }
