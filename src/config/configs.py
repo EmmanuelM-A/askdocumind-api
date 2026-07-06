@@ -54,9 +54,7 @@ class CoreAppSettings(_BaseSettings):
     # Business-logic thresholds
     MIN_QUERY_LENGTH: int = Field(default=10)
     MAX_QUERY_LENGTH: int = Field(default=2000)
-    IS_QUERY_TRUNCATION_ENABLED: bool = Field(default=False)
-    MIN_DOCUMENT_CONTENT_LENGTH: int = Field(default=10)
-    MAX_DOCUMENT_CONTENT_LENGTH: int = Field(default=1000000)
+    MIN_DOCUMENT_CONTENT_LENGTH: int = Field(default=20)
 
     MAX_CHATS_PER_USER: int = Field(default=1)
 
@@ -137,8 +135,6 @@ class AnonymousUserSessionSettings(_BaseSettings):
 # ------------------------------------------------------------------
 class FileProcessingSettings(_BaseSettings):
     """File processing configuration settings."""
-
-    ALLOWED_FILE_EXTENSIONS: List[str] = Field(default=[".pdf", ".docx", ".txt", ".md"])
     MAX_FILE_SIZE_MB: float = Field(default=0.5)  # Max size per file
     MAX_FILES_PER_CHAT_MB: int = Field(
         default=1
@@ -186,11 +182,9 @@ class LLMIntegrationSettings(_BaseSettings):
 class VectorStoreSettings(_BaseSettings):
     """Vector store configuration settings."""
 
-    CHUNK_SIZE: int = Field(default=1000)
-    CHUNK_OVERLAP: int = Field(default=60)
+    MAX_TOKENS: int = Field(default=512) # Add to .env
     RETRIEVAL_TOP_K: int = Field(default=3)
     SIMILARITY_THRESHOLD: float = Field(default=0.4)
-    MAX_VECTORS_IN_MEMORY: int = Field(default=10000)
     VECTOR_BATCH_SIZE: int = Field(default=100)
 
     model_config = _DEFAULT_MODEL_CONFIG
