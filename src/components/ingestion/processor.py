@@ -17,6 +17,7 @@ from src.database.repository.interfaces import DBTransaction
 from src.database.repository.interfaces.document_chunk_repository import (
     DocumentChunkRepositoryInterface,
 )
+from src.logger.base_logger import BaseLogger
 
 
 @dataclass
@@ -42,26 +43,38 @@ class DocumentProcessor:
             model_name="sentence-transformers/all-MiniLM-L6-v2",
             max_tokens=config.max_tokens,
         )
-        self._chunker = HybridChunker(
-            tokenizer=self._tokenizer, merge_peers=True
-        )
+        self._chunker = HybridChunker(tokenizer=self._tokenizer, merge_peers=True)
         self._embedder = embedder
         self._document_chunk_repository = document_chunk_repository
+        self._logger = BaseLogger(__name__)
 
     def extract(self, document_data: bytes, filename: str) -> DoclingDocument:
         stream = DocumentStream(name=filename, stream=BytesIO(document_data))
+
         result = self._converter.convert(stream)
+
+        self._logger.debug(f"Extracted document: {result.document.name}")
+
         return result.document
 
     def chunk(self, docling_document: DoclingDocument) -> list[str]:
-        chunks = self._chunker.chunk(docling_document)
-        return [self._chunker.contextualize(chunk) for chunk in chunks]
+        chunks_itr = self._chunker.chunk(docling_document)
+
+        chunks = [self._chunker.contextualize(chunk) for chunk in chunks_itr]
+
+        self._logger.debug(f"Chunked document into {len(chunks)} chunks")
+
+        return chunks
 
     def convert_to_docling_document(
-        self, content: str, filename: str
+        self, content: str, source_name: str
     ) -> DoclingDocument:
-        doc = DoclingDocument(name=filename)
+        doc = DoclingDocument(name=source_name)
+
         doc.add_text(label=DocItemLabel.TEXT, text=content)
+
+        self._logger.debug(f"Converted '{source_name}' to a DoclingDocument")
+
         return doc
 
     async def save_document_chunks(
@@ -72,6 +85,7 @@ class DocumentProcessor:
         tx: Optional[DBTransaction] = None,
     ) -> int:
         if len(chunks) == 0:
+            self._logger.warning(f"No chunks to save for document_id: {document_id}")
             return 0
 
         entities: List[DocumentChunk] = []
@@ -92,7 +106,14 @@ class DocumentProcessor:
                 )
 
         if len(entities) == 0:
+            self._logger.warning(
+                f"No document chunks were created for document_id: {document_id}"
+            )
             return 0
+
+        self._logger.debug(
+            f"Saving {len(entities)} document chunks for document_id: {document_id}"
+        )
 
         saved_chunks = await self._document_chunk_repository.upsert_many(entities, tx)
         return len(saved_chunks)
