@@ -67,11 +67,11 @@ class DocumentProcessor:
         return chunks
 
     def convert_to_docling_document(
-        self, content: str, source_name: str
+        self, content: str, source_name: str, label: DocItemLabel
     ) -> DoclingDocument:
         doc = DoclingDocument(name=source_name)
 
-        doc.add_text(label=DocItemLabel.TEXT, text=content)
+        doc.add_text(label=label, text=content)
 
         self._logger.debug(f"Converted '{source_name}' to a DoclingDocument")
 
