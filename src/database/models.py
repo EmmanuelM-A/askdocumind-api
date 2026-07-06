@@ -93,7 +93,6 @@ class ChatSession(Base):
         UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False
     )
     title = Column(Text, nullable=True)
-    total_messages = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationships
