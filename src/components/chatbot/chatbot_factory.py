@@ -6,10 +6,12 @@ from typing import Optional
 
 from src.components.chatbot.core import RAGChatbot
 from src.components.chatbot.query_handler import QueryHandler
-from src.components.ingestion.processor_factory import (
-    get_vector_processor,
-    get_upload_document_processor,
+from src.components.ingestion.document_processor import (
+    ChunkingConfig,
+    DocumentProcessor,
+    get_chunking_config,
 )
+from docling.document_converter import DocumentConverter
 from src.components.retrieval.embedder import Embedder
 from src.components.retrieval.web_searcher import WebSearcher
 from src.database.repository import get_database_repository
@@ -25,18 +27,24 @@ def _build_chatbot() -> RAGChatbot:
     query_handler: QueryHandler = QueryHandler(
         embedder=embedder, document_chunk_repo=get_database_repository("DOCUMENT_CHUNK")
     )
-    web_searcher: WebSearcher = WebSearcher(
+
+    document_processor: DocumentProcessor = DocumentProcessor(
+        converter=DocumentConverter(),
+        config=get_chunking_config(),
         embedder=embedder,
-        vector_processor=get_vector_processor(),
+        document_chunk_repository=get_database_repository("DOCUMENT_CHUNK"),
+    )
+
+    web_searcher: WebSearcher = WebSearcher(
+        document_processor=document_processor,
+        document_repository=get_database_repository("DOCUMENT"),
+        tx_factory=get_tx_factory(),
     )
 
     return RAGChatbot(
-        document_processor=get_upload_document_processor(),
-        embedder=embedder,
         query_handler=query_handler,
+        document_processor=document_processor,
         web_searcher=web_searcher,
-        tx_factory=get_tx_factory(),
-        document_chunk_repo=get_database_repository("DOCUMENT_CHUNK"),
     )
 
 
