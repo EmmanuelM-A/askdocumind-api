@@ -18,11 +18,17 @@ from src.database.repository.interfaces.document_chunk_repository import (
     DocumentChunkRepositoryInterface,
 )
 from src.logger.base_logger import BaseLogger
+from src.config.configs import settings
 
 
 @dataclass
 class ChunkingConfig:
     max_tokens: int
+
+
+def get_chunking_config() -> ChunkingConfig:
+    """Factory method to get the chunking configuration."""
+    return ChunkingConfig(max_tokens=settings.vector.MAX_TOKENS)
 
 
 class DocumentProcessor:
