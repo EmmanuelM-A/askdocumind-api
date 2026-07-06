@@ -7,9 +7,9 @@ from docling.datamodel.base_models import DocumentStream
 from docling_core.types.doc.document import DoclingDocument
 
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
+from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
 from docling_core.types.doc.document import DoclingDocument
 from docling_core.types.doc.labels import DocItemLabel
-from transformers import AutoTokenizer
 
 from src.components.retrieval.embedder import Embedder
 from src.database.models import DocumentChunk
@@ -38,12 +38,12 @@ class DocumentProcessor:
         document_chunk_repository: DocumentChunkRepositoryInterface,
     ):
         self._converter = converter
-        # Initialize tokenizer for token-aware chunking
-        self._tokenizer = AutoTokenizer.from_pretrained(
-            "sentence-transformers/all-MiniLM-L6-v2"
+        self._tokenizer = HuggingFaceTokenizer.from_pretrained(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            max_tokens=config.max_tokens,
         )
         self._chunker = HybridChunker(
-            tokenizer=self._tokenizer, max_tokens=config.max_tokens, merge_peers=True
+            tokenizer=self._tokenizer, merge_peers=True
         )
         self._embedder = embedder
         self._document_chunk_repository = document_chunk_repository
