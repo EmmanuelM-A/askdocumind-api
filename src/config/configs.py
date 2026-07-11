@@ -135,6 +135,7 @@ class AnonymousUserSessionSettings(_BaseSettings):
 # ------------------------------------------------------------------
 class FileProcessingSettings(_BaseSettings):
     """File processing configuration settings."""
+
     MAX_FILE_SIZE_MB: float = Field(default=0.5)  # Max size per file
     MAX_FILES_PER_CHAT_MB: int = Field(
         default=1
@@ -172,6 +173,9 @@ class LLMIntegrationSettings(_BaseSettings):
     RESPONSE_PROMPT_FILEPATH: str = Field(
         default=f"{_PROJECT_ROOT}/data/prompts/default_response_prompt.yaml"
     )
+    QUERY_EXPANSION_PROMPT_FILEPATH: str = Field(
+        default=f"{_PROJECT_ROOT}/data/prompts/default_query_expansion_prompt.yaml"
+    )  # add to .env
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -182,7 +186,7 @@ class LLMIntegrationSettings(_BaseSettings):
 class VectorStoreSettings(_BaseSettings):
     """Vector store configuration settings."""
 
-    MAX_TOKENS: int = Field(default=512) # Add to .env
+    MAX_TOKENS: int = Field(default=512)  # Add to .env
     RETRIEVAL_TOP_K: int = Field(default=3)
     SIMILARITY_THRESHOLD: float = Field(default=0.4)
     VECTOR_BATCH_SIZE: int = Field(default=100)

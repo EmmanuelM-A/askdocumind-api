@@ -10,6 +10,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
 
 from src.api.services.validation.helper import validate_and_sanitize_query
+from src.components.retrieval.query_expander import expand_query
 from src.config.configs import settings
 from src.components.prompts.prompt_loader import create_prompt_template
 from src.components.retrieval.embedder import Embedder
@@ -48,6 +49,9 @@ class QueryHandler:
         )
         self._prompt_template = create_prompt_template(
             settings.llm.RESPONSE_PROMPT_FILEPATH
+        )
+        self._expansion_prompt_template = create_prompt_template(
+            settings.llm.QUERY_EXPANSION_PROMPT_FILEPATH
         )
         self._logger = BaseLogger(__name__)
 
@@ -111,10 +115,16 @@ class QueryHandler:
             [cast(str, chunk.chunk_text) for chunk in retrieved_chunks]
         )
 
+        expanded_query = expand_query(
+            query=query, llm=self._llm, prompt_template=self._expansion_prompt_template
+        )
+
         rag_chain = self._prompt_template | self._llm | StrOutputParser()
 
         try:
-            response = rag_chain.invoke({"context": context_text, "query": query})
+            response = rag_chain.invoke(
+                {"context": context_text, "query": expanded_query}
+            )
         except Exception as e:
             raise server_error(
                 message="The AI service is temporarily unavailable. Please try again shortly.",
