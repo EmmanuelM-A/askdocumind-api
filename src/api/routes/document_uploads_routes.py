@@ -61,11 +61,6 @@ async def upload_documents(
     """
     Upload multiple documents to a chat session.
 
-    **Document Status Flow:**
-    - **PROCESSING**: Initial status when documents are uploaded and ingestion begins
-    - **COMPLETED**: Documents successfully indexed and vectors stored
-    - **FAILED**: Error occurred during processing or vector storage
-
     **Parameters:**
     - **documents**: List of files to upload (1-10 files, max 10MB each)
     - **chat_id**: UUID of the target chat session
