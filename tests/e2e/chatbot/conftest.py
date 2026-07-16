@@ -1,6 +1,19 @@
 """
-Shared fixtures for all e2e tests. Real app, real DB, real auth - nothing
-mocked. Route-specific fixtures live in each subpackage's own conftest.py.
+Real (non-mocked) fixtures for e2e tests of the RAG chatbot endpoint.
+
+These fixtures run the real FastAPI app (with lifespan, so the real DB
+connection is established/torn down), talk to the real database, use the
+real TokenManager for signing session cookies, and exercise the real
+chatbot pipeline (real query embedding, real vector search, real query
+expansion + RAG generation via OpenAI) - mirroring
+tests/e2e/documents/conftest.py.
+
+Note: the app's own DB connection (wired up via ASGI lifespan inside
+TestClient) lives on TestClient's internal thread/event loop. asyncpg
+connections are bound to the loop they were created on, so test-side
+seeding/verification queries must NOT reuse that connection from the
+test's own event loop - instead we open a second, independent
+DatabaseConnection scoped to each test.
 """
 
 from datetime import datetime, timezone
@@ -10,13 +23,14 @@ from uuid import UUID
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
+from sqlalchemy import delete
 
 from src.api.app import create_app
 from src.api.utils.session_manager import TokenManager, get_token_manager
 from src.components.retrieval.embedder import Embedder
 from src.config.configs import settings
+from src.database.connection import DatabaseConnection
 from src.database.models import ChatSession, Document, DocumentChunk, User
-from src.database.repository.database_repository_factory import get_database_repository
 from src.database.repository.sqlalchemy.chat_message_repository import (
     ChatMessageRepository,
 )
@@ -32,34 +46,49 @@ from src.database.repository.sqlalchemy.user_repository import UserRepository
 
 @pytest.fixture(scope="module")
 def app_client():
-    """Real app, wired up via ASGI lifespan (connects the shared DB connection on startup)."""
+    """Real app + real DB connection, wired up via ASGI lifespan.
+
+    raise_server_exceptions=False: see tests/e2e/documents/conftest.py for
+    why this is needed to properly test paths that hit the catch-all
+    Exception handler.
+    """
     with TestClient(create_app(), raise_server_exceptions=False) as client:
         yield client
 
 
-@pytest.fixture
-def user_repo() -> UserRepository:
-    return get_database_repository("USER")
+@pytest_asyncio.fixture
+async def db_connection():
+    """Independent DB connection for test-side seeding/verification,
+    bound to this test's own event loop."""
+    conn = DatabaseConnection()
+    await conn.connect()
+    yield conn
+    await conn.disconnect()
 
 
 @pytest.fixture
-def chat_session_repo() -> ChatSessionRepository:
-    return get_database_repository("CHAT_SESSION")
+def user_repo(db_connection: DatabaseConnection) -> UserRepository:
+    return UserRepository(connection=db_connection)
 
 
 @pytest.fixture
-def chat_message_repo() -> ChatMessageRepository:
-    return get_database_repository("CHAT_MESSAGE")
+def chat_session_repo(db_connection: DatabaseConnection) -> ChatSessionRepository:
+    return ChatSessionRepository(connection=db_connection)
 
 
 @pytest.fixture
-def document_repo() -> DocumentRepository:
-    return get_database_repository("DOCUMENT")
+def chat_message_repo(db_connection: DatabaseConnection) -> ChatMessageRepository:
+    return ChatMessageRepository(connection=db_connection)
 
 
 @pytest.fixture
-def document_chunk_repo() -> DocumentChunkRepository:
-    return get_database_repository("DOCUMENT_CHUNK")
+def document_repo(db_connection: DatabaseConnection) -> DocumentRepository:
+    return DocumentRepository(connection=db_connection)
+
+
+@pytest.fixture
+def document_chunk_repo(db_connection: DatabaseConnection) -> DocumentChunkRepository:
+    return DocumentChunkRepository(connection=db_connection)
 
 
 @pytest.fixture(scope="module")
@@ -79,11 +108,16 @@ def created_user_ids() -> List[UUID]:
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def cleanup_users(user_repo: UserRepository, created_user_ids: List[UUID]):
+async def cleanup_users(db_connection: DatabaseConnection, created_user_ids: List[UUID]):
     """Deletes every user a test registered; owned chats/messages/documents/chunks cascade."""
     yield
-    if created_user_ids:
-        await user_repo.delete_many(created_user_ids)
+
+    if not created_user_ids:
+        return
+
+    async with db_connection.get_session() as session:
+        await session.execute(delete(User).where(User.id.in_(created_user_ids)))
+        await session.commit()
 
 
 @pytest.fixture
