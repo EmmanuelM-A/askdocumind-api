@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import UploadFile
 from pydantic import BaseModel, Field, field_validator
 from src.errors.custom_exceptions import unprocessable_entity_error
-
+from src.config.configs import settings
 
 class UploadDocumentsRequest(BaseModel):
     """
@@ -30,6 +30,21 @@ class UploadDocumentsRequest(BaseModel):
             raise unprocessable_entity_error(
                 message="Files with multiple extensions are not allowed",
                 error_code="INVALID_FILE_EXTENSION",
+            )
+
+        unsupported = [
+            f.filename
+            for f in files
+            if Path(f.filename or "").suffix.lower() not in settings.files.ALLOED_FILE_EXTENSIONS
+        ]
+        if unsupported:
+            allowed = ", ".join(sorted(settings.files.ALLOED_FILE_EXTENSIONS))
+            raise unprocessable_entity_error(
+                message=(
+                    f"Unsupported file type(s): {', '.join(unsupported)}. "
+                    f"Allowed extensions are: {allowed}."
+                ),
+                error_code="UNSUPPORTED_FILE_TYPE",
             )
 
         return files
