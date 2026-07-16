@@ -13,7 +13,6 @@ from sqlalchemy import (
     String,
     UUID,
     Text,
-    Integer,
     BigInteger,
     Enum,
     ForeignKey,
@@ -93,7 +92,6 @@ class ChatSession(Base):
         UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False
     )
     title = Column(Text, nullable=True)
-    total_messages = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationships
@@ -108,7 +106,7 @@ class ChatSession(Base):
         return str(self.title) if self.title is not None else "Unknown Chat Session"
 
     def __repr__(self):
-        return f"Title: {self.title} | Total messages: {self.total_messages}"
+        return f"Title: {self.title}"
 
     def to_dict(self) -> dict:
         """Return JSON-serializable dict representation of the ChatSession.
@@ -120,7 +118,6 @@ class ChatSession(Base):
         return {
             "id": _serialize_value(self.id),
             "title": self.title,
-            "total_messages": self.total_messages,
             "created_at": _serialize_value(self.created_at),
         }
 
@@ -194,8 +191,7 @@ class DocumentChunk(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     document_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("document.id", ondelete="CASCADE"),
-        nullable=True,
+        ForeignKey("document.id", ondelete="CASCADE")
     )
     chat_session_id = Column(
         UUID(as_uuid=True),
@@ -230,7 +226,8 @@ class DocumentChunk(Base):
             try:
                 # numpy arrays and similar expose tolist()
                 if hasattr(val, "tolist"):
-                    return val.tolist()
+                    return val.tolist() # type: ignore
+                # fallback for other sequence types, e.g., built-in
                 # sequences (lists/tuples)
                 if isinstance(val, (list, tuple)):
                     return list(val)
