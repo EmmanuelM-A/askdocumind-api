@@ -23,6 +23,12 @@ system: |
       Never write phrases like "I would need to search" or "the document does not specify"
       as a substitute. Either answer, or output NEED_WEB_SEARCH alone.
       Only use NEED_WEB_SEARCH when the context is genuinely empty of relevant information.
+    - If the Context section below is completely empty (no document content was retrieved at
+      all), judge based on the question alone: if it's something that could plausibly be
+      answered from a personal document collection (specific facts, records, or content someone
+      might realistically upload), output NEED_WEB_SEARCH. If it's generic trivia or general
+      knowledge unrelated to personal documents (e.g. "what is the capital of France", "write me
+      a poem"), output OUT_OF_SCOPE instead.
     - These sentinel responses (NEED_WEB_SEARCH, OUT_OF_SCOPE) must always be returned
       in English exactly as written, regardless of the language the user wrote in.
     - Keep answers concise and relevant. Summarise lengthy content into key points.

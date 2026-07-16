@@ -40,7 +40,7 @@ class QueryHandler:
         """
         self.embedder = embedder
         self.document_chunk_repo = document_chunk_repo
-        self._llm = ChatOpenAI(
+        self.llm = ChatOpenAI(
             model=settings.llm.LLM_MODEL_NAME,
             temperature=settings.llm.LLM_TEMPERATURE,
             timeout=settings.llm.LLM_REQUEST_TIMEOUT_SECS,
@@ -49,9 +49,6 @@ class QueryHandler:
         )
         self._prompt_template = create_prompt_template(
             settings.llm.RESPONSE_PROMPT_FILEPATH
-        )
-        self._expansion_prompt_template = create_prompt_template(
-            settings.llm.QUERY_EXPANSION_PROMPT_FILEPATH
         )
         self._logger = BaseLogger(__name__)
 
@@ -103,11 +100,11 @@ class QueryHandler:
         to an LLM.
         """
 
-        if not retrieved_chunks or len(retrieved_chunks) == 0:
-            self._logger.warning(
-                "No retrieved chunks provided for response generation."
+        if not retrieved_chunks:
+            self._logger.debug(
+                "No retrieved chunks provided - asking the LLM to judge scope from the "
+                "question alone (empty context)."
             )
-            return None
 
         self._logger.debug(f"Generating responses for the query: {query}")
 
@@ -115,15 +112,11 @@ class QueryHandler:
             [cast(str, chunk.chunk_text) for chunk in retrieved_chunks]
         )
 
-        expanded_query = expand_query(
-            query=query, llm=self._llm, prompt_template=self._expansion_prompt_template
-        )
-
-        rag_chain = self._prompt_template | self._llm | StrOutputParser()
+        rag_chain = self._prompt_template | self.llm | StrOutputParser()
 
         try:
             response = rag_chain.invoke(
-                {"context": context_text, "query": expanded_query}
+                {"context": context_text, "query": query}
             )
         except Exception as e:
             raise server_error(

@@ -10,6 +10,8 @@ from uuid import UUID
 
 from src.components.chatbot.query_handler import PossibleResponse, QueryHandler
 from src.components.ingestion.document_processor import DocumentProcessor
+from src.components.prompts.prompt_loader import create_prompt_template
+from src.components.retrieval.query_expander import expand_query
 from src.components.retrieval.web_searcher import WebSearcher
 from src.config.configs import settings
 from src.logger.base_logger import BaseLogger
@@ -55,6 +57,9 @@ class RAGChatbot:
         self._query_handler = query_handler
         self._document_processor = document_processor
         self._web_searcher = web_searcher
+        self._expansion_prompt_template = create_prompt_template(
+            settings.llm.QUERY_EXPANSION_PROMPT_FILEPATH
+        )
         self._logger = BaseLogger(__name__)
 
     # ========================== QUERY METHODS ==========================
@@ -68,9 +73,15 @@ class RAGChatbot:
         """
 
         is_web_enabled = settings.web.IS_WEB_SEARCH_ENABLED and web_search_enabled
+        
+        expanded_query = expand_query(
+            query=query, llm=self._query_handler.llm, prompt_template=self._expansion_prompt_template
+        )
+        
+        self._logger.debug(f"Expanded query: {expanded_query}")
 
         results, sources = await self._query_handler.search_for_vectors(
-            query, chat_session_id
+            expanded_query, chat_session_id
         )
 
         include_web_search = " or through web search" if is_web_enabled else ""
@@ -91,27 +102,30 @@ class RAGChatbot:
             f"the query '{query}'."
         )
 
-        if len(results) > 0:
-            response: PossibleResponse = self._query_handler.generate_response(
-                query=query, retrieved_chunks=results
-            )
+        # Always ask the LLM to judge the query, even with zero retrieved chunks -
+        # this lets it classify OUT_OF_SCOPE (generic trivia) vs NEED_WEB_SEARCH
+        # (plausibly document-related) instead of blindly falling back to web
+        # search whenever local vector search finds nothing.
+        response: PossibleResponse = self._query_handler.generate_response(
+            query=expanded_query, retrieved_chunks=results
+        )
 
-            if response == "OUT_OF_SCOPE":
-                response_data.answer = f"The query '{query}' is outside of scope of the uploaded documents."
-                return response_data
+        if response == "OUT_OF_SCOPE":
+            response_data.answer = f"The query '{query}' is outside of scope of the uploaded documents."
+            return response_data
 
-            if response is None:
-                self._logger.info(f"No relevant information found for the query: '{query}'.")
-                return response_data
+        if response is None:
+            self._logger.info(f"No relevant information found for the query: '{query}'.")
+            return response_data
 
-            if response != "NEED_WEB_SEARCH":
-                response_data.answer = response
-                response_data.sources = sources
-                self._logger.info(f"Generated response for query: '{query}'.")
-                return response_data
+        if response != "NEED_WEB_SEARCH":
+            response_data.answer = response
+            response_data.sources = sources
+            self._logger.info(f"Generated response for query: '{query}'.")
+            return response_data
 
-            # LLM signalled NEED_WEB_SEARCH — fall through to web search below
-            self._logger.info(f"LLM requested web search for query: '{query}'.")
+        # LLM signalled NEED_WEB_SEARCH — fall through to web search below
+        self._logger.info(f"LLM requested web search for query: '{query}'.")
 
         # Either no matching chunks at all, or the LLM explicitly asked for a
         # web search — proceed only if web search is enabled.
@@ -138,11 +152,11 @@ class RAGChatbot:
         )
 
         await self._web_searcher.ingest_web_content(
-            query=query, chat_session_id=chat_session_id,
+            query=expanded_query, chat_session_id=chat_session_id,
         )
 
         web_results, web_sources = await self._query_handler.search_for_vectors(
-            query, chat_session_id
+            expanded_query, chat_session_id
         )
 
         if len(web_results) == 0:
@@ -150,7 +164,7 @@ class RAGChatbot:
             return response_data
 
         web_response: PossibleResponse = self._query_handler.generate_response(
-            query=query, retrieved_chunks=web_results, from_web_search=True
+            query=expanded_query, retrieved_chunks=web_results, from_web_search=True
         )
 
         if not web_response or web_response in ("OUT_OF_SCOPE", "NEED_WEB_SEARCH"):
