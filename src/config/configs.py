@@ -177,7 +177,7 @@ class LLMIntegrationSettings(_BaseSettings):
         default=f"{_PROJECT_ROOT}/data/prompts/default_response_prompt.yaml"
     )
     QUERY_EXPANSION_PROMPT_FILEPATH: str = Field(
-        default=f"{_PROJECT_ROOT}/data/prompts/default_query_expansion_prompt.yaml"
+        default=f"{_PROJECT_ROOT}/data/prompts/default_expand_query_prompt.yaml"
     )  # add to .env
 
     model_config = _DEFAULT_MODEL_CONFIG
