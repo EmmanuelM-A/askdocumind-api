@@ -30,6 +30,16 @@ def get_chunking_config() -> ChunkingConfig:
     return ChunkingConfig(max_tokens=settings.vector.MAX_TOKENS)
 
 
+def convert_to_docling_document(
+    content: str, source_name: str, label: DocItemLabel
+) -> DoclingDocument:
+    doc = DoclingDocument(name=source_name)
+
+    doc.add_text(label=label, text=content)
+
+    return doc
+
+
 class DocumentProcessor:
     """
     A class responsible for processing documents, including conversion,
@@ -70,17 +80,6 @@ class DocumentProcessor:
         self._logger.debug(f"Chunked document into {len(chunks)} chunks")
 
         return chunks
-
-    def convert_to_docling_document(
-        self, content: str, source_name: str, label: DocItemLabel
-    ) -> DoclingDocument:
-        doc = DoclingDocument(name=source_name)
-
-        doc.add_text(label=label, text=content)
-
-        self._logger.debug(f"Converted '{source_name}' to a DoclingDocument")
-
-        return doc
 
     async def save_document_chunks(
         self,
