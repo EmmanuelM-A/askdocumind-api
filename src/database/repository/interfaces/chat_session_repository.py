@@ -18,7 +18,6 @@ class ChatSessionSearchCriteria(BaseModel):
     id: Optional[UUID] = None
     user_id: Optional[UUID] = None
     title: Optional[str] = None
-    total_messages: Optional[int] = None
 
 class UpdatedChatSessionData(BaseModel):
     """Data structure for updating a chat session."""

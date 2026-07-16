@@ -6,6 +6,12 @@ A Retrieval-Augmented Generation (RAG) chatbot backend that lets users upload do
 
 **Frontend code:** [askdocumind-web](https://github.com/EmmanuelM-A/askdocumind-web)
 
+Enhacnements
+
+- Reranker
+- Query Exapansion
+- Context aware chunking
+
 ## Project Overview
 
 AskDocuMind allows users to upload PDF, DOCX, TXT, or Markdown files and immediately start asking natural-language questions about their content. The backend handles document ingestion, vector embedding, semantic search, and LLM-powered response generation.

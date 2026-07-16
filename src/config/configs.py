@@ -141,6 +141,9 @@ class FileProcessingSettings(_BaseSettings):
         default=1
     )  # Max total size of all files per chat
     MAX_DOCUMENTS_PER_CHAT: int = Field(default=10)
+    ALLOED_FILE_EXTENSIONS: List[str] = Field(
+        default=[".pdf", ".docx", ".txt", ".md", ".html", ".csv"] # TODO: Add to .env
+    )
 
     LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{_PROJECT_ROOT}/data/local/documents")
 
@@ -174,7 +177,7 @@ class LLMIntegrationSettings(_BaseSettings):
         default=f"{_PROJECT_ROOT}/data/prompts/default_response_prompt.yaml"
     )
     QUERY_EXPANSION_PROMPT_FILEPATH: str = Field(
-        default=f"{_PROJECT_ROOT}/data/prompts/default_query_expansion_prompt.yaml"
+        default=f"{_PROJECT_ROOT}/data/prompts/default_expand_query_prompt.yaml"
     )  # add to .env
 
     model_config = _DEFAULT_MODEL_CONFIG

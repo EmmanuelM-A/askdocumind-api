@@ -118,7 +118,7 @@ class WebSearcher:
             return documents
 
         except Exception as e:
-            self._logger.error(f"Critical error in web search: {e}", exc_info=True)
+            self._logger.error(f"Critical error in web search: {e}", exception=e)
             return []
 
     async def ingest_web_content(self, query: str, chat_session_id: UUID) -> int:

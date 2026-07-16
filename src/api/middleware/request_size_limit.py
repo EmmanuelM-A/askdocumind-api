@@ -10,7 +10,7 @@ from src.logger.base_logger import BaseLogger
 _logger = BaseLogger(__name__)
 
 _ERROR_RESPONSE = create_error_response(
-    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
     error_response_model=ErrorResponseModel(
         message="Request body too large.",
         error=ErrorInfo(code="REQUEST_TOO_LARGE"),

@@ -1,288 +1,297 @@
 """
-Unit tests for the UploadedDocumentProcessor class.
+Unit tests for the DocumentProcessor class.
 
 Tests cover:
-- Core functionality (processing single/multiple files)
-- Edge cases (empty files, invalid content, unsupported types)
-- Memory efficiency (streaming behavior)
-- Error handling and validation
+- Initialization / dependency wiring
+- Document extraction (conversion via DocumentConverter)
+- Chunking orchestration
+- Building a DoclingDocument from raw text
+- Embedding + persisting document chunks
+
+The DocumentConverter, HuggingFaceTokenizer and HybridChunker are backed by
+heavy third-party ML models (network downloads / GPU-capable libraries), so
+they are mocked - their own correctness is docling's responsibility, not
+DocumentProcessor's. The Embedder is likewise mocked here since its internal
+batching behaviour already has dedicated coverage in test_embedder.py; what
+we care about in this file is DocumentProcessor's own orchestration logic
+(how it turns embedding batches into DocumentChunk entities).
 """
 
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
 import pytest
+from docling_core.types.doc.document import DoclingDocument
+from docling_core.types.doc.labels import DocItemLabel
+
+from src.components.ingestion.document_processor import (
+    ChunkingConfig,
+    DocumentProcessor,
+    convert_to_docling_document,
+    get_chunking_config,
+)
 
 
-# ========================================
-# Core Functionality Tests
-# ========================================
+# ==================== FIXTURES ====================
 
 
-def test_processor_initialization(processor):
-    """Test that UploadedDocumentProcessor initializes correctly with text splitter."""
-    assert processor is not None
-    assert processor.splitter is not None
-    assert processor.splitter._chunk_size > 0
-    assert processor.splitter._chunk_overlap >= 0
+@pytest.fixture
+def mock_converter():
+    return Mock()
 
 
-def test_process_single_valid_file(processor):
-    """Test processing a single valid file produces streamed tuples with document_id and chunk."""
-    content = "This is a test document. " * 100
-    doc_id = uuid4()
-    filename = "test.pdf"
-    file_bytes = content.encode("utf-8")
+@pytest.fixture
+def mock_embedder():
+    return Mock()
 
-    mock_extractor = Mock()
-    mock_extractor.extract_text_from.return_value = content
 
+@pytest.fixture
+def mock_repository():
+    repo = Mock()
+    repo.upsert_many = AsyncMock(return_value=[])
+    return repo
+
+
+@pytest.fixture
+def document_processor(mock_converter, mock_embedder, mock_repository):
+    """DocumentProcessor with a stubbed-out tokenizer/chunker (avoids a real
+    HuggingFace model download) but real, injected business-logic objects."""
     with patch(
-        "src.components.ingestion.document_processor.get_text_extractor",
-        return_value=mock_extractor,
-    ) as mock_get_text_extractor, patch.object(
-        processor,
-        "_split_content",
-        return_value=["chunk-1", "chunk-2"],
-    ) as mock_split_content:
-        chunks = list(processor.process([(doc_id, filename, file_bytes)]))
+        "src.components.ingestion.document_processor.HuggingFaceTokenizer"
+    ) as mock_tokenizer_cls, patch(
+        "src.components.ingestion.document_processor.HybridChunker"
+    ) as mock_chunker_cls:
+        mock_tokenizer_cls.from_pretrained.return_value = Mock()
+        mock_chunker_cls.return_value = Mock()
 
-    assert len(chunks) == 2
-    assert all(isinstance(chunk, tuple) and len(chunk) == 2 for chunk in chunks)
-    assert all(chunk[0] == doc_id for chunk in chunks)
-    assert chunks[0][1] == "chunk-1"
-    assert chunks[1][1] == "chunk-2"
-    mock_get_text_extractor.assert_called_once_with(filename)
-    mock_extractor.extract_text_from.assert_called_once_with(file_bytes, filename)
-    # Verify _split_content was called once (content is stripped by _validate_content)
-    mock_split_content.assert_called_once()
+        processor = DocumentProcessor(
+            converter=mock_converter,
+            config=ChunkingConfig(max_tokens=512),
+            embedder=mock_embedder,
+            document_chunk_repository=mock_repository,
+        )
+        yield processor
 
 
-def test_process_multiple_valid_files(processor):
-    """Test processing multiple valid files produces chunks from all files."""
-    content1 = "First document content. " * 50
-    content2 = "Second document content. " * 50
-    doc_id1 = uuid4()
-    doc_id2 = uuid4()
-    filename1 = "doc1.txt"
-    filename2 = "doc2.pdf"
-    file_bytes1 = content1.encode("utf-8")
-    file_bytes2 = content2.encode("utf-8")
+# ==================== INITIALIZATION ====================
 
-    extractor1 = Mock()
-    extractor1.extract_text_from.return_value = content1
-    extractor2 = Mock()
-    extractor2.extract_text_from.return_value = content2
 
+def test_init_creates_tokenizer_and_chunker_with_correct_config(
+    mock_converter, mock_embedder, mock_repository
+):
+    """Test that the tokenizer/chunker are constructed using the chunking config."""
     with patch(
-        "src.components.ingestion.document_processor.get_text_extractor",
-        side_effect=[extractor1, extractor2],
-    ) as mock_get_text_extractor, patch.object(
-        processor,
-        "_split_content",
-        side_effect=[["chunk-1", "chunk-2"], ["chunk-3"]],
-    ) as mock_split_content:
-        chunks = list(processor.process([(doc_id1, filename1, file_bytes1), (doc_id2, filename2, file_bytes2)]))
+        "src.components.ingestion.document_processor.HuggingFaceTokenizer"
+    ) as mock_tokenizer_cls, patch(
+        "src.components.ingestion.document_processor.HybridChunker"
+    ) as mock_chunker_cls:
+        mock_tokenizer = Mock()
+        mock_tokenizer_cls.from_pretrained.return_value = mock_tokenizer
 
-    assert len(chunks) == 3
-    assert chunks[0] == (doc_id1, "chunk-1")
-    assert chunks[1] == (doc_id1, "chunk-2")
-    assert chunks[2] == (doc_id2, "chunk-3")
-    assert mock_get_text_extractor.call_count == 2
-    assert extractor1.extract_text_from.call_count == 1
-    assert extractor2.extract_text_from.call_count == 1
-    assert mock_split_content.call_count == 2
+        DocumentProcessor(
+            converter=mock_converter,
+            config=ChunkingConfig(max_tokens=256),
+            embedder=mock_embedder,
+            document_chunk_repository=mock_repository,
+        )
 
-
-def test_process_yields_chunks_incrementally(processor):
-    """Test that process() yields chunks as a generator (streaming behavior)."""
-    content = "Test content. " * 100
-    doc_id = uuid4()
-    filename = "test.txt"
-    file_bytes = content.encode("utf-8")
-
-    mock_extractor = Mock()
-    mock_extractor.extract_text_from.return_value = content
-
-    with patch(
-        "src.components.ingestion.document_processor.get_text_extractor",
-        return_value=mock_extractor,
-    ), patch.object(
-        processor, "_split_content", return_value=["chunk-1", "chunk-2"]
-    ):
-        result = processor.process([(doc_id, filename, file_bytes)])
-
-        assert hasattr(result, "__iter__")
-        assert hasattr(result, "__next__")
-
-        first_chunk = next(result)
-        assert isinstance(first_chunk, tuple)
-        assert len(first_chunk) == 2
-        assert first_chunk[0] == doc_id
-        assert first_chunk[1] == "chunk-1"
+        mock_tokenizer_cls.from_pretrained.assert_called_once_with(
+            model_name="sentence-transformers/all-MiniLM-L6-v2", max_tokens=256
+        )
+        mock_chunker_cls.assert_called_once_with(
+            tokenizer=mock_tokenizer, merge_peers=True
+        )
 
 
-# ========================================
-# Edge Cases and Error Handling
-# ========================================
+def test_init_stores_dependencies(document_processor, mock_converter, mock_embedder, mock_repository):
+    """Test that constructor arguments are stored for later use."""
+    assert document_processor._converter is mock_converter
+    assert document_processor._embedder is mock_embedder
+    assert document_processor._document_chunk_repository is mock_repository
 
 
-def test_process_empty_file_list_raises_error(processor):
-    """Test that processing an empty file list raises unprocessable_entity_error."""
-    with pytest.raises(Exception) as exc_info:
-        list(processor.process([]))
-
-    assert "No files provided" in str(exc_info.value) or "NO_FILES_PROVIDED" in str(exc_info.value)
+# ==================== EXTRACT ====================
 
 
-def test_process_unsupported_file_type_raises_error(processor):
-    """Test that unsupported file types bubble up as ValueError."""
-    doc_id = uuid4()
-    filename = "test.unsupported"
-    file_bytes = b"content"
+def test_extract_returns_converted_document(document_processor, mock_converter):
+    """Test that extract() returns the docling document from the converter's result."""
+    mock_document = Mock()
+    mock_document.name = "result.pdf"
+    mock_converter.convert.return_value = Mock(document=mock_document)
 
-    with patch(
-        "src.components.ingestion.document_processor.get_text_extractor",
-        side_effect=ValueError("Unsupported file type"),
-    ):
-        with pytest.raises(ValueError, match="Unsupported file type"):
-            list(processor.process([(doc_id, filename, file_bytes)]))
+    result = document_processor.extract(b"raw bytes", "result.pdf")
+
+    assert result is mock_document
 
 
-def test_process_extraction_failure_skips_file(processor):
-    """Test that files that fail extraction are skipped."""
-    doc_id = uuid4()
-    filename = "test.pdf"
-    file_bytes = b"content"
+def test_extract_builds_document_stream_with_correct_name(document_processor, mock_converter):
+    """Test that extract() passes a DocumentStream with the given filename to the converter."""
+    mock_converter.convert.return_value = Mock(document=Mock(name="doc.txt"))
 
-    mock_extractor = Mock()
-    mock_extractor.extract_text_from.side_effect = Exception("Extraction failed")
+    document_processor.extract(b"content", "doc.txt")
 
-    with patch(
-        "src.components.ingestion.document_processor.get_text_extractor",
-        return_value=mock_extractor,
-    ) as mock_get_text_extractor:
-        with pytest.raises(Exception) as exc_info:
-            list(processor.process([(doc_id, filename, file_bytes)]))
-
-        assert "No valid document chunks" in str(exc_info.value) or "NO_VALID_DOCUMENT_CHUNKS" in str(exc_info.value)
-        mock_get_text_extractor.assert_called_once_with(filename)
-        mock_extractor.extract_text_from.assert_called_once_with(file_bytes, filename)
+    stream_arg = mock_converter.convert.call_args[0][0]
+    assert stream_arg.name == "doc.txt"
+    assert stream_arg.stream.read() == b"content"
 
 
-def test_process_validation_failure_skips_file(processor):
-    """Test that files that fail validation are skipped."""
-    content = "Test content"
-    doc_id = uuid4()
-    filename = "test.txt"
-    file_bytes = content.encode("utf-8")
+def test_extract_propagates_converter_errors(document_processor, mock_converter):
+    """Test that extract() does not swallow converter failures."""
+    mock_converter.convert.side_effect = RuntimeError("conversion failed")
 
-    mock_extractor = Mock()
-    mock_extractor.extract_text_from.return_value = content
-
-    with patch(
-        "src.components.ingestion.document_processor.get_text_extractor",
-        return_value=mock_extractor,
-    ), patch.object(
-        processor,
-        "_validate_content",
-        return_value=(False, None),
-    ), patch.object(
-        processor, "_split_content"
-    ) as mock_split_content:
-        with pytest.raises(Exception) as exc_info:
-            list(processor.process([(doc_id, filename, file_bytes)]))
-
-        assert "No valid document chunks" in str(exc_info.value) or "NO_VALID_DOCUMENT_CHUNKS" in str(exc_info.value)
-        mock_split_content.assert_not_called()
+    with pytest.raises(RuntimeError, match="conversion failed"):
+        document_processor.extract(b"content", "bad.pdf")
 
 
-def test_process_empty_content_after_validation_skips_file(processor):
-    """Test that files with empty content after validation are skipped."""
-    content = "Test content"
-    doc_id = uuid4()
-    filename = "test.txt"
-    file_bytes = content.encode("utf-8")
-
-    mock_extractor = Mock()
-    mock_extractor.extract_text_from.return_value = content
-
-    with patch(
-        "src.components.ingestion.document_processor.get_text_extractor",
-        return_value=mock_extractor,
-    ), patch.object(
-        processor,
-        "_validate_content",
-        return_value=(True, ""),
-    ), patch.object(
-        processor, "_split_content"
-    ) as mock_split_content:
-        with pytest.raises(Exception) as exc_info:
-            list(processor.process([(doc_id, filename, file_bytes)]))
-
-        assert "No valid document chunks" in str(exc_info.value) or "NO_VALID_DOCUMENT_CHUNKS" in str(exc_info.value)
-        mock_split_content.assert_not_called()
+# ==================== CHUNK ====================
 
 
-def test_process_mixed_valid_and_invalid_files(processor):
-    """Test processing mixed valid and invalid files only yields chunks from valid files."""
-    valid_content = "Valid document content. " * 50
-    invalid_content = "Invalid"
-    doc_id1 = uuid4()
-    doc_id2 = uuid4()
-    filename1 = "valid.txt"
-    filename2 = "invalid.txt"
-    file_bytes1 = valid_content.encode("utf-8")
-    file_bytes2 = invalid_content.encode("utf-8")
+def test_chunk_returns_contextualized_chunks_in_order(document_processor):
+    """Test that chunk() contextualizes every chunk yielded by the chunker, in order."""
+    raw_chunk_1, raw_chunk_2 = Mock(), Mock()
+    document_processor._chunker.chunk.return_value = iter([raw_chunk_1, raw_chunk_2])
+    document_processor._chunker.contextualize.side_effect = ["text-1", "text-2"]
 
-    valid_extractor = Mock()
-    valid_extractor.extract_text_from.return_value = valid_content
-    invalid_extractor = Mock()
-    invalid_extractor.extract_text_from.return_value = invalid_content
+    result = document_processor.chunk(Mock(spec=DoclingDocument))
 
-    with patch(
-        "src.components.ingestion.document_processor.get_text_extractor",
-        side_effect=[valid_extractor, invalid_extractor],
-    ), patch.object(
-        processor,
-        "_validate_content",
-        side_effect=[(True, valid_content), (False, None)],
-    ), patch.object(
-        processor,
-        "_split_content",
-        return_value=["chunk-a", "chunk-b"],
-    ):
-        chunks = list(processor.process([(doc_id1, filename1, file_bytes1), (doc_id2, filename2, file_bytes2)]))
-
-    assert len(chunks) == 2
-    assert chunks[0] == (doc_id1, "chunk-a")
-    assert chunks[1] == (doc_id1, "chunk-b")
+    assert result == ["text-1", "text-2"]
+    document_processor._chunker.contextualize.assert_any_call(raw_chunk_1)
+    document_processor._chunker.contextualize.assert_any_call(raw_chunk_2)
 
 
-def test_process_filters_empty_chunks(processor):
-    """Test that empty or whitespace-only chunks are filtered out."""
-    content = "Valid content for testing"
-    doc_id = uuid4()
-    filename = "test.txt"
-    file_bytes = content.encode("utf-8")
+def test_chunk_empty_document_returns_empty_list(document_processor):
+    """Test that chunk() returns an empty list when the chunker yields no chunks."""
+    document_processor._chunker.chunk.return_value = iter([])
 
-    mock_extractor = Mock()
-    mock_extractor.extract_text_from.return_value = content
+    result = document_processor.chunk(Mock(spec=DoclingDocument))
 
-    with patch(
-        "src.components.ingestion.document_processor.get_text_extractor",
-        return_value=mock_extractor,
-    ), patch.object(
-        processor,
-        "_validate_content",
-        return_value=(True, content),
-    ), patch.object(
-        processor,
-        "_split_content",
-        return_value=["Valid chunk", "   ", "", "Another valid chunk"],
-    ):
-        chunks = list(processor.process([(doc_id, filename, file_bytes)]))
+    assert result == []
+    document_processor._chunker.contextualize.assert_not_called()
 
-    assert len(chunks) == 2
-    assert chunks[0] == (doc_id, "Valid chunk")
-    assert chunks[1] == (doc_id, "Another valid chunk")
+
+# ==================== CONVERT TO DOCLING DOCUMENT ====================
+
+
+def test_convert_to_docling_document_creates_document_with_text():
+    """Test that a real DoclingDocument is built containing the given text."""
+    doc = convert_to_docling_document("Hello world", "source.txt", DocItemLabel.PARAGRAPH)
+
+    assert isinstance(doc, DoclingDocument)
+    assert doc.name == "source.txt"
+    assert doc.texts[0].text == "Hello world"
+
+
+def test_convert_to_docling_document_uses_given_label():
+    """Test that the text item is tagged with the provided DocItemLabel."""
+    doc = convert_to_docling_document("A title", "source.txt", DocItemLabel.TITLE)
+
+    assert doc.texts[0].label == DocItemLabel.TITLE
+
+
+# ==================== SAVE DOCUMENT CHUNKS ====================
+
+
+@pytest.mark.asyncio
+async def test_save_document_chunks_empty_list_returns_zero(document_processor, mock_repository):
+    """Test that saving an empty chunk list is a no-op."""
+    result = await document_processor.save_document_chunks([], uuid4(), uuid4())
+
+    assert result == 0
+    mock_repository.upsert_many.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_save_document_chunks_single_batch_success(
+    document_processor, mock_embedder, mock_repository
+):
+    """Test the happy path: chunks embedded in one batch are saved and counted."""
+    chat_session_id = uuid4()
+    document_id = uuid4()
+    chunks = ["chunk one", "chunk two"]
+    mock_embedder.embed_documents.return_value = iter([[[0.1, 0.2], [0.3, 0.4]]])
+    mock_repository.upsert_many.return_value = [uuid4(), uuid4()]
+
+    result = await document_processor.save_document_chunks(
+        chunks, chat_session_id, document_id
+    )
+
+    assert result == 2
+    saved_entities = mock_repository.upsert_many.call_args[0][0]
+    assert [e.chunk_text for e in saved_entities] == chunks
+    assert [e.embedding for e in saved_entities] == [[0.1, 0.2], [0.3, 0.4]]
+    assert all(e.document_id == document_id for e in saved_entities)
+    assert all(e.chat_session_id == chat_session_id for e in saved_entities)
+
+
+@pytest.mark.asyncio
+async def test_save_document_chunks_multiple_batches_align_text_and_embeddings(
+    document_processor, mock_embedder, mock_repository
+):
+    """Test that chunk text stays correctly aligned with embeddings across batches."""
+    chunks = ["c1", "c2", "c3"]
+    mock_embedder.embed_documents.return_value = iter(
+        [[[0.1], [0.2]], [[0.3]]]
+    )
+    mock_repository.upsert_many.return_value = [uuid4(), uuid4(), uuid4()]
+
+    await document_processor.save_document_chunks(chunks, uuid4(), uuid4())
+
+    saved_entities = mock_repository.upsert_many.call_args[0][0]
+    assert [e.chunk_text for e in saved_entities] == ["c1", "c2", "c3"]
+    assert [e.embedding for e in saved_entities] == [[0.1], [0.2], [0.3]]
+
+
+@pytest.mark.asyncio
+async def test_save_document_chunks_no_embeddings_returns_zero(
+    document_processor, mock_embedder, mock_repository
+):
+    """Test that no entities are saved when the embedder yields no batches."""
+    mock_embedder.embed_documents.return_value = iter([])
+
+    result = await document_processor.save_document_chunks(["chunk"], uuid4(), uuid4())
+
+    assert result == 0
+    mock_repository.upsert_many.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_save_document_chunks_passes_transaction_through(
+    document_processor, mock_embedder, mock_repository
+):
+    """Test that an optional transaction is forwarded to the repository call."""
+    tx = Mock()
+    mock_embedder.embed_documents.return_value = iter([[[0.1]]])
+    mock_repository.upsert_many.return_value = [uuid4()]
+
+    await document_processor.save_document_chunks(["chunk"], uuid4(), uuid4(), tx=tx)
+
+    assert mock_repository.upsert_many.call_args[0][1] is tx
+
+
+@pytest.mark.asyncio
+async def test_save_document_chunks_returns_repository_saved_count(
+    document_processor, mock_embedder, mock_repository
+):
+    """Test that the return value reflects what the repository reports as saved,
+    not simply the number of entities that were built."""
+    mock_embedder.embed_documents.return_value = iter([[[0.1], [0.2]]])
+    mock_repository.upsert_many.return_value = [uuid4()]
+
+    result = await document_processor.save_document_chunks(
+        ["chunk-a", "chunk-b"], uuid4(), uuid4()
+    )
+
+    assert result == 1
+
+
+# ==================== GET CHUNKING CONFIG ====================
+
+
+def test_get_chunking_config_uses_settings():
+    """Test that the factory reads MAX_TOKENS from application settings."""
+    with patch("src.components.ingestion.document_processor.settings") as mock_settings:
+        mock_settings.vector.MAX_TOKENS = 999
+
+        config = get_chunking_config()
+
+    assert config == ChunkingConfig(max_tokens=999)

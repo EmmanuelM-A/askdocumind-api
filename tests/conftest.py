@@ -30,3 +30,9 @@ os.environ.setdefault("SEARCH_ENGINE_ID", "test-search-engine-id")
 os.environ.setdefault("CORS_ORIGINS", '["http://localhost:3000"]')
 os.environ.setdefault("OPENAI_LLM_MODEL_NAME", "gpt-4o")
 os.environ.setdefault("OPENAI_EMBEDDING_MODEL_NAME", "text-embedding-3-small")
+
+# Force-disabled (not setdefault): .env has a real SENTRY_DSN, which would
+# otherwise make every test run send real spans/error events to the live
+# Sentry project. src.api.app._init_sentry() skips sentry_sdk.init()
+# entirely when SENTRY_DSN is falsy.
+os.environ["SENTRY_DSN"] = ""
