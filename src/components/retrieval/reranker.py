@@ -44,7 +44,7 @@ class CrossEncoderReranker(Reranker):
 
         assert self.reranker is not None, "Reranker model is not initialized."
 
-        pairs = [[query, row["content"]] for row in chunks]
+        pairs = [[query, row.chunk_text] for row in chunks]
         scores = self.reranker.predict(pairs)
 
         # Combine chunks with their scores
