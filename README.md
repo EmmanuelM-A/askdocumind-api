@@ -6,12 +6,6 @@ A Retrieval-Augmented Generation (RAG) chatbot backend that lets users upload do
 
 **Frontend code:** [askdocumind-web](https://github.com/EmmanuelM-A/askdocumind-web)
 
-Enhacnements
-
-- Reranker
-- Query Exapansion
-- Context aware chunking
-
 ## Project Overview
 
 AskDocuMind allows users to upload PDF, DOCX, TXT, or Markdown files and immediately start asking natural-language questions about their content. The backend handles document ingestion, vector embedding, semantic search, and LLM-powered response generation.
@@ -22,9 +16,12 @@ When the document context is insufficient, the system can optionally fall back t
 
 ## Features
 
-- **Document upload**: PDF, DOCX, TXT, and Markdown files up to 0.5 MB each
-- **RAG pipeline**: Documents are chunked, embedded, and stored as vectors in PostgreSQL via pgvector
+- **Document upload**: PDF, DOCX, TXT, and Markdown, CSV, HTML files up to 0.5 MB each
+- **Context-aware chunking**: Documents are parsed and chunked with Docling's hybrid chunker, which splits on document structure and token limits rather than fixed-size windows
+- **RAG pipeline**: Chunks are embedded and stored as vectors in PostgreSQL via pgvector
 - **Semantic search**: Cosine similarity retrieval finds the most relevant chunks for each query
+- **Reranking**: A cross-encoder model rescoring component for improving retrieved-chunk relevance
+- **Query expansion**: Vague or short queries are rewritten by the LLM into fuller, more searchable questions before retrieval
 - **LLM responses**: GPT-powered answers grounded in document context, with prompt injection protection
 - **Web search fallback**: Optional Brave Search integration supplements answers when documents lack the information
 - **Anonymous sessions**: No sign-up required; sessions are cookie-based and automatically cleaned up after TTL expiry
@@ -41,10 +38,11 @@ When the document context is insufficient, the system can optionally fall back t
 2. `AnonymousSessionMiddleware` validates cookie and attaches `user_id` to request state
 3. `QueryHandler` embeds the query using OpenAI text-embedding-3-small
 4. pgvector cosine similarity search retrieves the top-K relevant document chunks
-5. Chunks + query are passed to GPT via a structured prompt
-6. LLM returns either an answer, `OUT_OF_SCOPE`, or `NEED_WEB_SEARCH`
-7. If `NEED_WEB_SEARCH` and web search is enabled: Brave Search fetches results, content is ingested, and the LLM generates a web-grounded answer
-8. Response (answer + sources) is returned to the client
+5. The query is expanded by the LLM for a fuller retrieval-friendly phrasing
+6. Chunks + expanded query are passed to GPT via a structured prompt
+7. LLM returns either an answer, `OUT_OF_SCOPE`, or `NEED_WEB_SEARCH`
+8. If `NEED_WEB_SEARCH` and web search is enabled: Brave Search fetches results, content is ingested, and the LLM generates a web-grounded answer
+9. Response (answer + sources) is returned to the client
 
 ## Technology Stack
 
@@ -57,9 +55,9 @@ When the document context is insufficient, the system can optionally fall back t
 | LLM | OpenAI GPT-3.5-turbo / GPT-4o-mini | Response generation |
 | Embeddings | OpenAI text-embedding-3-small | Semantic vector creation |
 | LLM orchestration | LangChain | RAG chain construction |
-| File parsing | PyMuPDF, python-docx | PDF and DOCX text extraction |
+| Document parsing & chunking | Docling | Context-aware text extraction and chunking |
+| Reranking | Cross-encoder (sentence-transformers) | Rescoring retrieved chunks for relevance |
 | Web search | Brave Search API | Optional live search fallback |
-| HTML parsing | BeautifulSoup4 | Web content extraction |
 | Rate limiting | SlowAPI | Per-user request throttling |
 | Session auth | JWT (HS256) in HttpOnly cookies | Anonymous user sessions |
 | File storage | Local filesystem / AWS S3 | Document file storage |
