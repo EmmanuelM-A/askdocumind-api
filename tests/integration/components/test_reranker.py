@@ -228,4 +228,4 @@ async def test_reranker_reuses_loaded_model_across_calls():
 def test_reranker_abstract_base_class_cannot_be_instantiated():
     """Test that the Reranker ABC cannot be instantiated directly."""
     with pytest.raises(TypeError):
-        Reranker()
+        Reranker() # type: ignore
