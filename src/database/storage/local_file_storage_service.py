@@ -6,6 +6,7 @@ paths relative to the root; path traversal outside the root is rejected.
 """
 
 from pathlib import Path
+from typing import Optional
 
 from src.config.configs import settings
 from src.database.storage.storage_service import StorageService
@@ -118,7 +119,7 @@ class LocalFileStorageService(StorageService):
         except Exception as e:
             raise IOError(f"Failed to update data at {key}: {e}") from e
 
-    def count(self, key: str = None) -> int:
+    def count(self, key: Optional[str] = None) -> int:
         """
         Count the number of files stored under the given key (or root if no key).
 
