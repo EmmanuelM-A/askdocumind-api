@@ -93,7 +93,6 @@ class ChatSession(Base):
         UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False
     )
     title = Column(Text, nullable=True)
-    total_messages = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationships
@@ -194,8 +193,7 @@ class DocumentChunk(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     document_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("document.id", ondelete="CASCADE"),
-        nullable=True,
+        ForeignKey("document.id", ondelete="CASCADE")
     )
     chat_session_id = Column(
         UUID(as_uuid=True),

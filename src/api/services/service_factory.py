@@ -5,8 +5,11 @@ from typing import TYPE_CHECKING
 from src.api.services.chats.chat_sessions import ChatSessionService
 from src.api.utils.session_manager import get_token_manager
 from src.components.chatbot.chatbot_factory import get_chatbot
-from src.components.ingestion.processor_factory import get_vector_processor
+from src.components.ingestion.document_processor import DocumentProcessor, get_chunking_config
+from src.components.retrieval.embedder import Embedder
 from src.database.repository import get_database_repository
+from docling.document_converter import DocumentConverter
+
 from src.database.repository.database_repository_factory import get_tx_factory
 
 if TYPE_CHECKING:
@@ -30,8 +33,8 @@ def get_rag_chatbot_service() -> "RAGChatbotService":
         from src.api.services.chatbot.rag_chatbot import RAGChatbotService
 
         _rag_chatbot_service = RAGChatbotService(
-            get_database_repository("CHAT_SESSION"),  # type: ignore
-            get_database_repository("CHAT_MESSAGE"), # type: ignore
+            get_database_repository("CHAT_SESSION"),
+            get_database_repository("CHAT_MESSAGE"),
             get_chatbot(),
         )
 
@@ -46,9 +49,14 @@ def get_upload_service() -> "UploadDocumentService":
         from src.api.services.documents.document_uploads import UploadDocumentService
 
         _upload_service = UploadDocumentService(
-            document_repo=get_database_repository("DOCUMENT"), # type: ignore
-            chat_session_repo=get_database_repository("CHAT_SESSION"), # type: ignore
-            vector_processor=get_vector_processor(),
+            document_repo=get_database_repository("DOCUMENT"),
+            chat_session_repo=get_database_repository("CHAT_SESSION"),
+            document_processor=DocumentProcessor(
+                converter=DocumentConverter(),
+                config=get_chunking_config(),
+                embedder=Embedder(),
+                document_chunk_repository=get_database_repository("DOCUMENT_CHUNK"),
+            ),
             tx_factory=get_tx_factory(),
         )
 
@@ -63,8 +71,8 @@ def get_chat_service() -> "ChatSessionService":
         from src.api.services.chats.chat_sessions import ChatSessionService
 
         _chat_service = ChatSessionService(
-            chat_session_repo=get_database_repository("CHAT_SESSION"), # type: ignore
-            chat_message_repo=get_database_repository("CHAT_MESSAGE"), # type: ignore
+            chat_session_repo=get_database_repository("CHAT_SESSION"),
+            chat_message_repo=get_database_repository("CHAT_MESSAGE"),
         )
 
     return _chat_service

@@ -2,11 +2,22 @@
 Factory method to get the appropriate database repository for a given model.
 """
 
-from typing import Literal, TypeAlias, Optional
+from typing import Literal, TypeAlias, Optional, overload
 
 from src.database.connection import get_database_connection
 from src.database.repository.interfaces import DBTransactionFactory
 
+from src.database.repository.interfaces.chat_message_repository import (
+    ChatMessageRepositoryInterface,
+)
+from src.database.repository.interfaces.chat_session_repository import (
+    ChatSessionRepositoryInterface,
+)
+from src.database.repository.interfaces.document_chunk_repository import DocumentChunkRepositoryInterface
+from src.database.repository.interfaces.document_repository import (
+    DocumentRepositoryInterface,
+)
+from src.database.repository.interfaces.user_repository import UserRepositoryInterface
 from src.database.repository.sqlalchemy import (
     DocumentRepository,
     ChatSessionRepository,
@@ -14,8 +25,9 @@ from src.database.repository.sqlalchemy import (
     UserRepository,
     SQLAlchemyDBTransactionFactory,
 )
-from src.database.repository.sqlalchemy.document_chunk_repository import \
-    DocumentChunkRepository
+from src.database.repository.sqlalchemy.document_chunk_repository import (
+    DocumentChunkRepository,
+)
 
 _database_repositories = {
     "DOCUMENT": DocumentRepository(connection=get_database_connection()),
@@ -27,12 +39,30 @@ _database_repositories = {
 
 _db_transaction_factory: Optional[DBTransactionFactory] = None
 
-RepositoryModelKey: TypeAlias = Literal["DOCUMENT", "CHAT_SESSION", "CHAT_MESSAGE", "USER", "DOCUMENT_CHUNK"]
+RepositoryModelKey: TypeAlias = Literal[
+    "DOCUMENT", "CHAT_SESSION", "CHAT_MESSAGE", "USER", "DOCUMENT_CHUNK"
+]
 
 
+@overload
+def get_database_repository(model: Literal["DOCUMENT"]) -> DocumentRepositoryInterface: ...
+@overload
+def get_database_repository(model: Literal["CHAT_SESSION"]) -> ChatSessionRepositoryInterface: ...
+@overload
+def get_database_repository(model: Literal["CHAT_MESSAGE"]) -> ChatMessageRepositoryInterface: ...
+@overload
+def get_database_repository(model: Literal["USER"]) -> UserRepositoryInterface: ...
+@overload
+def get_database_repository(model: Literal["DOCUMENT_CHUNK"]) -> DocumentChunkRepositoryInterface: ...
 def get_database_repository(
     model: RepositoryModelKey,
-) -> DocumentRepository | ChatSessionRepository | ChatMessageRepository | UserRepository | DocumentChunkRepository:
+) -> (
+    DocumentRepositoryInterface
+    | ChatSessionRepositoryInterface
+    | ChatMessageRepositoryInterface
+    | UserRepositoryInterface
+    | DocumentChunkRepositoryInterface
+):
     """
     Factory method to get the appropriate database repository instance
     for a given model.

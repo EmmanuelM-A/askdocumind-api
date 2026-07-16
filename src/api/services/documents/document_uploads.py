@@ -4,14 +4,14 @@ Service module for handling document uploads.
 
 import asyncio
 import uuid
-from typing import List, Tuple, cast
+from typing import List
 from uuid import UUID
 
 from fastapi import UploadFile
 
 from src.api.services.validation.document import UploadDocumentsRequest
 from src.api.services.validation.helper import check_if_chat_exists
-from src.components.ingestion.vector_processor import VectorProcessor
+from src.components.ingestion.document_processor import DocumentProcessor
 from src.config.configs import settings
 from src.config.constants import ProcessingStatus
 from src.database.models import Document
@@ -39,12 +39,12 @@ class UploadDocumentService:
 
     def __init__(
         self,
-        vector_processor: VectorProcessor,
+        document_processor: DocumentProcessor,
         chat_session_repo: ChatSessionRepositoryInterface,
         document_repo: DocumentRepositoryInterface,
         tx_factory: DBTransactionFactory,
     ) -> None:
-        self._vector_processor = vector_processor
+        self._document_processor = document_processor
         self._chat_session_repo = chat_session_repo
         self._document_repo = document_repo
         self._tx_factory = tx_factory
@@ -68,70 +68,59 @@ class UploadDocumentService:
         await self._assert_no_duplicate_uploads(request)
         await self._assert_document_count_limit(request.chat_id, len(request.documents))
 
-        entities: List[Document] = []
-        documents: List[Tuple[UUID, str, bytes]] = []
-        files_that_exceed_chat_limit: List[str] = []
+        failed_to_upload: List[str] = []
+        docs_saved: int = 0
 
         for uploaded_file in request.documents:
-            filename = self._clean_filename(
-                uploaded_file.filename or "Unnamed file"
-            )
+            filename = self._clean_filename(uploaded_file.filename or "Unnamed file")
             self._logger.debug(f"Processing uploaded file '{filename}'")
 
-            data = await self._read_data_from_upload(uploaded_file)
+            document_data = await self._read_data_from_upload(uploaded_file)
 
-            incoming_bytes = len(data)
+            incoming_bytes = len(document_data)
             exceeds = await self._do_incoming_bytes_exceed_chat_limit(
                 chat_session_id=request.chat_id,
                 incoming_bytes=incoming_bytes,
             )
 
             if exceeds:
-                files_that_exceed_chat_limit.append(filename)
+                failed_to_upload.append(filename)
                 continue
 
             document = Document(
                 id=uuid.uuid4(),
                 session_id=request.chat_id,
                 filename=filename,
-                file_size=len(data),
-                processing_status=ProcessingStatus.PROCESSING,
+                file_size=len(document_data),
+                processing_status=ProcessingStatus.COMPLETED,
             )
 
-            entities.append(document)
-            documents.append((cast(UUID, document.id), filename, data))
+            async with self._tx_factory.create() as tx:
+                doc_id = await self._document_repo.create(
+                    data=document,
+                    tx=tx,
+                )
 
-        self._logger.debug(f"{len(documents)} document(s) entities created successfully")
-        self._logger.warning(f"{len(files_that_exceed_chat_limit)} files exceed chat limit")
+                docling_document = self._document_processor.extract(
+                    document_data=document_data,
+                    filename=filename,
+                )
+                chunks = self._document_processor.chunk(docling_document)
 
-        if len(files_that_exceed_chat_limit) == len(request.documents):
-            raise conflict_error(
-                message=(
-                    "All uploaded documents exceed the maximum total chat size limit of "
-                    f"{_MAX_FILES_PER_CHAT_BYTES:.1f} MB."
-                ),
-                error_code="ALL_DOCUMENTS_EXCEED_CHAT_LIMIT",
-            )
+                await self._document_processor.save_document_chunks(
+                    chunks=chunks,
+                    chat_session_id=request.chat_id,
+                    document_id=doc_id,
+                    tx=tx,
+                )
+                docs_saved += 1
 
-        async with self._tx_factory.create() as tx:
-            created_entities = await self._document_repo.create_many(
-                entities=entities,
-                tx=tx,
-            )
+        self._logger.debug(
+            f"Successfully uploaded {docs_saved}/{len(request.documents)} " +
+            f"documents for chat {request.chat_id}"
+        )
 
-            self._logger.debug(f"Created {len(created_entities)} document entities successfully")
-
-            await self._vector_processor.process_and_save_vectors_from_uploads(
-                chat_session_id=request.chat_id, documents=documents, tx=tx
-            )
-
-            await self._document_repo.bulk_update_processing_status(
-                document_ids=created_entities,
-                status=ProcessingStatus.COMPLETED,
-                tx=tx,
-            )
-
-        return len(created_entities)
+        return docs_saved
 
     async def fetch_uploaded_document_metadata(
         self, chat_id: UUID, owner_id: UUID
@@ -177,9 +166,7 @@ class UploadDocumentService:
 
         await self._document_repo.delete(document_id)
 
-        self._logger.info(
-            f"Document {document_id} deleted from chat {chat_id}."
-        )
+        self._logger.info(f"Document {document_id} deleted from chat {chat_id}.")
 
     # ========================== HELPER METHODS ==========================
 
