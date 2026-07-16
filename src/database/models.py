@@ -106,7 +106,7 @@ class ChatSession(Base):
         return str(self.title) if self.title is not None else "Unknown Chat Session"
 
     def __repr__(self):
-        return f"Title: {self.title} | Total messages: {self.total_messages}"
+        return f"Title: {self.title}"
 
     def to_dict(self) -> dict:
         """Return JSON-serializable dict representation of the ChatSession.
@@ -118,7 +118,6 @@ class ChatSession(Base):
         return {
             "id": _serialize_value(self.id),
             "title": self.title,
-            "total_messages": self.total_messages,
             "created_at": _serialize_value(self.created_at),
         }
 
@@ -227,7 +226,8 @@ class DocumentChunk(Base):
             try:
                 # numpy arrays and similar expose tolist()
                 if hasattr(val, "tolist"):
-                    return val.tolist()
+                    return val.tolist() # type: ignore
+                # fallback for other sequence types, e.g., built-in
                 # sequences (lists/tuples)
                 if isinstance(val, (list, tuple)):
                     return list(val)
