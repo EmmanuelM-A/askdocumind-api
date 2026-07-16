@@ -141,6 +141,9 @@ class FileProcessingSettings(_BaseSettings):
         default=1
     )  # Max total size of all files per chat
     MAX_DOCUMENTS_PER_CHAT: int = Field(default=10)
+    ALLOED_FILE_EXTENSIONS: List[str] = Field(
+        default=[".pdf", ".docx", ".txt", ".md", ".html", ".csv"] # TODO: Add to .env
+    )
 
     LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{_PROJECT_ROOT}/data/local/documents")
 
