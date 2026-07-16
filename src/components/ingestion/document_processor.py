@@ -4,7 +4,6 @@ from typing import List, Optional
 from uuid import UUID
 from docling.document_converter import DocumentConverter
 from docling.datamodel.base_models import DocumentStream
-from docling_core.types.doc.document import DoclingDocument
 
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer

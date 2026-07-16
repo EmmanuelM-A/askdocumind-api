@@ -4,7 +4,6 @@ from pathlib import Path
 
 from fastapi import UploadFile
 from pydantic import BaseModel, Field, field_validator
-from src.config.configs import settings
 from src.errors.custom_exceptions import unprocessable_entity_error
 
 

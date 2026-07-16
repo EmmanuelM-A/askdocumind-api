@@ -13,7 +13,6 @@ from sqlalchemy import (
     String,
     UUID,
     Text,
-    Integer,
     BigInteger,
     Enum,
     ForeignKey,
