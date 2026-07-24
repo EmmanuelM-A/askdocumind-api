@@ -117,12 +117,13 @@ async def test_chat_persists_user_and_assistant_messages(
     assert roles["ASSISTANT"] == answer
 
 
-async def test_chat_web_search_enabled_but_globally_disabled_returns_default_message(
+async def test_chat_web_search_enabled_falls_back_to_real_web_search(
     app_client, seed_user, seed_chat_session, auth_cookie
 ):
-    """settings.web.IS_WEB_SEARCH_ENABLED is False in this env, so requesting
-    web_search_enabled=True with no matching chunks still falls back to the
-    default message rather than attempting a real web search."""
+    """No local chunks + web_search_enabled=True + IS_WEB_SEARCH_ENABLED on in
+    this env: the LLM should judge a document-plausible question as
+    NEED_WEB_SEARCH (not OUT_OF_SCOPE), triggering a real Brave/DDGS search,
+    real content ingestion, and a real generated answer with sources."""
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
 
@@ -137,7 +138,9 @@ async def test_chat_web_search_enabled_but_globally_disabled_returns_default_mes
     )
 
     assert response.status_code == 200
-    assert response.json()["data"]["answer"].startswith(DEFAULT_NO_RESULTS_PREFIX)
+    body = response.json()["data"]
+    assert not body["answer"].startswith(DEFAULT_NO_RESULTS_PREFIX)
+    assert len(body["sources"]) > 0
 
 
 async def test_chat_response_shape(app_client, seed_user, seed_chat_session, auth_cookie):
