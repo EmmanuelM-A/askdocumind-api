@@ -17,6 +17,7 @@ from src.components.retrieval.web_searcher import (
     WebContent,
     WebSearcher,
     WebSearchResult,
+    _safe_web_filename,
 )
 
 # ==================== INITIALIZATION TESTS ====================
@@ -307,6 +308,7 @@ def test_fetch_page_html_success(web_searcher):
     """Test successful raw HTML fetch for a safe URL."""
     mock_response = Mock()
     mock_response.text = "<html>page content</html>"
+    mock_response.headers = {"Content-Type": "text/html; charset=utf-8"}
     mock_response.raise_for_status = Mock()
 
     with patch.object(
@@ -321,6 +323,27 @@ def test_fetch_page_html_success(web_searcher):
         content = web_searcher._fetch_page_html("https://example.com")
 
     assert content == "<html>page content</html>"
+
+
+def test_fetch_page_html_rejects_non_html_content(web_searcher):
+    """Test that a non-HTML Content-Type is rejected rather than treated as HTML."""
+    mock_response = Mock()
+    mock_response.text = "%PDF-1.4 not html"
+    mock_response.headers = {"Content-Type": "application/pdf"}
+    mock_response.raise_for_status = Mock()
+
+    with patch.object(
+        web_searcher, "_is_safe_url", return_value=True
+    ), patch("src.components.retrieval.web_searcher.requests.get") as mock_get, patch(
+        "src.components.retrieval.web_searcher.settings"
+    ) as mock_settings:
+        mock_get.return_value = mock_response
+        mock_settings.web.WEB_USER_AGENT = "test-agent"
+        mock_settings.web.WEB_REQUEST_TIMEOUT_SECS = 10
+
+        content = web_searcher._fetch_page_html("https://example.com/file.pdf")
+
+    assert content is None
 
 
 def test_fetch_page_html_blocked_for_unsafe_url(web_searcher):
@@ -507,3 +530,33 @@ def test_web_search_result_creation():
     assert result.title == "Test Title"
     assert result.snippet == "Test snippet"
     assert result.url == "https://example.com"
+
+
+# ==================== SAFE WEB FILENAME ====================
+
+
+def test_safe_web_filename_uses_title_and_html_extension():
+    filename = _safe_web_filename("London", "https://en.wikipedia.org/wiki/London")
+
+    assert filename.startswith("web_London-")
+    assert filename.endswith(".html")
+
+
+def test_safe_web_filename_strips_unsafe_characters():
+    filename = _safe_web_filename('Bad:/\\*?"<>|Title', "https://example.com")
+
+    assert not any(c in filename[: filename.index("-")] for c in ':/\\*?"<>|')
+
+
+def test_safe_web_filename_falls_back_when_title_empty():
+    filename = _safe_web_filename("   ", "https://example.com")
+
+    assert filename.startswith("web_web_page-")
+
+
+def test_safe_web_filename_different_urls_produce_different_names():
+    """Same title, different source URLs, must not collide (unique constraint safety)."""
+    name_a = _safe_web_filename("Home", "https://a.com")
+    name_b = _safe_web_filename("Home", "https://b.com")
+
+    assert name_a != name_b

@@ -3,7 +3,9 @@ Web search module for retrieving raw content from the internet when no
 relevant documents are found.
 """
 
+import hashlib
 import ipaddress
+import re
 import socket
 import time
 from dataclasses import dataclass
@@ -30,6 +32,7 @@ from src.logger.base_logger import BaseLogger
 class WebContent:
     content: str
     source: str
+    title: str = ""
 
 
 @dataclass
@@ -37,6 +40,20 @@ class WebSearchResult:
     title: str
     snippet: str
     url: str
+
+
+_UNSAFE_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def _safe_web_filename(title: str, source_url: str) -> str:
+    """
+    Builds a filesystem-safe, human-readable filename from a page title,
+    with a short hash of the source URL to keep it collision-resistant.
+    """
+    name = _UNSAFE_FILENAME_CHARS.sub("_", title.strip())
+    name = re.sub(r"\s+", " ", name).strip() or "web_page"
+    url_hash = hashlib.md5(source_url.encode("utf-8")).hexdigest()[:8]
+    return f"web_{name[:100]}-{url_hash}.html"
 
 
 class WebSearcher:
@@ -104,6 +121,7 @@ class WebSearcher:
                             WebContent(
                                 content=document_content,
                                 source=url,
+                                title=result.title,
                             )
                         )
                         successful_fetches += 1
@@ -140,7 +158,7 @@ class WebSearcher:
 
         for web_content in web_contents:
             async with self._tx_factory.create() as tx:
-                web_doc_filename = f"web_{web_content.source or int(time.time())}.html"
+                web_doc_filename = _safe_web_filename(web_content.title, web_content.source)
                 
                 web_doc_id = await self._document_repository.create(
                     data=Document(
@@ -333,6 +351,13 @@ class WebSearcher:
                 url, headers=headers, timeout=settings.web.WEB_REQUEST_TIMEOUT_SECS
             )
             response.raise_for_status()
+
+            content_type = response.headers.get("Content-Type", "")
+            if "text/html" not in content_type.lower():
+                self._logger.warning(
+                    f"Skipping non-HTML content ({content_type or 'unknown'}) from {url}"
+                )
+                return None
 
             self._logger.debug(
                 f"Successfully fetched {len(response.text)} characters of HTML from {url}"
