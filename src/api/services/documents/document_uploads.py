@@ -9,8 +9,8 @@ from uuid import UUID
 
 from fastapi import UploadFile
 
-from src.api.services.validation.document import UploadDocumentsRequest
-from src.api.services.validation.helper import check_if_chat_exists
+from src.api.validation.document import UploadDocumentsRequest
+from src.api.validation.helper import check_if_chat_exists
 from src.components.ingestion.document_processor import DocumentProcessor
 from src.config.configs import settings
 from src.config.constants import ProcessingStatus

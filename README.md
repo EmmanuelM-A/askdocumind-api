@@ -16,7 +16,7 @@ When the document context is insufficient, the system can optionally fall back t
 
 ## Things that need to be FIXED
 
-- Web documents return the exact resource url the data was retrived from
+- ~~Web documents return the exact resource url the data was retrived from~~
 - Figure out why web documents are not being marked as COMPLETED (was still being marked as PROCESSING)
 - Truncate or wrap document source names if they become to long on the frontend
 - Enforce strict document max MB across both web and uploaded documents

@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from src.api.controllers.document_uploads_controller import DocumentUploadController
 from src.api.middleware.rate_limiter import limiter, upload_limit, user_key_func
-from src.api.services.validation.document import UploadDocumentsRequest
+from src.api.validation.document import UploadDocumentsRequest
 from src.errors.custom_exceptions import unprocessable_entity_error
 
 documents_router = APIRouter(prefix="/documents", tags=["Documents"])

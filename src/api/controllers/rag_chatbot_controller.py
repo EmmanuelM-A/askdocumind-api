@@ -10,7 +10,7 @@ from starlette.responses import JSONResponse
 
 from src.api.services.chatbot.rag_chatbot import RAGChatbotService
 from src.api.services.service_factory import get_rag_chatbot_service
-from src.api.services.validation.chatbot import ChatRequest
+from src.api.validation.chatbot import ChatRequest
 from src.api.utils.api_responses import SuccessResponseModel
 from src.api.utils.response_delivery import create_success_response
 

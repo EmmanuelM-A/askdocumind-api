@@ -8,7 +8,7 @@ import pytest
 from fastapi import UploadFile
 
 from src.api.services.documents.document_uploads import UploadDocumentService
-from src.api.services.validation.document import UploadDocumentsRequest
+from src.api.validation.document import UploadDocumentsRequest
 from src.config.configs import settings
 from src.errors.api_exceptions import ApiException
 

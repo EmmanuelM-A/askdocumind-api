@@ -9,7 +9,7 @@ from uuid import UUID
 from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
 
-from src.api.services.validation.helper import validate_and_sanitize_query
+from src.api.validation.helper import validate_and_sanitize_query
 from src.config.configs import settings
 from src.components.prompts.prompt_loader import create_prompt_template
 from src.components.retrieval.embedder import Embedder

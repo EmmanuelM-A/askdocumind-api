@@ -14,8 +14,8 @@ from src.api.middleware.rate_limiter import (
 )
 from src.api.services.chats.chat_sessions import ChatSessionService
 from src.api.services.documents.document_uploads import UploadDocumentService
-from src.api.services.validation.chat_session import CreateChatSessionData
-from src.api.services.validation.document import UploadDocumentsRequest
+from src.api.validation.chat_session import CreateChatSessionData
+from src.api.validation.document import UploadDocumentsRequest
 from src.config.configs import settings
 from src.errors.api_exceptions import ApiException
 
