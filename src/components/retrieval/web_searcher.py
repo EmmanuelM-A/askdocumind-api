@@ -44,6 +44,11 @@ class WebSearchResult:
 # exceed that, so it's truncated defensively rather than raising on insert.
 _MAX_SOURCE_LEN = 255
 
+# Same per-file and per-chat size limits enforced for uploaded documents,
+# applied here too so web-search ingestion can't bypass them.
+_MAX_FILE_SIZE_BYTES = int(settings.files.MAX_FILE_SIZE_MB * 1024 * 1024)
+_MAX_FILES_PER_CHAT_BYTES = int(settings.files.MAX_FILES_PER_CHAT_MB * 1024 * 1024)
+
 
 class WebSearcher:
     """
@@ -145,6 +150,29 @@ class WebSearcher:
         total_saved = 0
 
         for web_content in web_contents:
+            content_bytes = len(web_content.content.encode("utf-8"))
+
+            if content_bytes > _MAX_FILE_SIZE_BYTES:
+                self._logger.warning(
+                    f"Skipping web content from {web_content.source}: "
+                    f"{content_bytes} bytes exceeds the per-document limit "
+                    f"of {settings.files.MAX_FILE_SIZE_MB} MB."
+                )
+                continue
+
+            current_mb_in_chat = await self._document_repository.get_total_size_mb(
+                chat_session_id=chat_session_id
+            )
+            current_bytes_in_chat = int(current_mb_in_chat * 1024 * 1024)
+
+            if current_bytes_in_chat + content_bytes > _MAX_FILES_PER_CHAT_BYTES:
+                self._logger.warning(
+                    f"Skipping web content from {web_content.source}: would "
+                    f"exceed the {settings.files.MAX_FILES_PER_CHAT_MB} MB "
+                    f"per-chat storage limit for chat {chat_session_id}."
+                )
+                continue
+
             async with self._tx_factory.create() as tx:
                 web_doc_source = f"{web_content.source}.html"[:_MAX_SOURCE_LEN]
 

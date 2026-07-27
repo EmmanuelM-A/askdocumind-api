@@ -12,7 +12,9 @@ from src.components.ingestion.document_processor import (
 )
 from docling.document_converter import DocumentConverter
 from src.components.retrieval.embedder import Embedder
+from src.components.retrieval.reranker import CrossEncoderReranker, Reranker
 from src.components.retrieval.web_searcher import WebSearcher
+from src.config.configs import settings
 from src.database.repository import get_database_repository
 from src.database.repository.database_repository_factory import get_tx_factory
 
@@ -23,8 +25,13 @@ _rag_chatbot_instance: Optional[RAGChatbot] = None
 def _build_chatbot() -> RAGChatbot:
     """Construct a fully wired RAGChatbot instance lazily."""
     embedder: Embedder = Embedder()
+    reranker: Optional[Reranker] = (
+        CrossEncoderReranker() if settings.vector.RERANK_ENABLED else None
+    )
     query_handler: QueryHandler = QueryHandler(
-        embedder=embedder, document_chunk_repo=get_database_repository("DOCUMENT_CHUNK")
+        embedder=embedder,
+        document_chunk_repo=get_database_repository("DOCUMENT_CHUNK"),
+        reranker=reranker,
     )
 
     document_processor: DocumentProcessor = DocumentProcessor(

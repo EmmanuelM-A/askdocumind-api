@@ -193,6 +193,10 @@ class VectorStoreSettings(_BaseSettings):
     RETRIEVAL_TOP_K: int = Field(default=3)
     SIMILARITY_THRESHOLD: float = Field(default=0.4)
     VECTOR_BATCH_SIZE: int = Field(default=100)
+    RERANK_ENABLED: bool = Field(default=True)
+    # Number of candidate chunks fetched from the vector search before the
+    # reranker trims/reorders them down to RETRIEVAL_TOP_K.
+    RERANK_CANDIDATE_POOL_SIZE: int = Field(default=15)
 
     model_config = _DEFAULT_MODEL_CONFIG
 

@@ -526,6 +526,52 @@ async def test_ingest_web_content_saves_exact_source_url_as_source(web_searcher)
     assert saved_document.source == "https://en.wikipedia.org/wiki/London.html"
 
 
+@pytest.mark.asyncio
+async def test_ingest_web_content_skips_content_over_per_document_limit(web_searcher):
+    """Test that a single piece of web content larger than MAX_FILE_SIZE_MB
+    is skipped rather than saved, mirroring the upload size limit."""
+    from src.config.configs import settings
+
+    chat_session_id = uuid4()
+    oversized_content = "a" * (int(settings.files.MAX_FILE_SIZE_MB * 1024 * 1024) + 1)
+    web_contents = [
+        WebContent(content=oversized_content, source="https://example.com/big"),
+    ]
+
+    with patch.object(
+        web_searcher, "search_and_retrieve_web_content", return_value=web_contents
+    ):
+        result = await web_searcher.ingest_web_content("query", chat_session_id)
+
+    assert result == 0
+    web_searcher._document_repository.create.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_ingest_web_content_skips_when_chat_storage_quota_exceeded(web_searcher):
+    """Test that content is skipped when it would push the chat's total
+    document storage over MAX_FILES_PER_CHAT_MB, even if the content itself
+    is under the per-document limit."""
+    from src.config.configs import settings
+
+    chat_session_id = uuid4()
+    web_contents = [
+        WebContent(content="small content", source="https://example.com/1"),
+    ]
+
+    web_searcher._document_repository.get_total_size_mb = AsyncMock(
+        return_value=settings.files.MAX_FILES_PER_CHAT_MB
+    )
+
+    with patch.object(
+        web_searcher, "search_and_retrieve_web_content", return_value=web_contents
+    ):
+        result = await web_searcher.ingest_web_content("query", chat_session_id)
+
+    assert result == 0
+    web_searcher._document_repository.create.assert_not_called()
+
+
 # ==================== DATACLASS TESTS ====================
 
 

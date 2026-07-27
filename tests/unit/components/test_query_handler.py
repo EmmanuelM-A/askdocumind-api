@@ -110,6 +110,86 @@ async def test_search_for_vectors_no_results_returns_empty(query_handler):
     query_handler.document_chunk_repo.get_filenames_for_chunks.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_search_for_vectors_reranks_when_reranker_configured(query_handler):
+    """Test that when a reranker is set, a larger candidate pool is fetched
+    from vector search and then reordered/trimmed by the reranker before
+    being used as the final chunks and sources."""
+    chat_session_id = uuid4()
+    candidate_chunks = [Mock(chunk_text=f"Chunk {i}") for i in range(5)]
+    reranked_chunks = [candidate_chunks[3], candidate_chunks[0]]
+
+    query_handler.reranker = AsyncMock()
+    query_handler.reranker.rerank = AsyncMock(return_value=reranked_chunks)
+    query_handler.document_chunk_repo.search_similar = AsyncMock(
+        return_value=candidate_chunks
+    )
+    query_handler.document_chunk_repo.get_filenames_for_chunks = AsyncMock(
+        return_value=["doc4.txt", "doc1.txt"]
+    )
+
+    with patch(
+        "src.components.chatbot.query_handler.validate_and_sanitize_query",
+        return_value="sanitized query",
+    ), patch(
+        "src.components.chatbot.query_handler.settings"
+    ) as mock_settings:
+        mock_settings.vector.RETRIEVAL_TOP_K = 2
+        mock_settings.vector.RERANK_CANDIDATE_POOL_SIZE = 15
+        mock_settings.vector.SIMILARITY_THRESHOLD = 0.4
+
+        result = await query_handler.search_for_vectors("test query", chat_session_id)
+
+    assert result == (reranked_chunks, ["doc4.txt", "doc1.txt"])
+    query_handler.document_chunk_repo.search_similar.assert_awaited_once_with(
+        chat_session_id=chat_session_id,
+        vector=[0.1, 0.2, 0.3, 0.4, 0.5],
+        top_k=15,
+        threshold=0.4,
+    )
+    query_handler.reranker.rerank.assert_awaited_once_with(
+        query="sanitized query", chunks=candidate_chunks, top_k=2
+    )
+    query_handler.document_chunk_repo.get_filenames_for_chunks.assert_awaited_once_with(
+        chunks=reranked_chunks,
+        chat_session_id=chat_session_id,
+    )
+
+
+@pytest.mark.asyncio
+async def test_search_for_vectors_skips_rerank_when_no_reranker(query_handler):
+    """Test that without a reranker configured, vector search is called
+    directly with RETRIEVAL_TOP_K and results are used as-is."""
+    chat_session_id = uuid4()
+    chunks = [Mock(chunk_text="Chunk 1")]
+
+    assert query_handler.reranker is None
+
+    query_handler.document_chunk_repo.search_similar = AsyncMock(return_value=chunks)
+    query_handler.document_chunk_repo.get_filenames_for_chunks = AsyncMock(
+        return_value=["doc1.txt"]
+    )
+
+    with patch(
+        "src.components.chatbot.query_handler.validate_and_sanitize_query",
+        return_value="sanitized query",
+    ), patch(
+        "src.components.chatbot.query_handler.settings"
+    ) as mock_settings:
+        mock_settings.vector.RETRIEVAL_TOP_K = 3
+        mock_settings.vector.SIMILARITY_THRESHOLD = 0.4
+
+        result = await query_handler.search_for_vectors("test query", chat_session_id)
+
+    assert result == (chunks, ["doc1.txt"])
+    query_handler.document_chunk_repo.search_similar.assert_awaited_once_with(
+        chat_session_id=chat_session_id,
+        vector=[0.1, 0.2, 0.3, 0.4, 0.5],
+        top_k=3,
+        threshold=0.4,
+    )
+
+
 # ==================== GENERATE RESPONSE TESTS ====================
 
 

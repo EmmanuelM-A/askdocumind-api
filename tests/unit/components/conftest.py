@@ -248,6 +248,7 @@ def mock_document_repository():
     """Creates a mock DocumentRepository instance."""
     mock_repo = Mock()
     mock_repo.create = AsyncMock(return_value=uuid4())
+    mock_repo.get_total_size_mb = AsyncMock(return_value=0.0)
     return mock_repo
 
 
