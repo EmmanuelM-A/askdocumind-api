@@ -52,8 +52,8 @@ async def test_document(db_connection, test_chat_session):
     document = Document(
         id=uuid4(),
         session_id=test_chat_session.id,
-        filename="chunk-source.pdf",
-        file_size=2048,
+        source="chunk-source.pdf",
+        source_size=2048,
         processing_status=ProcessingStatus.COMPLETED,
     )
 
@@ -182,8 +182,8 @@ class TestDocumentChunkRepositoryCore:
         other_document = Document(
             id=uuid4(),
             session_id=test_document.session_id,
-            filename="other.pdf",
-            file_size=1024,
+            source="other.pdf",
+            source_size=1024,
             processing_status=ProcessingStatus.COMPLETED,
         )
 
@@ -277,8 +277,8 @@ class TestDocumentChunkRepositoryCore:
         other_document = Document(
             id=uuid4(),
             session_id=test_document.session_id,
-            filename="count-other.pdf",
-            file_size=512,
+            source="count-other.pdf",
+            source_size=512,
             processing_status=ProcessingStatus.COMPLETED,
         )
 

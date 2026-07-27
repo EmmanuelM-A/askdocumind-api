@@ -40,7 +40,7 @@ async def test_list_returns_uploaded_document_with_correct_shape(
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
     await document_repo.create(
-        Document(session_id=chat_id, filename="report.txt", file_size=42)
+        Document(session_id=chat_id, source="report.txt", source_size=42)
     )
 
     response = app_client.get(_url(chat_id), headers=auth_cookie(user_id))
@@ -49,14 +49,14 @@ async def test_list_returns_uploaded_document_with_correct_shape(
     body = response.json()
     assert body["message"] == "Successfully fetched 1 document(s)."
     [doc] = body["data"]["documents"]
-    assert doc["filename"] == "report.txt"
-    assert doc["file_size"] == 42
+    assert doc["source"] == "report.txt"
+    assert doc["source_size"] == 42
     assert doc["session_id"] == str(chat_id)
     assert set(doc.keys()) == {
         "id",
         "session_id",
-        "filename",
-        "file_size",
+        "source",
+        "source_size",
         "processing_status",
         "created_at",
         "updated_at",
@@ -82,7 +82,7 @@ async def test_list_via_real_upload_pipeline(
     response = app_client.get(_url(chat_id), headers=headers)
 
     [doc] = response.json()["data"]["documents"]
-    assert doc["filename"] == "uploaded.txt"
+    assert doc["source"] == "uploaded.txt"
     assert doc["processing_status"] == "COMPLETED"
 
 
@@ -92,14 +92,14 @@ async def test_list_only_returns_documents_for_requested_chat(
     user_id = await seed_user()
     chat_a = await seed_chat_session(user_id, title="Chat A")
     await document_repo.create(
-        Document(session_id=chat_a, filename="in-a.txt", file_size=10)
+        Document(session_id=chat_a, source="in-a.txt", source_size=10)
     )
 
     response = app_client.get(_url(chat_a), headers=auth_cookie(user_id))
 
     docs = response.json()["data"]["documents"]
     assert len(docs) == 1
-    assert docs[0]["filename"] == "in-a.txt"
+    assert docs[0]["source"] == "in-a.txt"
 
 
 # ==================== Not found / ownership ====================

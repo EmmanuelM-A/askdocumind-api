@@ -14,6 +14,22 @@ For the purposes of the demo, no user registration is required, activity is full
 
 When the document context is insufficient, the system can optionally fall back to a live web search (via Brave Search API) to supplement the answer.
 
+## Things that need to be FIXED
+
+- Web documents return the exact resource url the data was retrived from
+- Figure out why web documents are not being marked as COMPLETED (was still being marked as PROCESSING)
+- Truncate or wrap document source names if they become to long on the frontend
+- Enforce strict document max MB across both web and uploaded documents
+- Integrate the use of reranker in the application
+- Chunk the resource name as  well as its content
+- Only save chunked web resources if the system can prodcue a response from them otherwise saving meaningless data is pointless
+
+Can you design a home page I can use for my website (remember its just a way to showcase my api but I would still like it be asthecyically pleasing)? Just keep things simple like boxes andplaceholder text for what I should add like a her section, an about, problem solved, why its important and how I did. First write in chat things my home should cover both in design and text?
+
+## Changes I need to make to the frontend
+
+- 
+
 ## Features
 
 - **Document upload**: PDF, DOCX, TXT, and Markdown, CSV, HTML files up to 0.5 MB each

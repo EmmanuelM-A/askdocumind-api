@@ -90,8 +90,8 @@ class UploadDocumentService:
             document = Document(
                 id=uuid.uuid4(),
                 session_id=request.chat_id,
-                filename=filename,
-                file_size=len(document_data),
+                source=filename,
+                source_size=len(document_data),
                 processing_status=ProcessingStatus.COMPLETED,
             )
 
@@ -220,9 +220,9 @@ class UploadDocumentService:
             criteria=DocumentSearchCriteria(session_id=request.chat_id)
         )
         existing_names = {
-            self._normalize_filename(document.filename)  # type: ignore
+            self._normalize_filename(document.source)  # type: ignore
             for document in existing_documents
-            if document.filename  # type: ignore
+            if document.source  # type: ignore
         }
 
         duplicates_in_chat = sorted(

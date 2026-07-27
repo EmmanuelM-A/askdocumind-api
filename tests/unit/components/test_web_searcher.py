@@ -17,7 +17,6 @@ from src.components.retrieval.web_searcher import (
     WebContent,
     WebSearcher,
     WebSearchResult,
-    _safe_web_filename,
 )
 
 # ==================== INITIALIZATION TESTS ====================
@@ -508,6 +507,25 @@ async def test_ingest_web_content_success_sums_saved_chunks(web_searcher):
     assert web_searcher._tx_factory.create.call_count == 2
 
 
+@pytest.mark.asyncio
+async def test_ingest_web_content_saves_exact_source_url_as_source(web_searcher):
+    """Test that the Document's source is the exact source URL (plus
+    .html), not a hashed/sanitized version - so the origin is preserved."""
+    chat_session_id = uuid4()
+    web_contents = [
+        WebContent(content="Some content", source="https://en.wikipedia.org/wiki/London"),
+    ]
+    web_searcher._document_processor.save_document_chunks = AsyncMock(return_value=1)
+
+    with patch.object(
+        web_searcher, "search_and_retrieve_web_content", return_value=web_contents
+    ):
+        await web_searcher.ingest_web_content("query", chat_session_id)
+
+    saved_document = web_searcher._document_repository.create.call_args.kwargs["data"]
+    assert saved_document.source == "https://en.wikipedia.org/wiki/London.html"
+
+
 # ==================== DATACLASS TESTS ====================
 
 
@@ -530,33 +548,3 @@ def test_web_search_result_creation():
     assert result.title == "Test Title"
     assert result.snippet == "Test snippet"
     assert result.url == "https://example.com"
-
-
-# ==================== SAFE WEB FILENAME ====================
-
-
-def test_safe_web_filename_uses_title_and_html_extension():
-    filename = _safe_web_filename("London", "https://en.wikipedia.org/wiki/London")
-
-    assert filename.startswith("web_London-")
-    assert filename.endswith(".html")
-
-
-def test_safe_web_filename_strips_unsafe_characters():
-    filename = _safe_web_filename('Bad:/\\*?"<>|Title', "https://example.com")
-
-    assert not any(c in filename[: filename.index("-")] for c in ':/\\*?"<>|')
-
-
-def test_safe_web_filename_falls_back_when_title_empty():
-    filename = _safe_web_filename("   ", "https://example.com")
-
-    assert filename.startswith("web_web_page-")
-
-
-def test_safe_web_filename_different_urls_produce_different_names():
-    """Same title, different source URLs, must not collide (unique constraint safety)."""
-    name_a = _safe_web_filename("Home", "https://a.com")
-    name_b = _safe_web_filename("Home", "https://b.com")
-
-    assert name_a != name_b

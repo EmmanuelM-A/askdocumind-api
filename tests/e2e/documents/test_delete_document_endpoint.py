@@ -25,7 +25,7 @@ async def test_delete_returns_200(
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
     doc_id = await document_repo.create(
-        Document(session_id=chat_id, filename="delete-me.txt", file_size=10)
+        Document(session_id=chat_id, source="delete-me.txt", source_size=10)
     )
 
     response = app_client.delete(_url(doc_id, chat_id), headers=auth_cookie(user_id))
@@ -42,7 +42,7 @@ async def test_delete_actually_removes_row_from_db(
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
     doc_id = await document_repo.create(
-        Document(session_id=chat_id, filename="gone.txt", file_size=10)
+        Document(session_id=chat_id, source="gone.txt", source_size=10)
     )
 
     app_client.delete(_url(doc_id, chat_id), headers=auth_cookie(user_id))
@@ -61,10 +61,10 @@ async def test_delete_does_not_affect_other_documents(
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
     doc_a = await document_repo.create(
-        Document(session_id=chat_id, filename="a.txt", file_size=10)
+        Document(session_id=chat_id, source="a.txt", source_size=10)
     )
     doc_b = await document_repo.create(
-        Document(session_id=chat_id, filename="b.txt", file_size=10)
+        Document(session_id=chat_id, source="b.txt", source_size=10)
     )
 
     app_client.delete(_url(doc_a, chat_id), headers=auth_cookie(user_id))
@@ -108,7 +108,7 @@ async def test_delete_chat_owned_by_another_user_returns_404(
     other_user_id = await seed_user()
     chat_id = await seed_chat_session(owner_id)
     doc_id = await document_repo.create(
-        Document(session_id=chat_id, filename="a.txt", file_size=10)
+        Document(session_id=chat_id, source="a.txt", source_size=10)
     )
 
     response = app_client.delete(
@@ -133,7 +133,7 @@ async def test_delete_document_belonging_to_different_chat_returns_404(
     # directly via the repository here, bypassing that service-layer rule -
     # both chats exist and are owned by the same user for this test's purposes.
     doc_id = await document_repo.create(
-        Document(session_id=chat_a, filename="a.txt", file_size=10)
+        Document(session_id=chat_a, source="a.txt", source_size=10)
     )
 
     response = app_client.delete(_url(doc_id, chat_b), headers=auth_cookie(user_id))
@@ -148,7 +148,7 @@ async def test_delete_twice_returns_404_on_second_call(
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
     doc_id = await document_repo.create(
-        Document(session_id=chat_id, filename="a.txt", file_size=10)
+        Document(session_id=chat_id, source="a.txt", source_size=10)
     )
     headers = auth_cookie(user_id)
 
@@ -169,7 +169,7 @@ async def test_delete_missing_chat_id_query_returns_422(
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
     doc_id = await document_repo.create(
-        Document(session_id=chat_id, filename="a.txt", file_size=10)
+        Document(session_id=chat_id, source="a.txt", source_size=10)
     )
 
     response = app_client.delete(f"{ENDPOINT}/{doc_id}", headers=auth_cookie(user_id))
@@ -209,7 +209,7 @@ async def test_delete_no_cookie_returns_422(
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
     doc_id = await document_repo.create(
-        Document(session_id=chat_id, filename="a.txt", file_size=10)
+        Document(session_id=chat_id, source="a.txt", source_size=10)
     )
 
     response = app_client.delete(_url(doc_id, chat_id))
@@ -224,7 +224,7 @@ async def test_delete_garbage_cookie_returns_422(
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
     doc_id = await document_repo.create(
-        Document(session_id=chat_id, filename="a.txt", file_size=10)
+        Document(session_id=chat_id, source="a.txt", source_size=10)
     )
 
     response = app_client.delete(_url(doc_id, chat_id), headers={"Cookie": f"{COOKIE_NAME}=garbage"})
@@ -239,7 +239,7 @@ async def test_delete_valid_signature_nonexistent_user_returns_404(
     owner_id = await seed_user()
     chat_id = await seed_chat_session(owner_id)
     doc_id = await document_repo.create(
-        Document(session_id=chat_id, filename="a.txt", file_size=10)
+        Document(session_id=chat_id, source="a.txt", source_size=10)
     )
     cookie_token = token_manager.create_token(uuid4())
 
@@ -260,7 +260,7 @@ async def test_delete_get_method_not_allowed_on_document_path(
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
     doc_id = await document_repo.create(
-        Document(session_id=chat_id, filename="a.txt", file_size=10)
+        Document(session_id=chat_id, source="a.txt", source_size=10)
     )
 
     response = app_client.get(_url(doc_id, chat_id), headers=auth_cookie(user_id))

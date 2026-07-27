@@ -48,8 +48,8 @@ class TestDocumentRepositoryCore:
         doc = Document(
             id=uuid4(),
             session_id=test_chat_session.id,
-            filename="test.pdf",
-            file_size=123,
+            source="test.pdf",
+            source_size=123,
             processing_status=ProcessingStatus.PROCESSING,
         )
 
@@ -67,8 +67,8 @@ class TestDocumentRepositoryCore:
             Document(
                 id=uuid4(),
                 session_id=test_chat_session.id,
-                filename=f"doc{i}.pdf",
-                file_size=123,
+                source=f"doc{i}.pdf",
+                source_size=123,
             )
             for i in range(3)
         ]
@@ -89,8 +89,8 @@ class TestDocumentRepositoryCore:
         doc = Document(
             id=uuid4(),
             session_id=test_chat_session.id,
-            filename="test.pdf",
-            file_size=123,
+            source="test.pdf",
+            source_size=123,
         )
         await document_repo.create(doc)
 
@@ -98,7 +98,7 @@ class TestDocumentRepositoryCore:
 
         assert retrieved is not None
         assert retrieved.id == doc.id
-        assert retrieved.filename == "test.pdf"
+        assert retrieved.source == "test.pdf"
 
     @pytest.mark.asyncio
     async def test_get_by_id_not_found(self, document_repo, cleanup_documents):
@@ -118,8 +118,8 @@ class TestDocumentRepositoryCore:
             Document(
                 id=uuid4(),
                 session_id=test_chat_session.id,
-                filename=f"doc{i}.pdf",
-                file_size=123,
+                source=f"doc{i}.pdf",
+                source_size=123,
             )
             for i in range(3)
         ]
@@ -140,8 +140,8 @@ class TestDocumentRepositoryCore:
             doc = Document(
                 id=uuid4(),
                 session_id=test_chat_session.id,
-                filename=f"doc{i}.pdf",
-                file_size=123,
+                source=f"doc{i}.pdf",
+                source_size=123,
             )
             await document_repo.create(doc)
 
@@ -152,7 +152,7 @@ class TestDocumentRepositoryCore:
             await session.commit()
 
         other_doc = Document(
-            id=uuid4(), session_id=other_session.id, filename="other.pdf", file_size=123
+            id=uuid4(), session_id=other_session.id, source="other.pdf", source_size=123
         )
         await document_repo.create(other_doc)
 
@@ -170,15 +170,15 @@ class TestDocumentRepositoryCore:
         doc_pending = Document(
             id=uuid4(),
             session_id=test_chat_session.id,
-            filename="pending.pdf",
-            file_size=123,
+            source="pending.pdf",
+            source_size=123,
             processing_status=ProcessingStatus.PROCESSING,
         )
         doc_completed = Document(
             id=uuid4(),
             session_id=test_chat_session.id,
-            filename="completed.pdf",
-            file_size=123,
+            source="completed.pdf",
+            source_size=123,
             processing_status=ProcessingStatus.COMPLETED,
         )
         await document_repo.create(doc_pending)
@@ -198,27 +198,27 @@ class TestDocumentRepositoryCore:
         doc = Document(
             id=uuid4(),
             session_id=test_chat_session.id,
-            filename="original.pdf",
-            file_size=123,
+            source="original.pdf",
+            source_size=123,
             processing_status=ProcessingStatus.PROCESSING,
         )
         await document_repo.create(doc)
 
         update_data = UpdatedDocumentData(
-            filename="updated.pdf",
+            source="updated.pdf",
             processing_status=ProcessingStatus.COMPLETED,
         )
         updated = await document_repo.update(doc.id, update_data)
 
         assert updated is not None
-        assert updated.filename == "updated.pdf"
+        assert updated.source == "updated.pdf"
         assert updated.processing_status == ProcessingStatus.COMPLETED
 
     @pytest.mark.asyncio
     async def test_update_document_not_found(self, document_repo, cleanup_documents):
         """Test updating non-existent document returns None."""
         fake_id = uuid4()
-        update_data = UpdatedDocumentData(filename="new.pdf")
+        update_data = UpdatedDocumentData(source="new.pdf")
 
         result = await document_repo.update(fake_id, update_data)
 
@@ -232,17 +232,17 @@ class TestDocumentRepositoryCore:
         doc = Document(
             id=uuid4(),
             session_id=test_chat_session.id,
-            filename="test.pdf",
-            file_size=123,
+            source="test.pdf",
+            source_size=123,
             processing_status=ProcessingStatus.PROCESSING,
         )
         await document_repo.create(doc)
 
-        # Update only filename
-        update_data = UpdatedDocumentData(filename="new_name.pdf")
+        # Update only source
+        update_data = UpdatedDocumentData(source="new_name.pdf")
         updated = await document_repo.update(doc.id, update_data)
 
-        assert updated.filename == "new_name.pdf"
+        assert updated.source == "new_name.pdf"
         assert updated.processing_status == ProcessingStatus.PROCESSING
 
     @pytest.mark.asyncio
@@ -253,8 +253,8 @@ class TestDocumentRepositoryCore:
         doc = Document(
             id=uuid4(),
             session_id=test_chat_session.id,
-            filename="test.pdf",
-            file_size=123,
+            source="test.pdf",
+            source_size=123,
         )
         await document_repo.create(doc)
 
@@ -272,21 +272,21 @@ class TestDocumentRepositoryCore:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_create_duplicate_filename_raises_conflict(
+    async def test_create_duplicate_source_raises_conflict(
         self, document_repo, test_chat_session, cleanup_documents
     ):
-        """Test duplicate filename in the same chat raises a conflict error."""
+        """Test duplicate source in the same chat raises a conflict error."""
         first = Document(
             id=uuid4(),
             session_id=test_chat_session.id,
-            filename="duplicate.pdf",
-            file_size=123,
+            source="duplicate.pdf",
+            source_size=123,
         )
         second = Document(
             id=uuid4(),
             session_id=test_chat_session.id,
-            filename="duplicate.pdf",
-            file_size=456,
+            source="duplicate.pdf",
+            source_size=456,
         )
 
         await document_repo.create(first)
@@ -305,8 +305,8 @@ class TestDocumentRepositoryCore:
         doc = Document(
             id=uuid4(),
             session_id=test_chat_session.id,
-            filename="test.pdf",
-            file_size=123,
+            source="test.pdf",
+            source_size=123,
         )
         await document_repo.create(doc)
 
@@ -330,8 +330,8 @@ class TestDocumentRepositoryCore:
             doc = Document(
                 id=uuid4(),
                 session_id=test_chat_session.id,
-                filename=f"doc{i}.pdf",
-                file_size=123,
+                source=f"doc{i}.pdf",
+                source_size=123,
             )
             await document_repo.create(doc)
 
@@ -348,8 +348,8 @@ class TestDocumentRepositoryCore:
             doc = Document(
                 id=uuid4(),
                 session_id=test_chat_session.id,
-                filename=f"doc{i}.pdf",
-                file_size=123,
+                source=f"doc{i}.pdf",
+                source_size=123,
             )
             await document_repo.create(doc)
 
@@ -365,22 +365,22 @@ class TestDocumentRepositoryCore:
         doc = Document(
             id=uuid4(),
             session_id=test_chat_session.id,
-            filename="unique.pdf",
-            file_size=123,
+            source="unique.pdf",
+            source_size=123,
             processing_status=ProcessingStatus.COMPLETED,
         )
         await document_repo.create(doc)
 
-        criteria = DocumentSearchCriteria(filename="unique.pdf")
+        criteria = DocumentSearchCriteria(source="unique.pdf")
         result = await document_repo.get_by_criteria(criteria)
 
         assert result is not None
-        assert result.filename == "unique.pdf"
+        assert result.source == "unique.pdf"
 
     @pytest.mark.asyncio
     async def test_get_by_criteria_not_found(self, document_repo, cleanup_documents):
         """Test get_by_criteria returns None when no match."""
-        criteria = DocumentSearchCriteria(filename="nonexistent.pdf")
+        criteria = DocumentSearchCriteria(source="nonexistent.pdf")
 
         result = await document_repo.get_by_criteria(criteria)
 
@@ -395,8 +395,8 @@ class TestDocumentRepositoryCore:
             Document(
                 id=uuid4(),
                 session_id=test_chat_session.id,
-                filename=f"doc{i}.pdf",
-                file_size=123,
+                source=f"doc{i}.pdf",
+                source_size=123,
             )
             for i in range(3)
         ]
@@ -420,8 +420,8 @@ class TestDocumentRepositoryCore:
             Document(
                 id=uuid4(),
                 session_id=test_chat_session.id,
-                filename=f"doc{i}.pdf",
-                file_size=123,
+                source=f"doc{i}.pdf",
+                source_size=123,
                 processing_status=ProcessingStatus.PROCESSING,
             )
             for i in range(3)

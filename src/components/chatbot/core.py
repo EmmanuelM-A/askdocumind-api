@@ -14,6 +14,7 @@ from src.components.prompts.prompt_loader import create_prompt_template
 from src.components.retrieval.query_expander import expand_query
 from src.components.retrieval.web_searcher import WebSearcher
 from src.config.configs import settings
+from src.errors.api_exceptions import ApiException
 from src.logger.base_logger import BaseLogger
 
 # Per-session web search counter. Resets on server restart, which is acceptable
@@ -73,12 +74,17 @@ class RAGChatbot:
         """
 
         is_web_enabled = settings.web.IS_WEB_SEARCH_ENABLED and web_search_enabled
-        
-        expanded_query = expand_query(
-            query=query, llm=self._query_handler.llm, prompt_template=self._expansion_prompt_template
-        )
-        
-        self._logger.debug(f"Expanded query: {expanded_query}")
+
+        try:
+            expanded_query = expand_query(
+                query=query, llm=self._query_handler.llm, prompt_template=self._expansion_prompt_template
+            )
+        except ApiException as e:
+            self._logger.warning(
+                f"Query expansion failed ({e.error.code}); falling back to the "
+                f"original query: '{query}'."
+            )
+            expanded_query = query
 
         results, sources = await self._query_handler.search_for_vectors(
             expanded_query, chat_session_id
@@ -111,7 +117,7 @@ class RAGChatbot:
         )
 
         if response == "OUT_OF_SCOPE":
-            response_data.answer = f"The query '{query}' is outside of scope of the uploaded documents."
+            response_data.answer = f"The query '{query}' is outside of the scope of the uploaded documents."
             return response_data
 
         if response is None:

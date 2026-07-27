@@ -20,7 +20,7 @@ class DocumentSearchCriteria(BaseModel):
 
     id: Optional[UUID] = None
     session_id: Optional[UUID] = None
-    filename: Optional[str] = None
+    source: Optional[str] = None
     vector_id: Optional[UUID] = None
     processing_status: Optional[ProcessingStatus] = None
 
@@ -28,7 +28,7 @@ class DocumentSearchCriteria(BaseModel):
 class UpdatedDocumentData(BaseModel):
     """Schema for updating document fields."""
 
-    filename: Optional[str] = None
+    source: Optional[str] = None
     processing_status: Optional[ProcessingStatus] = None
 
 class DocumentRepositoryInterface(ABC):

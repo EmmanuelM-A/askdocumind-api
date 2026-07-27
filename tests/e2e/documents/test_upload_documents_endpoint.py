@@ -140,8 +140,8 @@ async def test_upload_persists_document_with_correct_metadata(
     )
 
     assert len(stored) == 1
-    assert stored[0].filename == "metadata-check.txt"
-    assert stored[0].file_size == len("Some content for metadata checking.".encode())
+    assert stored[0].source == "metadata-check.txt"
+    assert stored[0].source_size == len("Some content for metadata checking.".encode())
 
 
 async def test_upload_creates_real_document_chunks(

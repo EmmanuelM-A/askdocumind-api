@@ -65,7 +65,7 @@ async def test_chat_with_relevant_chunk_returns_real_generated_answer(
         chat_id,
         text="Our premium subscription plan costs $29 per month and includes "
         "unlimited document uploads and priority support.",
-        filename="pricing.txt",
+        source="pricing.txt",
     )
 
     response = app_client.post(
@@ -94,7 +94,7 @@ async def test_chat_persists_user_and_assistant_messages(
     await seed_chunk(
         chat_id,
         text="The office is located at 123 Main Street and opens at 9am on weekdays.",
-        filename="office.txt",
+        source="office.txt",
     )
     query = "What time does the office open on weekdays?"
 

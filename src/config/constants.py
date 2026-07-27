@@ -19,4 +19,3 @@ class ChatMessageRole(enum.Enum):
     USER = "USER"
     ASSISTANT = "ASSISTANT"
     SYSTEM = "SYSTEM"
-

@@ -35,10 +35,8 @@ def expand_query(
     expanded_query = expanded_query.strip()
 
     if not expanded_query:
-        raise server_error(
-            message="The LLM returned an empty expanded query.",
-            error_code="LLM_EMPTY_RESPONSE",
-        )
+        _logger.warning("The LLM returned an empty expanded query.")
+        return query  # Return the original query if expansion fails
 
     if len(expanded_query) < len(query):
         _logger.warning("The expanded query is not longer than the original query!")
@@ -48,5 +46,7 @@ def expand_query(
         )
     else:
         _logger.info("The query was successfully expanded.")
+    
+    _logger.debug(f"Expanded query: {expanded_query}")
 
     return expanded_query

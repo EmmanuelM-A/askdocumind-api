@@ -152,9 +152,9 @@ def seed_chunk(
 ):
     """Factory: creates a real Document + DocumentChunk with a real embedding."""
 
-    async def _seed(chat_id: UUID, text: str, filename: str = "seeded.txt") -> UUID:
+    async def _seed(chat_id: UUID, text: str, source: str = "seeded.txt") -> UUID:
         doc_id = await document_repo.create(
-            Document(session_id=chat_id, filename=filename, file_size=len(text.encode()))
+            Document(session_id=chat_id, source=source, source_size=len(text.encode()))
         )
         chunk = DocumentChunk(
             document_id=doc_id,

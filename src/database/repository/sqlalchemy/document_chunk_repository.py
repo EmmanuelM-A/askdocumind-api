@@ -351,7 +351,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 return []
 
             # Query documents where id IN (extracted IDs) AND session_id matches
-            stmt = select(Document.filename).where(
+            stmt = select(Document.source).where(
                 (Document.id.in_(document_ids)) & (Document.session_id == chat_session_id)
             )
 

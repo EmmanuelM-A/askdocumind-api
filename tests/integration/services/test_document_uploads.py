@@ -127,7 +127,7 @@ async def test_upload_documents_rejects_filename_that_already_exists_in_chat(
     )
 
     existing_doc = Mock()
-    existing_doc.filename = "existing.pdf"
+    existing_doc.source = "existing.pdf"
 
     document_repo = Mock()
     document_repo.list_by = AsyncMock(return_value=[existing_doc])

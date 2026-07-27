@@ -3,9 +3,7 @@ Web search module for retrieving raw content from the internet when no
 relevant documents are found.
 """
 
-import hashlib
 import ipaddress
-import re
 import socket
 import time
 from dataclasses import dataclass
@@ -32,7 +30,6 @@ from src.logger.base_logger import BaseLogger
 class WebContent:
     content: str
     source: str
-    title: str = ""
 
 
 @dataclass
@@ -42,18 +39,9 @@ class WebSearchResult:
     url: str
 
 
-_UNSAFE_FILENAME_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
-
-
-def _safe_web_filename(title: str, source_url: str) -> str:
-    """
-    Builds a filesystem-safe, human-readable filename from a page title,
-    with a short hash of the source URL to keep it collision-resistant.
-    """
-    name = _UNSAFE_FILENAME_CHARS.sub("_", title.strip())
-    name = re.sub(r"\s+", " ", name).strip() or "web_page"
-    url_hash = hashlib.md5(source_url.encode("utf-8")).hexdigest()[:8]
-    return f"web_{name[:100]}-{url_hash}.html"
+# document.source is String(255) - a URL plus ".html" could in rare cases
+# exceed that, so it's truncated defensively rather than raising on insert.
+_MAX_SOURCE_LEN = 255
 
 
 class WebSearcher:
@@ -121,7 +109,6 @@ class WebSearcher:
                             WebContent(
                                 content=document_content,
                                 source=url,
-                                title=result.title,
                             )
                         )
                         successful_fetches += 1
@@ -158,20 +145,20 @@ class WebSearcher:
 
         for web_content in web_contents:
             async with self._tx_factory.create() as tx:
-                web_doc_filename = _safe_web_filename(web_content.title, web_content.source)
-                
+                web_doc_source = f"{web_content.source}.html"[:_MAX_SOURCE_LEN]
+
                 web_doc_id = await self._document_repository.create(
                     data=Document(
                         session_id=chat_session_id,
-                        filename=web_doc_filename,
-                        file_size=len(web_content.content.encode("utf-8")),
+                        source=web_doc_source,
+                        source_size=len(web_content.content.encode("utf-8")),
                     ),
                     tx=tx
                 )
 
                 docling_document = self._document_processor.extract(
                     document_data=web_content.content.encode("utf-8"),
-                    filename=web_doc_filename,
+                    filename=web_doc_source,
                 )
                 chunks = self._document_processor.chunk(docling_document)
 
