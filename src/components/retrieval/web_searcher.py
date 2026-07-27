@@ -18,6 +18,7 @@ from ddgs.exceptions import DDGSException
 
 from src.components.ingestion.document_processor import DocumentProcessor
 from src.config.configs import settings
+from src.config.constants import ProcessingStatus
 from src.database.models import Document
 from src.database.repository.interfaces.document_repository import (
     DocumentRepositoryInterface,
@@ -152,6 +153,7 @@ class WebSearcher:
                         session_id=chat_session_id,
                         source=web_doc_source,
                         source_size=len(web_content.content.encode("utf-8")),
+                        processing_status=ProcessingStatus.COMPLETED,
                     ),
                     tx=tx
                 )
