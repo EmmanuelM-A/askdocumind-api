@@ -105,7 +105,9 @@ class UploadDocumentService:
                     document_data=document_data,
                     filename=filename,
                 )
-                chunks = self._document_processor.chunk(docling_document)
+                chunks = self._document_processor.chunk(
+                    docling_document, source_name=filename
+                )
 
                 await self._document_processor.save_document_chunks(
                     chunks=chunks,

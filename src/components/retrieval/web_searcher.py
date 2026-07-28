@@ -190,7 +190,9 @@ class WebSearcher:
                     document_data=web_content.content.encode("utf-8"),
                     filename=web_doc_source,
                 )
-                chunks = self._document_processor.chunk(docling_document)
+                chunks = self._document_processor.chunk(
+                    docling_document, source_name=web_doc_source
+                )
 
                 saved = await self._document_processor.save_document_chunks(
                     chunks=chunks,
