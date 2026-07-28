@@ -40,13 +40,13 @@ def _build_chatbot() -> RAGChatbot:
     web_searcher: WebSearcher = WebSearcher(
         document_processor=document_processor,
         document_repository=get_database_repository("DOCUMENT"),
-        tx_factory=get_tx_factory(),
     )
 
     return RAGChatbot(
         query_handler=query_handler,
         document_processor=document_processor,
         web_searcher=web_searcher,
+        tx_factory=get_tx_factory(),
     )
 
 

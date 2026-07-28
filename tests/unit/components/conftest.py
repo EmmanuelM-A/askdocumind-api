@@ -256,24 +256,25 @@ def mock_document_repository():
 @pytest.fixture
 def mock_tx():
     """Creates a mock DBTransaction instance."""
-    return Mock()
+    tx = Mock()
+    tx.commit = AsyncMock()
+    tx.rollback = AsyncMock()
+    tx.close = AsyncMock()
+    tx.__aenter__ = AsyncMock(return_value=tx)
+    tx.__aexit__ = AsyncMock(return_value=None)
+    return tx
 
 
 @pytest.fixture
 def mock_tx_factory(mock_tx):
-    """Creates a mock DBTransactionFactory whose create() yields mock_tx
-    as an async context manager, matching `async with tx_factory.create() as tx`."""
-    tx_cm = AsyncMock()
-    tx_cm.__aenter__.return_value = mock_tx
-    tx_cm.__aexit__.return_value = None
-
+    """Creates a mock DBTransactionFactory whose create() returns mock_tx."""
     factory = Mock()
-    factory.create.return_value = tx_cm
+    factory.create.return_value = mock_tx
     return factory
 
 
 @pytest.fixture
-def web_searcher(mock_document_processor, mock_document_repository, mock_tx_factory):
+def web_searcher(mock_document_processor, mock_document_repository):
     """Provides a WebSearcher instance with mocked dependencies and a
     configured (non-empty) Brave API key."""
     from src.components.retrieval.web_searcher import WebSearcher
@@ -286,7 +287,6 @@ def web_searcher(mock_document_processor, mock_document_repository, mock_tx_fact
         searcher = WebSearcher(
             document_processor=mock_document_processor,
             document_repository=mock_document_repository,
-            tx_factory=mock_tx_factory,
         )
 
     return searcher

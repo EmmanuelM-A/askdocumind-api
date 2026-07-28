@@ -23,7 +23,7 @@ from src.database.models import Document
 from src.database.repository.interfaces.document_repository import (
     DocumentRepositoryInterface,
 )
-from src.database.repository.interfaces.db_transaction import DBTransactionFactory
+from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.logger.base_logger import BaseLogger
 
 
@@ -59,7 +59,6 @@ class WebSearcher:
         self,
         document_processor: DocumentProcessor,
         document_repository: DocumentRepositoryInterface,
-        tx_factory: DBTransactionFactory,
     ) -> None:
         """
         Initializes the WebSearcher instance.
@@ -67,7 +66,6 @@ class WebSearcher:
 
         self._document_processor = document_processor
         self._document_repository = document_repository
-        self._tx_factory = tx_factory
         self._logger = BaseLogger(__name__)
 
         brave_api_key = settings.web.BRAVE_SEARCH_API_KEY
@@ -132,13 +130,21 @@ class WebSearcher:
             self._logger.error(f"Critical error in web search: {e}", exception=e)
             return []
 
-    async def ingest_web_content(self, query: str, chat_session_id: UUID) -> int:
+    async def ingest_web_content(
+        self, query: str, chat_session_id: UUID, tx: DBTransaction
+    ) -> int:
         """
         Search the web for relevant content based on the `query`, retrieve the raw HTML for each
-        result, save the content as a document and ingest it into the database as document chunks.
-        
+        result, and stage it (document + chunks) within the given `tx`.
+
+        This only flushes the staged rows - it does NOT commit `tx`. Saving
+        web content that never produces a usable answer is meaningless, so
+        the caller is responsible for committing `tx` once it has confirmed
+        the ingested content actually produced a usable response, and
+        rolling it back otherwise so nothing gets persisted.
+
         Returns:
-            The total number of document chunks ingested into the database.
+            The total number of document chunks staged within `tx`.
         """
 
         web_contents = self.search_and_retrieve_web_content(query)
@@ -161,7 +167,7 @@ class WebSearcher:
                 continue
 
             current_mb_in_chat = await self._document_repository.get_total_size_mb(
-                chat_session_id=chat_session_id
+                chat_session_id=chat_session_id, tx=tx
             )
             current_bytes_in_chat = int(current_mb_in_chat * 1024 * 1024)
 
@@ -173,14 +179,14 @@ class WebSearcher:
                 )
                 continue
 
-            async with self._tx_factory.create() as tx:
+            try:
                 web_doc_source = f"{web_content.source}.html"[:_MAX_SOURCE_LEN]
 
                 web_doc_id = await self._document_repository.create(
                     data=Document(
                         session_id=chat_session_id,
                         source=web_doc_source,
-                        source_size=len(web_content.content.encode("utf-8")),
+                        source_size=content_bytes,
                         processing_status=ProcessingStatus.COMPLETED,
                     ),
                     tx=tx
@@ -200,11 +206,16 @@ class WebSearcher:
                     document_id=web_doc_id,
                     tx=tx
                 )
-                
+
                 total_saved += saved
+            except Exception as e:
+                self._logger.error(
+                    f"Failed to stage web content from {web_content.source}: {e}"
+                )
+                continue
 
         self._logger.info(
-            f"Ingested {total_saved} web chunks for query '{query}' into chat {chat_session_id}"
+            f"Staged {total_saved} web chunks for query '{query}' into chat {chat_session_id}"
         )
         return total_saved
 

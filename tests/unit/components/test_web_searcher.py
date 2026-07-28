@@ -23,7 +23,7 @@ from src.components.retrieval.web_searcher import (
 
 
 def test_web_searcher_initialization(
-    mock_document_processor, mock_document_repository, mock_tx_factory
+    mock_document_processor, mock_document_repository
 ):
     """Test successful WebSearcher initialization with a configured API key."""
     with patch("src.components.retrieval.web_searcher.settings") as mock_settings:
@@ -34,17 +34,15 @@ def test_web_searcher_initialization(
         searcher = WebSearcher(
             document_processor=mock_document_processor,
             document_repository=mock_document_repository,
-            tx_factory=mock_tx_factory,
         )
 
     assert searcher._document_processor is mock_document_processor
     assert searcher._document_repository is mock_document_repository
-    assert searcher._tx_factory is mock_tx_factory
     assert searcher.brave_api_key == "test_api_key"
 
 
 def test_web_searcher_initialization_without_api_key(
-    mock_document_processor, mock_document_repository, mock_tx_factory
+    mock_document_processor, mock_document_repository
 ):
     """Test WebSearcher initialization when no Brave API key is configured."""
     with patch("src.components.retrieval.web_searcher.settings") as mock_settings:
@@ -53,7 +51,6 @@ def test_web_searcher_initialization_without_api_key(
         searcher = WebSearcher(
             document_processor=mock_document_processor,
             document_repository=mock_document_repository,
-            tx_factory=mock_tx_factory,
         )
 
     assert searcher.brave_api_key is None
@@ -470,23 +467,24 @@ def test_search_and_retrieve_web_content_critical_error_returns_empty(web_search
 
 
 @pytest.mark.asyncio
-async def test_ingest_web_content_no_content_returns_zero(web_searcher):
+async def test_ingest_web_content_no_content_returns_zero(web_searcher, mock_tx):
     """Test that ingestion is a no-op when no web content is retrieved."""
     chat_session_id = uuid4()
 
     with patch.object(
         web_searcher, "search_and_retrieve_web_content", return_value=[]
     ):
-        result = await web_searcher.ingest_web_content("query", chat_session_id)
+        result = await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
 
     assert result == 0
     web_searcher._document_repository.create.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_ingest_web_content_success_sums_saved_chunks(web_searcher):
-    """Test that each piece of web content is persisted as a Document and its
-    chunks are saved, with the total summed across all content."""
+async def test_ingest_web_content_success_sums_saved_chunks(web_searcher, mock_tx):
+    """Test that each piece of web content is staged as a Document and its
+    chunks are saved (flushed, not committed) within the given tx, with the
+    total summed across all content."""
     chat_session_id = uuid4()
     web_contents = [
         WebContent(content="Content from source 1", source="https://example.com/1"),
@@ -500,15 +498,17 @@ async def test_ingest_web_content_success_sums_saved_chunks(web_searcher):
     with patch.object(
         web_searcher, "search_and_retrieve_web_content", return_value=web_contents
     ):
-        result = await web_searcher.ingest_web_content("query", chat_session_id)
+        result = await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
 
     assert result == 5
     assert web_searcher._document_repository.create.call_count == 2
-    assert web_searcher._tx_factory.create.call_count == 2
+    for call in web_searcher._document_repository.create.call_args_list:
+        assert call.kwargs["tx"] is mock_tx
+    mock_tx.commit.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_ingest_web_content_saves_exact_source_url_as_source(web_searcher):
+async def test_ingest_web_content_saves_exact_source_url_as_source(web_searcher, mock_tx):
     """Test that the Document's source is the exact source URL (plus
     .html), not a hashed/sanitized version - so the origin is preserved."""
     chat_session_id = uuid4()
@@ -520,14 +520,14 @@ async def test_ingest_web_content_saves_exact_source_url_as_source(web_searcher)
     with patch.object(
         web_searcher, "search_and_retrieve_web_content", return_value=web_contents
     ):
-        await web_searcher.ingest_web_content("query", chat_session_id)
+        await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
 
     saved_document = web_searcher._document_repository.create.call_args.kwargs["data"]
     assert saved_document.source == "https://en.wikipedia.org/wiki/London.html"
 
 
 @pytest.mark.asyncio
-async def test_ingest_web_content_skips_content_over_per_document_limit(web_searcher):
+async def test_ingest_web_content_skips_content_over_per_document_limit(web_searcher, mock_tx):
     """Test that a single piece of web content larger than MAX_FILE_SIZE_MB
     is skipped rather than saved, mirroring the upload size limit."""
     from src.config.configs import settings
@@ -541,14 +541,14 @@ async def test_ingest_web_content_skips_content_over_per_document_limit(web_sear
     with patch.object(
         web_searcher, "search_and_retrieve_web_content", return_value=web_contents
     ):
-        result = await web_searcher.ingest_web_content("query", chat_session_id)
+        result = await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
 
     assert result == 0
     web_searcher._document_repository.create.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_ingest_web_content_skips_when_chat_storage_quota_exceeded(web_searcher):
+async def test_ingest_web_content_skips_when_chat_storage_quota_exceeded(web_searcher, mock_tx):
     """Test that content is skipped when it would push the chat's total
     document storage over MAX_FILES_PER_CHAT_MB, even if the content itself
     is under the per-document limit."""
@@ -566,7 +566,7 @@ async def test_ingest_web_content_skips_when_chat_storage_quota_exceeded(web_sea
     with patch.object(
         web_searcher, "search_and_retrieve_web_content", return_value=web_contents
     ):
-        result = await web_searcher.ingest_web_content("query", chat_session_id)
+        result = await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
 
     assert result == 0
     web_searcher._document_repository.create.assert_not_called()

@@ -3,7 +3,7 @@ Responsible for handling user queries and generating their corresponding
 response.
 """
 
-from typing import List, Literal, Tuple, cast
+from typing import List, Literal, Optional, Tuple, cast
 from uuid import UUID
 
 from langchain_openai import ChatOpenAI
@@ -15,6 +15,7 @@ from src.components.prompts.prompt_loader import create_prompt_template
 from src.components.retrieval.embedder import Embedder
 from src.components.retrieval.reranker import Reranker
 from src.database.models import DocumentChunk
+from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.database.repository.interfaces.document_chunk_repository import (
     DocumentChunkRepositoryInterface,
 )
@@ -59,10 +60,18 @@ class QueryHandler:
         self._logger = BaseLogger(__name__)
 
     async def search_for_vectors(
-        self, query: str, chat_session_id: UUID
+        self,
+        query: str,
+        chat_session_id: UUID,
+        tx: Optional[DBTransaction] = None,
     ) -> Tuple[List[DocumentChunk], List[str]]:
         """
         Embeds query, searches vector DB, returns top_k results.
+
+        `tx`: optional transaction to run the search under - used so a
+        caller can search over rows staged (flushed but not yet committed)
+        earlier in the same transaction, e.g. freshly-ingested web content
+        that hasn't been committed yet.
         """
 
         query = validate_and_sanitize_query(query, self._logger)
@@ -80,6 +89,7 @@ class QueryHandler:
             vector=query_vector,
             top_k=settings.vector.RERANK_CANDIDATE_POOL_SIZE,
             threshold=settings.vector.SIMILARITY_THRESHOLD,
+            tx=tx,
         )
 
         if chunks:
@@ -89,6 +99,7 @@ class QueryHandler:
         sources: List[str] = await self.document_chunk_repo.get_filenames_for_chunks(
             chunks=chunks,
             chat_session_id=chat_session_id,
+            tx=tx,
         )
 
         if not chunks or len(chunks) == 0:
