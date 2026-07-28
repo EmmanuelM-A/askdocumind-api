@@ -3,7 +3,7 @@ Responsible for handling user queries and generating their corresponding
 response.
 """
 
-from typing import List, Literal, Optional, Tuple, cast
+from typing import List, Literal, Tuple, cast
 from uuid import UUID
 
 from langchain_openai import ChatOpenAI
@@ -33,17 +33,15 @@ class QueryHandler:
         self,
         embedder: Embedder,
         document_chunk_repo: DocumentChunkRepositoryInterface,
-        reranker: Optional[Reranker] = None,
+        reranker: Reranker,
     ) -> None:
         """
         Initializes the QueryHandler instance.
 
         Args:
             embedder: The class instance used to create embeddings for indexes.
-            reranker: Optional reranker used to reorder retrieved chunks by
-                relevance before they're used for response generation. If
-                None, reranking is skipped and vector search results are
-                used as-is.
+            reranker: Reranker used to reorder retrieved chunks by relevance
+                before they're used for response generation.
         """
         self.embedder = embedder
         self.document_chunk_repo = document_chunk_repo
@@ -76,20 +74,15 @@ class QueryHandler:
         self._logger.debug("Initialing vector search...")
 
         top_k = settings.vector.RETRIEVAL_TOP_K
-        search_k = (
-            settings.vector.RERANK_CANDIDATE_POOL_SIZE
-            if self.reranker is not None
-            else top_k
-        )
 
         chunks: List[DocumentChunk] = await self.document_chunk_repo.search_similar(
             chat_session_id=chat_session_id,
             vector=query_vector,
-            top_k=search_k,
+            top_k=settings.vector.RERANK_CANDIDATE_POOL_SIZE,
             threshold=settings.vector.SIMILARITY_THRESHOLD,
         )
 
-        if self.reranker is not None and chunks:
+        if chunks:
             self._logger.debug(f"Reranking {len(chunks)} candidate chunks...")
             chunks = await self.reranker.rerank(query=query, chunks=chunks, top_k=top_k)
 

@@ -166,6 +166,7 @@ def query_handler(mock_embedder, mock_document_chunk_repo):
         handler = QueryHandler(
             embedder=mock_embedder,
             document_chunk_repo=mock_document_chunk_repo,
+            reranker=AsyncMock(),
         )
         return handler
 
