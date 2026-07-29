@@ -40,7 +40,7 @@ def expand_query(
 
     if len(expanded_query) < len(query):
         _logger.warning("The expanded query is not longer than the original query!")
-    elif len(expanded_query) == len(query):
+    elif expanded_query == query:
         _logger.warning(
             "The expanded query is identical to the original query! So no expansion was performed."
         )
