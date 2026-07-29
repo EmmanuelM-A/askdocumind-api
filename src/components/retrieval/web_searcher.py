@@ -4,6 +4,7 @@ relevant documents are found.
 """
 
 import ipaddress
+import re
 import socket
 import time
 from dataclasses import dataclass
@@ -18,11 +19,12 @@ from ddgs.exceptions import DDGSException
 
 from src.components.ingestion.document_processor import DocumentProcessor
 from src.config.configs import settings
+from src.config.constants import DocumentSourceType, ProcessingStatus
 from src.database.models import Document
 from src.database.repository.interfaces.document_repository import (
     DocumentRepositoryInterface,
 )
-from src.database.repository.interfaces.db_transaction import DBTransactionFactory
+from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.logger.base_logger import BaseLogger
 
 
@@ -39,6 +41,35 @@ class WebSearchResult:
     url: str
 
 
+# document.source is String(255) - a URL plus ".html" could in rare cases
+# exceed that, so it's truncated defensively rather than raising on insert.
+_MAX_SOURCE_LEN = 255
+
+# Same per-file and per-chat size limits enforced for uploaded documents,
+# applied here too so web-search ingestion can't bypass them.
+_MAX_FILE_SIZE_BYTES = int(settings.files.MAX_FILE_SIZE_MB * 1024 * 1024)
+_MAX_FILES_PER_CHAT_BYTES = int(settings.files.MAX_FILES_PER_CHAT_MB * 1024 * 1024)
+
+# Matches literal two-character escape sequences (backslash+n, backslash+t,
+# backslash+r) as opposed to real newline/tab/carriage-return characters.
+_LITERAL_ESCAPE_SEQUENCE_RE = re.compile(r"\\r\\n|\\n|\\t")
+_REPEATED_WHITESPACE_RE = re.compile(r" {2,}")
+
+
+def _clean_web_text(text: str) -> str:
+    """
+    Replace literal `\\n`/`\\r\\n`/`\\t` escape sequences (as they'd appear
+    in the extracted text of a web page, not real whitespace characters)
+    with a single space, then collapse repeated whitespace. Web-fetched
+    content sometimes carries these through as raw text, which reads as
+    unfriendly noise once it ends up in a chunk or an LLM-generated answer.
+    """
+
+    cleaned = _LITERAL_ESCAPE_SEQUENCE_RE.sub(" ", text)
+    cleaned = _REPEATED_WHITESPACE_RE.sub(" ", cleaned)
+    return cleaned.strip()
+
+
 class WebSearcher:
     """
     Handles web search and raw content retrieval only.
@@ -48,7 +79,6 @@ class WebSearcher:
         self,
         document_processor: DocumentProcessor,
         document_repository: DocumentRepositoryInterface,
-        tx_factory: DBTransactionFactory,
     ) -> None:
         """
         Initializes the WebSearcher instance.
@@ -56,7 +86,6 @@ class WebSearcher:
 
         self._document_processor = document_processor
         self._document_repository = document_repository
-        self._tx_factory = tx_factory
         self._logger = BaseLogger(__name__)
 
         brave_api_key = settings.web.BRAVE_SEARCH_API_KEY
@@ -121,13 +150,21 @@ class WebSearcher:
             self._logger.error(f"Critical error in web search: {e}", exception=e)
             return []
 
-    async def ingest_web_content(self, query: str, chat_session_id: UUID) -> int:
+    async def ingest_web_content(
+        self, query: str, chat_session_id: UUID, tx: DBTransaction
+    ) -> int:
         """
         Search the web for relevant content based on the `query`, retrieve the raw HTML for each
-        result, save the content as a document and ingest it into the database as document chunks.
-        
+        result, and stage it (document + chunks) within the given `tx`.
+
+        This only flushes the staged rows - it does NOT commit `tx`. Saving
+        web content that never produces a usable answer is meaningless, so
+        the caller is responsible for committing `tx` once it has confirmed
+        the ingested content actually produced a usable response, and
+        rolling it back otherwise so nothing gets persisted.
+
         Returns:
-            The total number of document chunks ingested into the database.
+            The total number of document chunks staged within `tx`.
         """
 
         web_contents = self.search_and_retrieve_web_content(query)
@@ -139,23 +176,51 @@ class WebSearcher:
         total_saved = 0
 
         for web_content in web_contents:
-            async with self._tx_factory.create() as tx:
-                web_doc_filename = f"web_{web_content.source or int(time.time())}.html"
-                
+            content_bytes = len(web_content.content.encode("utf-8"))
+
+            if content_bytes > _MAX_FILE_SIZE_BYTES:
+                self._logger.warning(
+                    f"Skipping web content from {web_content.source}: "
+                    f"{content_bytes} bytes exceeds the per-document limit "
+                    f"of {settings.files.MAX_FILE_SIZE_MB} MB."
+                )
+                continue
+
+            current_mb_in_chat = await self._document_repository.get_total_size_mb(
+                chat_session_id=chat_session_id, tx=tx
+            )
+            current_bytes_in_chat = int(current_mb_in_chat * 1024 * 1024)
+
+            if current_bytes_in_chat + content_bytes > _MAX_FILES_PER_CHAT_BYTES:
+                self._logger.warning(
+                    f"Skipping web content from {web_content.source}: would "
+                    f"exceed the {settings.files.MAX_FILES_PER_CHAT_MB} MB "
+                    f"per-chat storage limit for chat {chat_session_id}."
+                )
+                continue
+
+            try:
+                web_doc_source = f"{web_content.source}.html"[:_MAX_SOURCE_LEN]
+
                 web_doc_id = await self._document_repository.create(
                     data=Document(
                         session_id=chat_session_id,
-                        filename=web_doc_filename,
-                        file_size=len(web_content.content.encode("utf-8")),
+                        source=web_doc_source,
+                        source_size=content_bytes,
+                        source_type=DocumentSourceType.WEB_SEARCH,
+                        processing_status=ProcessingStatus.COMPLETED,
                     ),
                     tx=tx
                 )
 
                 docling_document = self._document_processor.extract(
                     document_data=web_content.content.encode("utf-8"),
-                    filename=web_doc_filename,
+                    filename=web_doc_source,
                 )
-                chunks = self._document_processor.chunk(docling_document)
+                chunks = self._document_processor.chunk(
+                    docling_document, source_name=web_doc_source
+                )
+                chunks = [_clean_web_text(chunk) for chunk in chunks]
 
                 saved = await self._document_processor.save_document_chunks(
                     chunks=chunks,
@@ -163,11 +228,16 @@ class WebSearcher:
                     document_id=web_doc_id,
                     tx=tx
                 )
-                
+
                 total_saved += saved
+            except Exception as e:
+                self._logger.error(
+                    f"Failed to stage web content from {web_content.source}: {e}"
+                )
+                continue
 
         self._logger.info(
-            f"Ingested {total_saved} web chunks for query '{query}' into chat {chat_session_id}"
+            f"Staged {total_saved} web chunks for query '{query}' into chat {chat_session_id}"
         )
         return total_saved
 
@@ -333,6 +403,13 @@ class WebSearcher:
                 url, headers=headers, timeout=settings.web.WEB_REQUEST_TIMEOUT_SECS
             )
             response.raise_for_status()
+
+            content_type = response.headers.get("Content-Type", "")
+            if "text/html" not in content_type.lower():
+                self._logger.warning(
+                    f"Skipping non-HTML content ({content_type or 'unknown'}) from {url}"
+                )
+                return None
 
             self._logger.debug(
                 f"Successfully fetched {len(response.text)} characters of HTML from {url}"

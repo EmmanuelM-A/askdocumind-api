@@ -148,24 +148,20 @@ def mock_document_chunk_repo():
 
 @pytest.fixture
 def query_handler(mock_embedder, mock_document_chunk_repo):
-    """Provides a QueryHandler instance with mocked embedder.
-
-    `create_prompt_template` is called twice in QueryHandler.__init__ (once
-    for the response prompt, once for the query-expansion prompt) - side_effect
-    gives each call a distinct mock so `_prompt_template` and
-    `_expansion_prompt_template` aren't accidentally the same object.
-    """
+    """Provides a QueryHandler instance with mocked embedder, LLM, and
+    response prompt template."""
     from src.components.chatbot.query_handler import QueryHandler
 
     with patch("src.components.chatbot.query_handler.ChatOpenAI") as mock_llm, patch(
         "src.components.chatbot.query_handler.create_prompt_template"
     ) as mock_prompt:
         mock_llm.return_value = MagicMock()
-        mock_prompt.side_effect = [MagicMock(), MagicMock()]
+        mock_prompt.return_value = MagicMock()
 
         handler = QueryHandler(
             embedder=mock_embedder,
             document_chunk_repo=mock_document_chunk_repo,
+            reranker=AsyncMock(),
         )
         return handler
 
@@ -248,30 +244,32 @@ def mock_document_repository():
     """Creates a mock DocumentRepository instance."""
     mock_repo = Mock()
     mock_repo.create = AsyncMock(return_value=uuid4())
+    mock_repo.get_total_size_mb = AsyncMock(return_value=0.0)
     return mock_repo
 
 
 @pytest.fixture
 def mock_tx():
     """Creates a mock DBTransaction instance."""
-    return Mock()
+    tx = Mock()
+    tx.commit = AsyncMock()
+    tx.rollback = AsyncMock()
+    tx.close = AsyncMock()
+    tx.__aenter__ = AsyncMock(return_value=tx)
+    tx.__aexit__ = AsyncMock(return_value=None)
+    return tx
 
 
 @pytest.fixture
 def mock_tx_factory(mock_tx):
-    """Creates a mock DBTransactionFactory whose create() yields mock_tx
-    as an async context manager, matching `async with tx_factory.create() as tx`."""
-    tx_cm = AsyncMock()
-    tx_cm.__aenter__.return_value = mock_tx
-    tx_cm.__aexit__.return_value = None
-
+    """Creates a mock DBTransactionFactory whose create() returns mock_tx."""
     factory = Mock()
-    factory.create.return_value = tx_cm
+    factory.create.return_value = mock_tx
     return factory
 
 
 @pytest.fixture
-def web_searcher(mock_document_processor, mock_document_repository, mock_tx_factory):
+def web_searcher(mock_document_processor, mock_document_repository):
     """Provides a WebSearcher instance with mocked dependencies and a
     configured (non-empty) Brave API key."""
     from src.components.retrieval.web_searcher import WebSearcher
@@ -284,7 +282,6 @@ def web_searcher(mock_document_processor, mock_document_repository, mock_tx_fact
         searcher = WebSearcher(
             document_processor=mock_document_processor,
             document_repository=mock_document_repository,
-            tx_factory=mock_tx_factory,
         )
 
     return searcher

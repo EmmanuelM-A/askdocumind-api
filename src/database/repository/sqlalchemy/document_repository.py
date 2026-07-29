@@ -40,10 +40,10 @@ class DocumentRepository(DocumentRepositoryInterface):
         return filters
 
     @staticmethod
-    def _is_duplicate_filename_error(error: IntegrityError) -> bool:
+    def _is_duplicate_source_error(error: IntegrityError) -> bool:
         message = str(error).lower()
         return (
-            "uq_document_session_filename" in message
+            "uq_document_session_source" in message
             or "unique constraint" in message
             and "document" in message
         )
@@ -63,9 +63,9 @@ class DocumentRepository(DocumentRepositoryInterface):
                 return data.id
 
         except IntegrityError as e:
-            if self._is_duplicate_filename_error(e):
+            if self._is_duplicate_source_error(e):
                 raise conflict_error(
-                    message="A document with the same filename already exists for this chat.",
+                    message="A document with the same source already exists for this chat.",
                     error_code="DOCUMENT_ALREADY_EXISTS",
                     error_details=str(e.orig) if getattr(e, "orig", None) else None,
                 )
@@ -190,10 +190,10 @@ class DocumentRepository(DocumentRepositoryInterface):
                     return None
 
                 if (
-                    hasattr(new_entity_data, "filename")
-                    and new_entity_data.filename is not None
+                    hasattr(new_entity_data, "source")
+                    and new_entity_data.source is not None
                 ):
-                    existing.filename = new_entity_data.filename
+                    existing.source = new_entity_data.source
                 if (
                     hasattr(new_entity_data, "processing_status")
                     and new_entity_data.processing_status is not None
@@ -211,10 +211,10 @@ class DocumentRepository(DocumentRepositoryInterface):
                     return None
 
                 if (
-                    hasattr(new_entity_data, "filename")
-                    and new_entity_data.filename is not None
+                    hasattr(new_entity_data, "source")
+                    and new_entity_data.source is not None
                 ):
-                    existing.filename = new_entity_data.filename
+                    existing.source = new_entity_data.source
                 if (
                     hasattr(new_entity_data, "processing_status")
                     and new_entity_data.processing_status is not None
@@ -307,7 +307,7 @@ class DocumentRepository(DocumentRepositoryInterface):
     ) -> float:
         try:
             stmt = select(
-                func.coalesce(func.sum(Document.file_size), 0)
+                func.coalesce(func.sum(Document.source_size), 0)
             ).select_from(
                 Document
             ).where(Document.session_id == chat_session_id)
@@ -351,9 +351,9 @@ class DocumentRepository(DocumentRepositoryInterface):
                 return created_ids
 
         except IntegrityError as e:
-            if self._is_duplicate_filename_error(e):
+            if self._is_duplicate_source_error(e):
                 raise conflict_error(
-                    message="A document with the same filename already exists for this chat.",
+                    message="A document with the same source already exists for this chat.",
                     error_code="DOCUMENT_ALREADY_EXISTS",
                     error_details=str(e.orig) if getattr(e, "orig", None) else None,
                 )

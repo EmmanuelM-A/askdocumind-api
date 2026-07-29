@@ -41,9 +41,9 @@ def validate_and_sanitize_query(query: str, logger: BaseLogger) -> str:
     """Sanitize user query and return the sanitized string.
 
     The function is idempotent: repeated calls produce the same output. It
-    performs a canonicalization (unescape) -> cleaning -> escape pipeline and
-    only logs when the canonicalized value changed (so nested callers won't
-    produce duplicate log entries).
+    performs a canonicalization (unescape) -> cleaning pipeline and only logs
+    when the canonicalized value changed (so nested callers won't produce
+    duplicate log entries).
     """
 
     # Basic presence check
@@ -95,7 +95,4 @@ def validate_and_sanitize_query(query: str, logger: BaseLogger) -> str:
     if changed:
         logger.warning("Potentially malicious content removed or query truncated")
 
-    # Escape once to produce a safe string for downstream usage
-    result = html.escape(cleaned)
-
-    return result
+    return cleaned

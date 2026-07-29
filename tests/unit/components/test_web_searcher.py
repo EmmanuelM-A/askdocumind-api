@@ -17,13 +17,14 @@ from src.components.retrieval.web_searcher import (
     WebContent,
     WebSearcher,
     WebSearchResult,
+    _clean_web_text,
 )
 
 # ==================== INITIALIZATION TESTS ====================
 
 
 def test_web_searcher_initialization(
-    mock_document_processor, mock_document_repository, mock_tx_factory
+    mock_document_processor, mock_document_repository
 ):
     """Test successful WebSearcher initialization with a configured API key."""
     with patch("src.components.retrieval.web_searcher.settings") as mock_settings:
@@ -34,17 +35,15 @@ def test_web_searcher_initialization(
         searcher = WebSearcher(
             document_processor=mock_document_processor,
             document_repository=mock_document_repository,
-            tx_factory=mock_tx_factory,
         )
 
     assert searcher._document_processor is mock_document_processor
     assert searcher._document_repository is mock_document_repository
-    assert searcher._tx_factory is mock_tx_factory
     assert searcher.brave_api_key == "test_api_key"
 
 
 def test_web_searcher_initialization_without_api_key(
-    mock_document_processor, mock_document_repository, mock_tx_factory
+    mock_document_processor, mock_document_repository
 ):
     """Test WebSearcher initialization when no Brave API key is configured."""
     with patch("src.components.retrieval.web_searcher.settings") as mock_settings:
@@ -53,7 +52,6 @@ def test_web_searcher_initialization_without_api_key(
         searcher = WebSearcher(
             document_processor=mock_document_processor,
             document_repository=mock_document_repository,
-            tx_factory=mock_tx_factory,
         )
 
     assert searcher.brave_api_key is None
@@ -307,6 +305,7 @@ def test_fetch_page_html_success(web_searcher):
     """Test successful raw HTML fetch for a safe URL."""
     mock_response = Mock()
     mock_response.text = "<html>page content</html>"
+    mock_response.headers = {"Content-Type": "text/html; charset=utf-8"}
     mock_response.raise_for_status = Mock()
 
     with patch.object(
@@ -321,6 +320,27 @@ def test_fetch_page_html_success(web_searcher):
         content = web_searcher._fetch_page_html("https://example.com")
 
     assert content == "<html>page content</html>"
+
+
+def test_fetch_page_html_rejects_non_html_content(web_searcher):
+    """Test that a non-HTML Content-Type is rejected rather than treated as HTML."""
+    mock_response = Mock()
+    mock_response.text = "%PDF-1.4 not html"
+    mock_response.headers = {"Content-Type": "application/pdf"}
+    mock_response.raise_for_status = Mock()
+
+    with patch.object(
+        web_searcher, "_is_safe_url", return_value=True
+    ), patch("src.components.retrieval.web_searcher.requests.get") as mock_get, patch(
+        "src.components.retrieval.web_searcher.settings"
+    ) as mock_settings:
+        mock_get.return_value = mock_response
+        mock_settings.web.WEB_USER_AGENT = "test-agent"
+        mock_settings.web.WEB_REQUEST_TIMEOUT_SECS = 10
+
+        content = web_searcher._fetch_page_html("https://example.com/file.pdf")
+
+    assert content is None
 
 
 def test_fetch_page_html_blocked_for_unsafe_url(web_searcher):
@@ -448,23 +468,24 @@ def test_search_and_retrieve_web_content_critical_error_returns_empty(web_search
 
 
 @pytest.mark.asyncio
-async def test_ingest_web_content_no_content_returns_zero(web_searcher):
+async def test_ingest_web_content_no_content_returns_zero(web_searcher, mock_tx):
     """Test that ingestion is a no-op when no web content is retrieved."""
     chat_session_id = uuid4()
 
     with patch.object(
         web_searcher, "search_and_retrieve_web_content", return_value=[]
     ):
-        result = await web_searcher.ingest_web_content("query", chat_session_id)
+        result = await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
 
     assert result == 0
     web_searcher._document_repository.create.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_ingest_web_content_success_sums_saved_chunks(web_searcher):
-    """Test that each piece of web content is persisted as a Document and its
-    chunks are saved, with the total summed across all content."""
+async def test_ingest_web_content_success_sums_saved_chunks(web_searcher, mock_tx):
+    """Test that each piece of web content is staged as a Document and its
+    chunks are saved (flushed, not committed) within the given tx, with the
+    total summed across all content."""
     chat_session_id = uuid4()
     web_contents = [
         WebContent(content="Content from source 1", source="https://example.com/1"),
@@ -478,11 +499,157 @@ async def test_ingest_web_content_success_sums_saved_chunks(web_searcher):
     with patch.object(
         web_searcher, "search_and_retrieve_web_content", return_value=web_contents
     ):
-        result = await web_searcher.ingest_web_content("query", chat_session_id)
+        result = await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
 
     assert result == 5
     assert web_searcher._document_repository.create.call_count == 2
-    assert web_searcher._tx_factory.create.call_count == 2
+    for call in web_searcher._document_repository.create.call_args_list:
+        assert call.kwargs["tx"] is mock_tx
+    mock_tx.commit.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_ingest_web_content_saves_exact_source_url_as_source(web_searcher, mock_tx):
+    """Test that the Document's source is the exact source URL (plus
+    .html), not a hashed/sanitized version - so the origin is preserved."""
+    chat_session_id = uuid4()
+    web_contents = [
+        WebContent(content="Some content", source="https://en.wikipedia.org/wiki/London"),
+    ]
+    web_searcher._document_processor.save_document_chunks = AsyncMock(return_value=1)
+
+    with patch.object(
+        web_searcher, "search_and_retrieve_web_content", return_value=web_contents
+    ):
+        await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
+
+    saved_document = web_searcher._document_repository.create.call_args.kwargs["data"]
+    assert saved_document.source == "https://en.wikipedia.org/wiki/London.html"
+
+
+@pytest.mark.asyncio
+async def test_ingest_web_content_marks_document_as_web_search_source_type(
+    web_searcher, mock_tx
+):
+    """Test that documents created from web ingestion are tagged
+    WEB_SEARCH, distinguishing them from uploaded documents."""
+    from src.config.constants import DocumentSourceType
+
+    chat_session_id = uuid4()
+    web_contents = [
+        WebContent(content="Some content", source="https://example.com/a"),
+    ]
+    web_searcher._document_processor.save_document_chunks = AsyncMock(return_value=1)
+
+    with patch.object(
+        web_searcher, "search_and_retrieve_web_content", return_value=web_contents
+    ):
+        await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
+
+    saved_document = web_searcher._document_repository.create.call_args.kwargs["data"]
+    assert saved_document.source_type == DocumentSourceType.WEB_SEARCH
+
+
+@pytest.mark.asyncio
+async def test_ingest_web_content_skips_content_over_per_document_limit(web_searcher, mock_tx):
+    """Test that a single piece of web content larger than MAX_FILE_SIZE_MB
+    is skipped rather than saved, mirroring the upload size limit."""
+    from src.config.configs import settings
+
+    chat_session_id = uuid4()
+    oversized_content = "a" * (int(settings.files.MAX_FILE_SIZE_MB * 1024 * 1024) + 1)
+    web_contents = [
+        WebContent(content=oversized_content, source="https://example.com/big"),
+    ]
+
+    with patch.object(
+        web_searcher, "search_and_retrieve_web_content", return_value=web_contents
+    ):
+        result = await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
+
+    assert result == 0
+    web_searcher._document_repository.create.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_ingest_web_content_skips_when_chat_storage_quota_exceeded(web_searcher, mock_tx):
+    """Test that content is skipped when it would push the chat's total
+    document storage over MAX_FILES_PER_CHAT_MB, even if the content itself
+    is under the per-document limit."""
+    from src.config.configs import settings
+
+    chat_session_id = uuid4()
+    web_contents = [
+        WebContent(content="small content", source="https://example.com/1"),
+    ]
+
+    web_searcher._document_repository.get_total_size_mb = AsyncMock(
+        return_value=settings.files.MAX_FILES_PER_CHAT_MB
+    )
+
+    with patch.object(
+        web_searcher, "search_and_retrieve_web_content", return_value=web_contents
+    ):
+        result = await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
+
+    assert result == 0
+    web_searcher._document_repository.create.assert_not_called()
+
+
+# ==================== _clean_web_text TESTS ====================
+
+
+def test_clean_web_text_replaces_literal_escape_sequences():
+    """Test that literal backslash-n/backslash-t two-character sequences are
+    replaced with a space, not treated as real whitespace."""
+    result = _clean_web_text("line1\\nline2\\tindented")
+
+    assert result == "line1 line2 indented"
+
+
+def test_clean_web_text_preserves_real_whitespace_structure():
+    """Test that a real newline (as would appear in the `Source: name\\n\\n...`
+    chunk prefix) is left untouched, since it's a single real character, not
+    the two-character literal sequence being targeted."""
+    result = _clean_web_text("Source: page.html\n\nActual body text")
+
+    assert result == "Source: page.html\n\nActual body text"
+
+
+def test_clean_web_text_collapses_repeated_whitespace():
+    """Test that repeated spaces left behind by escape-sequence replacement
+    are collapsed to a single space."""
+    result = _clean_web_text("a\\n\\n\\nb")
+
+    assert result == "a b"
+
+
+def test_clean_web_text_strips_leading_and_trailing_whitespace():
+    result = _clean_web_text("\\n  leading and trailing  \\t")
+
+    assert result == "leading and trailing"
+
+
+@pytest.mark.asyncio
+async def test_ingest_web_content_sanitizes_chunks_before_saving(web_searcher, mock_tx):
+    """Test that chunk text is cleaned of literal escape sequences before
+    being handed to save_document_chunks."""
+    chat_session_id = uuid4()
+    web_contents = [
+        WebContent(content="Some content", source="https://example.com/a"),
+    ]
+    web_searcher._document_processor.chunk.return_value = ["line1\\nline2"]
+    web_searcher._document_processor.save_document_chunks = AsyncMock(return_value=1)
+
+    with patch.object(
+        web_searcher, "search_and_retrieve_web_content", return_value=web_contents
+    ):
+        await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
+
+    saved_chunks = web_searcher._document_processor.save_document_chunks.call_args.kwargs[
+        "chunks"
+    ]
+    assert saved_chunks == ["line1 line2"]
 
 
 # ==================== DATACLASS TESTS ====================

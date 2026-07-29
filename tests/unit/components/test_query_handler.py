@@ -20,19 +20,18 @@ def test_query_handler_initialization(mock_embedder, mock_document_chunk_repo):
         "src.components.chatbot.query_handler.create_prompt_template"
     ) as mock_prompt:
         mock_llm.return_value = Mock()
-        mock_prompt.side_effect = [Mock(), Mock()]
+        mock_prompt.return_value = Mock()
 
         handler = QueryHandler(
             embedder=mock_embedder,
             document_chunk_repo=mock_document_chunk_repo,
+            reranker=AsyncMock(),
         )
 
     assert handler.embedder is mock_embedder
     assert handler.document_chunk_repo is mock_document_chunk_repo
-    assert handler._llm is not None
+    assert handler.llm is not None
     assert handler._prompt_template is not None
-    assert handler._expansion_prompt_template is not None
-    assert handler._prompt_template is not handler._expansion_prompt_template
 
 
 # ==================== SEARCH FOR VECTORS TESTS ====================
@@ -40,13 +39,18 @@ def test_query_handler_initialization(mock_embedder, mock_document_chunk_repo):
 
 @pytest.mark.asyncio
 async def test_search_for_vectors_success(query_handler):
-    """Test successful vector search with valid inputs."""
+    """Test successful vector search: a candidate pool is fetched, reranked,
+    then used to look up sources."""
     chat_session_id = uuid4()
-    chunks = [Mock(chunk_text="Chunk 1"), Mock(chunk_text="Chunk 2")]
+    candidate_chunks = [Mock(chunk_text=f"Chunk {i}") for i in range(5)]
+    reranked_chunks = [candidate_chunks[3], candidate_chunks[0]]
 
-    query_handler.document_chunk_repo.search_similar = AsyncMock(return_value=chunks)
+    query_handler.reranker.rerank = AsyncMock(return_value=reranked_chunks)
+    query_handler.document_chunk_repo.search_similar = AsyncMock(
+        return_value=candidate_chunks
+    )
     query_handler.document_chunk_repo.get_filenames_for_chunks = AsyncMock(
-        return_value=["doc1.txt", "doc2.txt"]
+        return_value=["doc4.txt", "doc1.txt"]
     )
 
     with patch(
@@ -55,23 +59,30 @@ async def test_search_for_vectors_success(query_handler):
     ) as mock_validate, patch(
         "src.components.chatbot.query_handler.settings"
     ) as mock_settings:
-        mock_settings.vector.RETRIEVAL_TOP_K = 3
+        mock_settings.vector.RETRIEVAL_TOP_K = 2
+        mock_settings.vector.RERANK_CANDIDATE_POOL_SIZE = 15
         mock_settings.vector.SIMILARITY_THRESHOLD = 0.4
 
         result = await query_handler.search_for_vectors("  test query  ", chat_session_id)
 
-    assert result == (chunks, ["doc1.txt", "doc2.txt"])
+    assert result == (reranked_chunks, ["doc4.txt", "doc1.txt"])
     mock_validate.assert_called_once()
     query_handler.embedder.embed_query.assert_called_once_with("sanitized query")
     query_handler.document_chunk_repo.search_similar.assert_awaited_once_with(
         chat_session_id=chat_session_id,
         vector=[0.1, 0.2, 0.3, 0.4, 0.5],
-        top_k=3,
+        top_k=15,
         threshold=0.4,
+        source_type=None,
+        tx=None,
+    )
+    query_handler.reranker.rerank.assert_awaited_once_with(
+        query="sanitized query", chunks=candidate_chunks, top_k=2
     )
     query_handler.document_chunk_repo.get_filenames_for_chunks.assert_awaited_once_with(
-        chunks=chunks,
+        chunks=reranked_chunks,
         chat_session_id=chat_session_id,
+        tx=None,
     )
 
 
@@ -86,7 +97,8 @@ async def test_search_for_vectors_empty_query_raises_error(query_handler):
 
 @pytest.mark.asyncio
 async def test_search_for_vectors_no_results_returns_empty(query_handler):
-    """Test search returns empty lists when no chunks are found."""
+    """Test search returns empty lists when no chunks are found, and the
+    reranker is skipped since there's nothing to rerank."""
     chat_session_id = uuid4()
 
     query_handler.document_chunk_repo.search_similar = AsyncMock(return_value=[])
@@ -101,12 +113,14 @@ async def test_search_for_vectors_no_results_returns_empty(query_handler):
         "src.components.chatbot.query_handler.settings"
     ) as mock_settings:
         mock_settings.vector.RETRIEVAL_TOP_K = 3
+        mock_settings.vector.RERANK_CANDIDATE_POOL_SIZE = 15
         mock_settings.vector.SIMILARITY_THRESHOLD = 0.7
 
         result = await query_handler.search_for_vectors("test query", chat_session_id)
 
     assert result == ([], [])
     query_handler.document_chunk_repo.search_similar.assert_awaited_once()
+    query_handler.reranker.rerank.assert_not_called()
     query_handler.document_chunk_repo.get_filenames_for_chunks.assert_awaited_once()
 
 
@@ -114,34 +128,26 @@ async def test_search_for_vectors_no_results_returns_empty(query_handler):
 
 
 def test_generate_response_success(query_handler):
-    """Test successful response generation, including that the *expanded*
-    query (not the raw input query) is what actually reaches the LLM."""
+    """Test successful response generation: the prompt is invoked with the
+    query as-is and the joined chunk texts as context."""
     query = "What is the test content?"
     chunks = [Mock(chunk_text="First chunk content"), Mock(chunk_text="Second chunk content")]
 
     mock_final_chain = Mock()
     mock_final_chain.invoke.return_value = "This is the answer based on the context."
 
-    query_handler._prompt_template.__or__.return_value = query_handler._llm
-    query_handler._llm.__or__.return_value = mock_final_chain
+    query_handler._prompt_template.__or__.return_value = query_handler.llm
+    query_handler.llm.__or__.return_value = mock_final_chain
 
     with patch(
         "src.components.chatbot.query_handler.StrOutputParser",
         return_value=Mock(),
-    ), patch(
-        "src.components.chatbot.query_handler.expand_query",
-        return_value="expanded query text",
-    ) as mock_expand:
+    ):
         result = query_handler.generate_response(query, chunks)
 
     assert result == "This is the answer based on the context."
-    mock_expand.assert_called_once_with(
-        query=query,
-        llm=query_handler._llm,
-        prompt_template=query_handler._expansion_prompt_template,
-    )
     call_args = mock_final_chain.invoke.call_args[0][0]
-    assert call_args["query"] == "expanded query text"
+    assert call_args["query"] == query
     assert call_args["context"] == "First chunk content\n\nSecond chunk content"
 
 
@@ -153,15 +159,12 @@ def test_generate_response_need_web_search(query_handler):
     mock_final_chain = Mock()
     mock_final_chain.invoke.return_value = "NEED_WEB_SEARCH"
 
-    query_handler._prompt_template.__or__.return_value = query_handler._llm
-    query_handler._llm.__or__.return_value = mock_final_chain
+    query_handler._prompt_template.__or__.return_value = query_handler.llm
+    query_handler.llm.__or__.return_value = mock_final_chain
 
     with patch(
         "src.components.chatbot.query_handler.StrOutputParser",
         return_value=Mock(),
-    ), patch(
-        "src.components.chatbot.query_handler.expand_query",
-        return_value=query,
     ):
         result = query_handler.generate_response(query, chunks)
 
@@ -177,24 +180,37 @@ def test_generate_response_need_web_search_already_from_web(query_handler):
     mock_final_chain = Mock()
     mock_final_chain.invoke.return_value = "NEED_WEB_SEARCH"
 
-    query_handler._prompt_template.__or__.return_value = query_handler._llm
-    query_handler._llm.__or__.return_value = mock_final_chain
+    query_handler._prompt_template.__or__.return_value = query_handler.llm
+    query_handler.llm.__or__.return_value = mock_final_chain
 
     with patch(
         "src.components.chatbot.query_handler.StrOutputParser",
         return_value=Mock(),
-    ), patch(
-        "src.components.chatbot.query_handler.expand_query",
-        return_value=query,
     ):
         result = query_handler.generate_response(query, chunks, from_web_search=True)
 
     assert result == "NEED_WEB_SEARCH"
 
 
-def test_generate_response_no_chunks_returns_none(query_handler):
-    """Test response generation handles empty chunk lists without calling the LLM."""
-    assert query_handler.generate_response("test query", []) is None
+def test_generate_response_no_chunks_still_calls_llm_with_empty_context(query_handler):
+    """Test that an empty chunk list doesn't short-circuit before calling
+    the LLM - it still invokes the chain with empty context, letting the
+    LLM judge scope from the question alone."""
+    mock_final_chain = Mock()
+    mock_final_chain.invoke.return_value = "That's outside what I can help with here."
+
+    query_handler._prompt_template.__or__.return_value = query_handler.llm
+    query_handler.llm.__or__.return_value = mock_final_chain
+
+    with patch(
+        "src.components.chatbot.query_handler.StrOutputParser",
+        return_value=Mock(),
+    ):
+        result = query_handler.generate_response("test query", [])
+
+    assert result == "That's outside what I can help with here."
+    call_args = mock_final_chain.invoke.call_args[0][0]
+    assert call_args["context"] == ""
 
 
 def test_generate_response_llm_service_error(query_handler):
@@ -204,15 +220,12 @@ def test_generate_response_llm_service_error(query_handler):
     mock_final_chain = Mock()
     mock_final_chain.invoke.side_effect = Exception("LLM is down")
 
-    query_handler._prompt_template.__or__.return_value = query_handler._llm
-    query_handler._llm.__or__.return_value = mock_final_chain
+    query_handler._prompt_template.__or__.return_value = query_handler.llm
+    query_handler.llm.__or__.return_value = mock_final_chain
 
     with patch(
         "src.components.chatbot.query_handler.StrOutputParser",
         return_value=Mock(),
-    ), patch(
-        "src.components.chatbot.query_handler.expand_query",
-        return_value="expanded query",
     ):
         with pytest.raises(ApiException) as exc_info:
             query_handler.generate_response("query", chunks)
@@ -227,15 +240,12 @@ def test_generate_response_empty_llm_response_returns_none(query_handler):
     mock_final_chain = Mock()
     mock_final_chain.invoke.return_value = "   "
 
-    query_handler._prompt_template.__or__.return_value = query_handler._llm
-    query_handler._llm.__or__.return_value = mock_final_chain
+    query_handler._prompt_template.__or__.return_value = query_handler.llm
+    query_handler.llm.__or__.return_value = mock_final_chain
 
     with patch(
         "src.components.chatbot.query_handler.StrOutputParser",
         return_value=Mock(),
-    ), patch(
-        "src.components.chatbot.query_handler.expand_query",
-        return_value="expanded query",
     ):
         result = query_handler.generate_response("query", chunks)
 

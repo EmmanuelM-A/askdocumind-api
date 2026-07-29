@@ -21,7 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, declarative_base
 from pgvector.sqlalchemy import Vector
 
-from src.config.constants import ChatMessageRole, ProcessingStatus
+from src.config.constants import ChatMessageRole, DocumentSourceType, ProcessingStatus
 from src.utils import format_datetime
 
 Base = declarative_base()
@@ -131,7 +131,7 @@ class Document(Base):
 
     __tablename__ = "document"
     __table_args__ = (
-        UniqueConstraint("session_id", "filename", name="uq_document_session_filename"),
+        UniqueConstraint("session_id", "source", name="uq_document_session_source"),
     )
 
     # Columns
@@ -141,8 +141,11 @@ class Document(Base):
         ForeignKey("chat_session.id", ondelete="CASCADE"),
         nullable=False,
     )
-    filename = Column(String(255), nullable=False)
-    file_size = Column(BigInteger, nullable=False)
+    source = Column(String(255), nullable=False)
+    source_size = Column(BigInteger, nullable=False)
+    source_type = Column(
+        Enum(DocumentSourceType), default=DocumentSourceType.UPLOAD, nullable=False
+    )
     processing_status = Column(
         Enum(ProcessingStatus), default=ProcessingStatus.PROCESSING, nullable=False
     )
@@ -160,18 +163,19 @@ class Document(Base):
     )
 
     def __repr__(self):
-        return f"Document(filename={self.filename}, size={self.file_size})"
+        return f"Document(source={self.source}, size={self.source_size})"
 
     def __str__(self) -> str:
-        return str(self.filename) if self.filename is not None else "Unknown Document"
+        return str(self.source) if self.source is not None else "Unknown Document"
 
     def to_dict(self) -> dict:
         """Return JSON-serializable dict representation of the Document."""
         return {
             "id": _serialize_value(self.id),
             "session_id": _serialize_value(self.session_id),
-            "filename": self.filename,
-            "file_size": self.file_size,
+            "source": self.source,
+            "source_size": self.source_size,
+            "source_type": _serialize_value(self.source_type),
             "processing_status": _serialize_value(self.processing_status),
             "created_at": _serialize_value(self.created_at),
             "updated_at": _serialize_value(self.updated_at),

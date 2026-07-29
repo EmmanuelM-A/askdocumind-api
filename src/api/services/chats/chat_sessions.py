@@ -6,8 +6,8 @@ of chat sessions with proper authorization and transaction management.
 from typing import List, cast
 from uuid import UUID
 
-from src.api.services.validation.chat_session import CreateChatSessionData
-from src.api.services.validation.helper import check_if_chat_exists
+from src.api.validation.chat_session import CreateChatSessionData
+from src.api.validation.helper import check_if_chat_exists
 from src.config.configs import settings
 from src.database.models import ChatSession
 from src.database.repository.interfaces import (

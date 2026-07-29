@@ -14,6 +14,7 @@ import math
 from sqlalchemy import select, func, delete
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
+from src.config.constants import DocumentSourceType
 from src.database.connection import DatabaseConnection
 from src.database.models import DocumentChunk, Document
 from src.database.repository.interfaces.document_chunk_repository import (
@@ -255,11 +256,17 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
     async def _get_similarity_candidates(
         self,
         chat_session_id: UUID,
+        source_type: Optional[DocumentSourceType] = None,
         tx: Optional[DBTransaction] = None,
     ) -> List[DocumentChunk]:
         stmt = select(DocumentChunk).where(
             DocumentChunk.chat_session_id == chat_session_id
         )
+
+        if source_type is not None:
+            stmt = stmt.join(Document, DocumentChunk.document_id == Document.id).where(
+                Document.source_type == source_type
+            )
 
         if tx is not None:
             result = await tx.execute(stmt)
@@ -275,6 +282,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
         vector: List[float],
         top_k: int = 10,
         threshold: Optional[float] = None,
+        source_type: Optional[DocumentSourceType] = None,
         tx: Optional[DBTransaction] = None,
     ) -> List[DocumentChunk]:
         """
@@ -287,6 +295,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
         """
         candidates = await self._get_similarity_candidates(
             chat_session_id=chat_session_id,
+            source_type=source_type,
             tx=tx,
         )
 
@@ -351,7 +360,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 return []
 
             # Query documents where id IN (extracted IDs) AND session_id matches
-            stmt = select(Document.filename).where(
+            stmt = select(Document.source).where(
                 (Document.id.in_(document_ids)) & (Document.session_id == chat_session_id)
             )
 

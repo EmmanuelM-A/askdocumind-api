@@ -14,8 +14,8 @@ from src.api.middleware.rate_limiter import (
 )
 from src.api.services.chats.chat_sessions import ChatSessionService
 from src.api.services.documents.document_uploads import UploadDocumentService
-from src.api.services.validation.chat_session import CreateChatSessionData
-from src.api.services.validation.document import UploadDocumentsRequest
+from src.api.validation.chat_session import CreateChatSessionData
+from src.api.validation.document import UploadDocumentsRequest
 from src.config.configs import settings
 from src.errors.api_exceptions import ApiException
 
@@ -58,6 +58,10 @@ async def test_create_chat_blocks_when_anonymous_chat_limit_is_reached(
 async def test_upload_blocks_when_per_chat_document_limit_is_exceeded(
     monkeypatch: pytest.MonkeyPatch,
 ):
+    """When every incoming file would push the chat's storage over its MB
+    limit, each is silently skipped (not persisted) rather than raising -
+    the upload call still succeeds overall, just with a 0 saved count."""
+
     async def _chat_exists(**kwargs):
         return None
 
@@ -69,12 +73,12 @@ async def test_upload_blocks_when_per_chat_document_limit_is_exceeded(
     document_repo = Mock()
     document_repo.list_by = AsyncMock(return_value=[])
     document_repo.get_total_size_mb = AsyncMock(return_value=2.0)
-    document_repo.create_many = AsyncMock()
+    document_repo.create = AsyncMock()
 
     tx_factory, _ = _mock_tx_factory_and_tx()
 
     service = UploadDocumentService(
-        vector_processor=Mock(),
+        document_processor=Mock(),
         chat_session_repo=Mock(),
         document_repo=document_repo,
         tx_factory=tx_factory,
@@ -88,12 +92,10 @@ async def test_upload_blocks_when_per_chat_document_limit_is_exceeded(
         ],
     )
 
-    with pytest.raises(ApiException) as exc_info:
-        await service.handle_document_uploads(owner_id=uuid4(), request=request)
+    count = await service.handle_document_uploads(owner_id=uuid4(), request=request)
 
-    assert exc_info.value.status_code == 409
-    assert exc_info.value.error.code == "ALL_DOCUMENTS_EXCEED_CHAT_LIMIT"
-    document_repo.create_many.assert_not_called()
+    assert count == 0
+    document_repo.create.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -111,12 +113,12 @@ async def test_upload_blocks_when_file_size_limit_is_exceeded(
     document_repo = Mock()
     document_repo.list_by = AsyncMock(return_value=[])
     document_repo.get_total_size_mb = AsyncMock(return_value=0.0)
-    document_repo.create_many = AsyncMock()
+    document_repo.create = AsyncMock()
 
     tx_factory, _ = _mock_tx_factory_and_tx()
 
     service = UploadDocumentService(
-        vector_processor=Mock(),
+        document_processor=Mock(),
         chat_session_repo=Mock(),
         document_repo=document_repo,
         tx_factory=tx_factory,
@@ -133,7 +135,7 @@ async def test_upload_blocks_when_file_size_limit_is_exceeded(
 
     assert exc_info.value.status_code == 422
     assert exc_info.value.error.code == "FILE_SIZE_LIMIT_EXCEEDED"
-    document_repo.create_many.assert_not_called()
+    document_repo.create.assert_not_called()
 
 
 def test_anonymous_session_rate_limit_key_prefers_session_id():

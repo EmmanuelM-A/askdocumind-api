@@ -9,11 +9,11 @@ from uuid import UUID
 
 from fastapi import UploadFile
 
-from src.api.services.validation.document import UploadDocumentsRequest
-from src.api.services.validation.helper import check_if_chat_exists
+from src.api.validation.document import UploadDocumentsRequest
+from src.api.validation.helper import check_if_chat_exists
 from src.components.ingestion.document_processor import DocumentProcessor
 from src.config.configs import settings
-from src.config.constants import ProcessingStatus
+from src.config.constants import DocumentSourceType, ProcessingStatus
 from src.database.models import Document
 from src.database.repository.interfaces import (
     ChatSessionRepositoryInterface,
@@ -90,8 +90,9 @@ class UploadDocumentService:
             document = Document(
                 id=uuid.uuid4(),
                 session_id=request.chat_id,
-                filename=filename,
-                file_size=len(document_data),
+                source=filename,
+                source_size=len(document_data),
+                source_type=DocumentSourceType.UPLOAD,
                 processing_status=ProcessingStatus.COMPLETED,
             )
 
@@ -105,7 +106,9 @@ class UploadDocumentService:
                     document_data=document_data,
                     filename=filename,
                 )
-                chunks = self._document_processor.chunk(docling_document)
+                chunks = self._document_processor.chunk(
+                    docling_document, source_name=filename
+                )
 
                 await self._document_processor.save_document_chunks(
                     chunks=chunks,
@@ -220,9 +223,9 @@ class UploadDocumentService:
             criteria=DocumentSearchCriteria(session_id=request.chat_id)
         )
         existing_names = {
-            self._normalize_filename(document.filename)  # type: ignore
+            self._normalize_filename(document.source)  # type: ignore
             for document in existing_documents
-            if document.filename  # type: ignore
+            if document.source  # type: ignore
         }
 
         duplicates_in_chat = sorted(

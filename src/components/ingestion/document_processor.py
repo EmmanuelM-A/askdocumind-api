@@ -72,10 +72,19 @@ class DocumentProcessor:
 
         return result.document
 
-    def chunk(self, docling_document: DoclingDocument) -> list[str]:
+    def chunk(self, docling_document: DoclingDocument, source_name: str) -> list[str]:
+        """
+        Chunk the document's content, prefixing each chunk with the
+        document's source name so retrieval can also match on it (e.g. a
+        query referencing the document/page name directly).
+        """
+
         chunks_itr = self._chunker.chunk(docling_document)
 
-        chunks = [self._chunker.contextualize(chunk) for chunk in chunks_itr]
+        chunks = [
+            f"Source: {source_name}\n\n{self._chunker.contextualize(chunk)}"
+            for chunk in chunks_itr
+        ]
 
         self._logger.debug(f"Chunked document into {len(chunks)} chunks")
 

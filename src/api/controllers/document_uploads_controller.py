@@ -10,7 +10,7 @@ from starlette.responses import JSONResponse
 
 from src.api.services.documents.document_uploads import UploadDocumentService
 from src.api.services.service_factory import get_upload_service
-from src.api.services.validation.document import UploadDocumentsRequest
+from src.api.validation.document import UploadDocumentsRequest
 from src.api.utils.api_responses import SuccessResponseModel
 from src.api.utils.response_delivery import create_success_response
 
