@@ -197,7 +197,7 @@ def test_generate_response_no_chunks_still_calls_llm_with_empty_context(query_ha
     the LLM - it still invokes the chain with empty context, letting the
     LLM judge scope from the question alone."""
     mock_final_chain = Mock()
-    mock_final_chain.invoke.return_value = "OUT_OF_SCOPE"
+    mock_final_chain.invoke.return_value = "That's outside what I can help with here."
 
     query_handler._prompt_template.__or__.return_value = query_handler.llm
     query_handler.llm.__or__.return_value = mock_final_chain
@@ -208,7 +208,7 @@ def test_generate_response_no_chunks_still_calls_llm_with_empty_context(query_ha
     ):
         result = query_handler.generate_response("test query", [])
 
-    assert result == "OUT_OF_SCOPE"
+    assert result == "That's outside what I can help with here."
     call_args = mock_final_chain.invoke.call_args[0][0]
     assert call_args["context"] == ""
 

@@ -116,16 +116,12 @@ class RAGChatbot:
         )
 
         # Always ask the LLM to judge the query, even with zero retrieved chunks -
-        # this lets it classify OUT_OF_SCOPE (generic trivia) vs NEED_WEB_SEARCH
-        # (plausibly document-related) instead of blindly falling back to web
-        # search whenever local vector search finds nothing.
+        # this lets it decide between answering directly, declining in its own
+        # words, or signalling NEED_WEB_SEARCH, instead of blindly falling back
+        # to web search whenever local vector search finds nothing.
         response: PossibleResponse = self._query_handler.generate_response(
             query=expanded_query, retrieved_chunks=results
         )
-
-        if response == "OUT_OF_SCOPE":
-            response_data.answer = f"The query '{query}' is outside of the scope of the uploaded documents."
-            return response_data
 
         if response is None:
             self._logger.info(f"No relevant information found for the query: '{query}'.")
@@ -188,7 +184,7 @@ class RAGChatbot:
                 query=expanded_query, retrieved_chunks=web_results, from_web_search=True
             )
 
-            if not web_response or web_response in ("OUT_OF_SCOPE", "NEED_WEB_SEARCH"):
+            if not web_response or web_response == "NEED_WEB_SEARCH":
                 self._logger.info(
                     f"Web search did not produce a usable response for '{query}'; "
                     "discarding the ingested web content."

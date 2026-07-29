@@ -4,12 +4,12 @@ is mocked anywhere in this file - queries run through the real query
 embedding, real pgvector similarity search, and real OpenAI query expansion
 + RAG generation.
 
-Deliberately NOT tested here: the OUT_OF_SCOPE and NEED_WEB_SEARCH sentinel
-LLM responses (src/components/chatbot/core.py). Reliably forcing the real
-LLM into those specific branches requires content/query combinations that
-are inherently flaky (an LLM judgment call), and forcing them deterministically
-would require mocking the LLM - which contradicts "no mocking of anything"
-for this file. The "no relevant chunks found" default-response path is
+Deliberately NOT tested here: the NEED_WEB_SEARCH sentinel LLM response
+(src/components/chatbot/core.py). Reliably forcing the real LLM into that
+specific branch requires content/query combinations that are inherently
+flaky (an LLM judgment call), and forcing it deterministically would
+require mocking the LLM - which contradicts "no mocking of anything" for
+this file. The "no relevant chunks found" default-response path is
 exercised instead, which is both fully real and fully deterministic.
 
 Also not exercised: the web-search fallback branch. IS_WEB_SEARCH_ENABLED is
@@ -122,8 +122,8 @@ async def test_chat_web_search_enabled_falls_back_to_real_web_search(
 ):
     """No local chunks + web_search_enabled=True + IS_WEB_SEARCH_ENABLED on in
     this env: the LLM should judge a document-plausible question as
-    NEED_WEB_SEARCH (not OUT_OF_SCOPE), triggering a real Brave/DDGS search,
-    real content ingestion, and a real generated answer with sources."""
+    NEED_WEB_SEARCH, triggering a real Brave/DDGS search, real content
+    ingestion, and a real generated answer with sources."""
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
 

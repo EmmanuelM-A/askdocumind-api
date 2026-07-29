@@ -23,7 +23,7 @@ from src.database.repository.interfaces.document_chunk_repository import (
 from src.errors.custom_exceptions import server_error
 from src.logger.base_logger import BaseLogger
 
-PossibleResponse = Literal["NEED_WEB_SEARCH", "OUT_OF_SCOPE"] | str | None
+PossibleResponse = Literal["NEED_WEB_SEARCH"] | str | None
 
 
 class QueryHandler:
