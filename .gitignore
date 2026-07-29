@@ -210,5 +210,6 @@ __marimo__/
 # Logs
 logs/
 
-data/sample/
 rag-service-microservice.md
+
+.claude
