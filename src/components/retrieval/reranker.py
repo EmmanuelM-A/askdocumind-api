@@ -5,6 +5,7 @@ from sentence_transformers import CrossEncoder
 
 from src.database.models import DocumentChunk
 from src.logger.base_logger import BaseLogger
+from src.config.configs import settings
 
 _logger = BaseLogger(__name__)
 
@@ -34,7 +35,10 @@ class CrossEncoderReranker(Reranker):
     def _initailize_reranker(self):
         if self.reranker is None:
             _logger.debug("Loading cross-encoder model for re-ranking...")
-            self.reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+            self.reranker = CrossEncoder(
+                "cross-encoder/ms-marco-MiniLM-L-6-v2",
+                max_length=settings.vector.MAX_TOKENS,
+            )
             _logger.info("Cross-encoder loaded")
 
     async def rerank(
