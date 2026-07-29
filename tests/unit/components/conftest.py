@@ -148,20 +148,15 @@ def mock_document_chunk_repo():
 
 @pytest.fixture
 def query_handler(mock_embedder, mock_document_chunk_repo):
-    """Provides a QueryHandler instance with mocked embedder.
-
-    `create_prompt_template` is called twice in QueryHandler.__init__ (once
-    for the response prompt, once for the query-expansion prompt) - side_effect
-    gives each call a distinct mock so `_prompt_template` and
-    `_expansion_prompt_template` aren't accidentally the same object.
-    """
+    """Provides a QueryHandler instance with mocked embedder, LLM, and
+    response prompt template."""
     from src.components.chatbot.query_handler import QueryHandler
 
     with patch("src.components.chatbot.query_handler.ChatOpenAI") as mock_llm, patch(
         "src.components.chatbot.query_handler.create_prompt_template"
     ) as mock_prompt:
         mock_llm.return_value = MagicMock()
-        mock_prompt.side_effect = [MagicMock(), MagicMock()]
+        mock_prompt.return_value = MagicMock()
 
         handler = QueryHandler(
             embedder=mock_embedder,

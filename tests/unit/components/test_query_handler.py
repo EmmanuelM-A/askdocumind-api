@@ -20,19 +20,18 @@ def test_query_handler_initialization(mock_embedder, mock_document_chunk_repo):
         "src.components.chatbot.query_handler.create_prompt_template"
     ) as mock_prompt:
         mock_llm.return_value = Mock()
-        mock_prompt.side_effect = [Mock(), Mock()]
+        mock_prompt.return_value = Mock()
 
         handler = QueryHandler(
             embedder=mock_embedder,
             document_chunk_repo=mock_document_chunk_repo,
+            reranker=AsyncMock(),
         )
 
     assert handler.embedder is mock_embedder
     assert handler.document_chunk_repo is mock_document_chunk_repo
-    assert handler._llm is not None
+    assert handler.llm is not None
     assert handler._prompt_template is not None
-    assert handler._expansion_prompt_template is not None
-    assert handler._prompt_template is not handler._expansion_prompt_template
 
 
 # ==================== SEARCH FOR VECTORS TESTS ====================
@@ -129,34 +128,26 @@ async def test_search_for_vectors_no_results_returns_empty(query_handler):
 
 
 def test_generate_response_success(query_handler):
-    """Test successful response generation, including that the *expanded*
-    query (not the raw input query) is what actually reaches the LLM."""
+    """Test successful response generation: the prompt is invoked with the
+    query as-is and the joined chunk texts as context."""
     query = "What is the test content?"
     chunks = [Mock(chunk_text="First chunk content"), Mock(chunk_text="Second chunk content")]
 
     mock_final_chain = Mock()
     mock_final_chain.invoke.return_value = "This is the answer based on the context."
 
-    query_handler._prompt_template.__or__.return_value = query_handler._llm
-    query_handler._llm.__or__.return_value = mock_final_chain
+    query_handler._prompt_template.__or__.return_value = query_handler.llm
+    query_handler.llm.__or__.return_value = mock_final_chain
 
     with patch(
         "src.components.chatbot.query_handler.StrOutputParser",
         return_value=Mock(),
-    ), patch(
-        "src.components.chatbot.query_handler.expand_query",
-        return_value="expanded query text",
-    ) as mock_expand:
+    ):
         result = query_handler.generate_response(query, chunks)
 
     assert result == "This is the answer based on the context."
-    mock_expand.assert_called_once_with(
-        query=query,
-        llm=query_handler._llm,
-        prompt_template=query_handler._expansion_prompt_template,
-    )
     call_args = mock_final_chain.invoke.call_args[0][0]
-    assert call_args["query"] == "expanded query text"
+    assert call_args["query"] == query
     assert call_args["context"] == "First chunk content\n\nSecond chunk content"
 
 
@@ -168,15 +159,12 @@ def test_generate_response_need_web_search(query_handler):
     mock_final_chain = Mock()
     mock_final_chain.invoke.return_value = "NEED_WEB_SEARCH"
 
-    query_handler._prompt_template.__or__.return_value = query_handler._llm
-    query_handler._llm.__or__.return_value = mock_final_chain
+    query_handler._prompt_template.__or__.return_value = query_handler.llm
+    query_handler.llm.__or__.return_value = mock_final_chain
 
     with patch(
         "src.components.chatbot.query_handler.StrOutputParser",
         return_value=Mock(),
-    ), patch(
-        "src.components.chatbot.query_handler.expand_query",
-        return_value=query,
     ):
         result = query_handler.generate_response(query, chunks)
 
@@ -192,24 +180,37 @@ def test_generate_response_need_web_search_already_from_web(query_handler):
     mock_final_chain = Mock()
     mock_final_chain.invoke.return_value = "NEED_WEB_SEARCH"
 
-    query_handler._prompt_template.__or__.return_value = query_handler._llm
-    query_handler._llm.__or__.return_value = mock_final_chain
+    query_handler._prompt_template.__or__.return_value = query_handler.llm
+    query_handler.llm.__or__.return_value = mock_final_chain
 
     with patch(
         "src.components.chatbot.query_handler.StrOutputParser",
         return_value=Mock(),
-    ), patch(
-        "src.components.chatbot.query_handler.expand_query",
-        return_value=query,
     ):
         result = query_handler.generate_response(query, chunks, from_web_search=True)
 
     assert result == "NEED_WEB_SEARCH"
 
 
-def test_generate_response_no_chunks_returns_none(query_handler):
-    """Test response generation handles empty chunk lists without calling the LLM."""
-    assert query_handler.generate_response("test query", []) is None
+def test_generate_response_no_chunks_still_calls_llm_with_empty_context(query_handler):
+    """Test that an empty chunk list doesn't short-circuit before calling
+    the LLM - it still invokes the chain with empty context, letting the
+    LLM judge scope from the question alone."""
+    mock_final_chain = Mock()
+    mock_final_chain.invoke.return_value = "OUT_OF_SCOPE"
+
+    query_handler._prompt_template.__or__.return_value = query_handler.llm
+    query_handler.llm.__or__.return_value = mock_final_chain
+
+    with patch(
+        "src.components.chatbot.query_handler.StrOutputParser",
+        return_value=Mock(),
+    ):
+        result = query_handler.generate_response("test query", [])
+
+    assert result == "OUT_OF_SCOPE"
+    call_args = mock_final_chain.invoke.call_args[0][0]
+    assert call_args["context"] == ""
 
 
 def test_generate_response_llm_service_error(query_handler):
@@ -219,15 +220,12 @@ def test_generate_response_llm_service_error(query_handler):
     mock_final_chain = Mock()
     mock_final_chain.invoke.side_effect = Exception("LLM is down")
 
-    query_handler._prompt_template.__or__.return_value = query_handler._llm
-    query_handler._llm.__or__.return_value = mock_final_chain
+    query_handler._prompt_template.__or__.return_value = query_handler.llm
+    query_handler.llm.__or__.return_value = mock_final_chain
 
     with patch(
         "src.components.chatbot.query_handler.StrOutputParser",
         return_value=Mock(),
-    ), patch(
-        "src.components.chatbot.query_handler.expand_query",
-        return_value="expanded query",
     ):
         with pytest.raises(ApiException) as exc_info:
             query_handler.generate_response("query", chunks)
@@ -242,15 +240,12 @@ def test_generate_response_empty_llm_response_returns_none(query_handler):
     mock_final_chain = Mock()
     mock_final_chain.invoke.return_value = "   "
 
-    query_handler._prompt_template.__or__.return_value = query_handler._llm
-    query_handler._llm.__or__.return_value = mock_final_chain
+    query_handler._prompt_template.__or__.return_value = query_handler.llm
+    query_handler.llm.__or__.return_value = mock_final_chain
 
     with patch(
         "src.components.chatbot.query_handler.StrOutputParser",
         return_value=Mock(),
-    ), patch(
-        "src.components.chatbot.query_handler.expand_query",
-        return_value="expanded query",
     ):
         result = query_handler.generate_response("query", chunks)
 
