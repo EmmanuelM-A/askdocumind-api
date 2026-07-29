@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>The Saga, In Order</title>
+<style>
+  :root{
+    --void: #05060a;
+    --panel: #0d1020;
+    --line: #232849;
+    --signal: #ffb545;
+    --signal-dim: #7a5a2a;
+    --text: #e8e9f0;
+    --text-dim: #8890b5;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background: var(--void);
+    color: var(--text);
+    font-family: 'Courier New', ui-monospace, monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+  .stars{
+    position: fixed; inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 10% 20%, #fff, transparent),
+      radial-gradient(1px 1px at 80% 10%, #fff, transparent),
+      radial-gradient(1px 1px at 45% 65%, #fff, transparent),
+      radial-gradient(2px 2px at 25% 80%, #fff, transparent),
+      radial-gradient(1px 1px at 70% 40%, #fff, transparent),
+      radial-gradient(1px 1px at 90% 75%, #fff, transparent),
+      radial-gradient(1px 1px at 15% 50%, #fff, transparent),
+      radial-gradient(2px 2px at 60% 90%, #fff, transparent),
+      radial-gradient(1px 1px at 35% 30%, #fff, transparent),
+      radial-gradient(1px 1px at 95% 55%, #fff, transparent);
+    background-repeat: repeat;
+    background-size: 600px 600px;
+    opacity: 0.5;
+    z-index: 0;
+    pointer-events: none;
+  }
+  header{
+    position: relative;
+    z-index: 1;
+    padding: 4rem 2rem 2rem;
+    text-align: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .eyebrow{
+    letter-spacing: 0.35em;
+    font-size: 0.7rem;
+    color: var(--signal);
+    text-transform: uppercase;
+  }
+  h1{
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: 400;
+    font-size: clamp(2rem, 6vw, 3.6rem);
+    letter-spacing: 0.06em;
+    margin: 0.6rem 0 0.3rem;
+  }
+  .sub{
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    max-width: 40em;
+    margin: 0 auto;
+  }
+  .toggle{
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin: 2rem auto 0;
+    width: fit-content;
+    border: 1px solid var(--line);
+  }
+  .toggle button{
+    background: var(--panel);
+    color: var(--text-dim);
+    border: none;
+    padding: 0.7rem 1.4rem;
+    font-family: inherit;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .toggle button.active{
+    background: var(--signal);
+    color: #1a1200;
+  }
+  main{
+    position: relative;
+    z-index: 1;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 5rem;
+  }
+  .track{
+    position: relative;
+    padding-left: 3.2rem;
+  }
+  .track::before{
+    content: '';
+    position: absolute;
+    left: 1.05rem;
+    top: 0.4rem;
+    bottom: 0.4rem;
+    width: 1px;
+    background: var(--line);
+  }
+  .film{
+    position: relative;
+    padding: 1.4rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .film:last-child{ border-bottom: none; }
+  .marker{
+    position: absolute;
+    left: -3.2rem;
+    top: 1.5rem;
+    width: 2.1rem;
+    height: 2.1rem;
+    border: 1px solid var(--signal-dim);
+    background: var(--void);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: var(--signal);
+    font-weight: bold;
+  }
+  .film-top{
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .film-title{
+    font-family: Georgia, serif;
+    font-size: 1.3rem;
+  }
+  .film-year{
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+  .film-meta{
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+  }
+  .film-meta span b{
+    color: var(--text);
+    font-weight: normal;
+  }
+  .score{
+    color: var(--signal);
+  }
+  footer{
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    border-top: 1px solid var(--line);
+  }
+</style>
+</head>
+<body>
+<div class="stars"></div>
+
+<header>
+  <div class="eyebrow">Eleven films, one saga</div>
+  <h1>The Saga, In Order</h1>
+  <p class="sub">Every mainline Star Wars film, its numbers, and the two ways fans watch them: the order they hit theaters, and the order the story actually happens.</p>
+</header>
+
+<div class="toggle">
+  <button id="btn-release" class="active">Release Order</button>
+  <button id="btn-story">Story Order</button>
+</div>
+
+<main>
+  <div class="track" id="track"></div>
+</main>
+
+<footer>Runtimes, dates, and box office reflect theatrical releases. Scores are aggregate critic scores at release.</footer>
+
+<script>
+const films = [
+  {episode:"IV", title:"A New Hope", date:"May 25, 1977", year:1977, director:"George Lucas", runtime:121, box:775, score:93},
+  {episode:"V", title:"The Empire Strikes Back", date:"May 21, 1980", year:1980, director:"Irvin Kershner", runtime:124, box:538, score:94},
+  {episode:"VI", title:"Return of the Jedi", date:"May 25, 1983", year:1983, director:"Richard Marquand", runtime:131, box:475, score:83},
+  {episode:"I", title:"The Phantom Menace", date:"May 19, 1999", year:1999, director:"George Lucas", runtime:136, box:1027, score:51},
+  {episode:"II", title:"Attack of the Clones", date:"May 16, 2002", year:2002, director:"George Lucas", runtime:142, box:656, score:66},
+  {episode:"III", title:"Revenge of the Sith", date:"May 19, 2005", year:2005, director:"George Lucas", runtime:140, box:868, score:80},
+  {episode:"VII", title:"The Force Awakens", date:"Dec 18, 2015", year:2015, director:"J.J. Abrams", runtime:138, box:2069, score:93},
+  {episode:"A", title:"Rogue One", date:"Dec 16, 2016", year:2016, director:"Gareth Edwards", runtime:133, box:1058, score:84},
+  {episode:"VIII", title:"The Last Jedi", date:"Dec 15, 2017", year:2017, director:"Rian Johnson", runtime:152, box:1334, score:91},
+  {episode:"A", title:"Solo", date:"May 25, 2018", year:2018, director:"Ron Howard", runtime:135, box:393, score:69},
+  {episode:"IX", title:"The Rise of Skywalker", date:"Dec 20, 2019", year:2019, director:"J.J. Abrams", runtime:142, box:1074, score:52}
+];
+
+const storyOrder = ["I","II","III","A-Rogue One","IV","V","VI","VII","VIII","A-Solo","IX"];
+// Solo happens before Rogue One in-universe timeline sits between III and IV; Rogue One sits right before IV.
+const storyOrderFixed = ["I","II","III","A-Solo","A-Rogue One","IV","V","VI","VII","VIII","IX"];
+
+function keyFor(f){
+  return f.episode === "A" ? "A-" + f.title : f.episode;
+}
+
+function render(order){
+  const track = document.getElementById('track');
+  const list = order.map(k => films.find(f => keyFor(f) === k));
+  track.innerHTML = list.map(f => `
+    <div class="film">
+      <div class="marker">${f.episode === "A" ? "★" : f.episode}</div>
+      <div class="film-top">
+        <div class="film-title">${f.title}</div>
+        <div class="film-year">${f.date}</div>
+      </div>
+      <div class="film-meta">
+        <span>Director <b>${f.director}</b></span>
+        <span>Runtime <b>${f.runtime} min</b></span>
+        <span>Box office <b>$${f.box}M</b></span>
+        <span>Critic score <span class="score">${f.score}%</span></span>
+      </div>
+    </div>
+  `).join('');
+}
+
+const releaseKeys = films.map(keyFor);
+
+document.getElementById('btn-release').addEventListener('click', () => {
+  render(releaseKeys);
+  document.getElementById('btn-release').classList.add('active');
+  document.getElementById('btn-story').classList.remove('active');
+});
+document.getElementById('btn-story').addEventListener('click', () => {
+  render(storyOrderFixed);
+  document.getElementById('btn-story').classList.add('active');
+  document.getElementById('btn-release').classList.remove('active');
+});
+
+render(releaseKeys);
+</script>
+</body>
+</html>

@@ -1,14 +1,14 @@
 """Tests for document upload service."""
 
 from io import BytesIO
-from unittest.mock import ANY, AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
 from fastapi import UploadFile
 
 from src.api.services.documents.document_uploads import UploadDocumentService
-from src.api.services.validation.document import UploadDocumentsRequest
+from src.api.validation.document import UploadDocumentsRequest
 from src.config.configs import settings
 from src.errors.api_exceptions import ApiException
 
@@ -23,9 +23,9 @@ def _mock_tx_factory_and_tx():
     return tx_factory, tx
 
 
-def _make_service(*, document_repo=None, vector_processor=None, tx_factory=None):
+def _make_service(*, document_repo=None, document_processor=None, tx_factory=None):
     return UploadDocumentService(
-        vector_processor=vector_processor or Mock(),
+        document_processor=document_processor or Mock(),
         chat_session_repo=Mock(),
         document_repo=document_repo or Mock(),
         tx_factory=tx_factory or Mock(),
@@ -50,17 +50,18 @@ async def test_upload_documents_returns_count_of_created_documents(
     document_repo = Mock()
     document_repo.list_by = AsyncMock(return_value=[])
     document_repo.get_total_size_mb = AsyncMock(return_value=0.0)
-    document_repo.create_many = AsyncMock(return_value=document_ids)
-    document_repo.bulk_update_processing_status = AsyncMock(return_value=len(document_ids))
+    document_repo.create = AsyncMock(side_effect=document_ids)
 
-    vector_processor = Mock()
-    vector_processor.process_and_save_vectors_from_uploads = AsyncMock(return_value=None)
+    document_processor = Mock()
+    document_processor.extract = Mock(return_value=Mock())
+    document_processor.chunk = Mock(return_value=["chunk 1"])
+    document_processor.save_document_chunks = AsyncMock(return_value=1)
 
     tx_factory, tx = _mock_tx_factory_and_tx()
 
     service = _make_service(
         document_repo=document_repo,
-        vector_processor=vector_processor,
+        document_processor=document_processor,
         tx_factory=tx_factory,
     )
 
@@ -76,12 +77,9 @@ async def test_upload_documents_returns_count_of_created_documents(
     count = await service.handle_document_uploads(owner_id=owner_id, request=request)
 
     assert count == 2
-    document_repo.bulk_update_processing_status.assert_called_once_with(
-        document_ids=document_ids, status=ANY, tx=tx
-    )
-    document_repo.create_many.assert_awaited_once_with(entities=ANY, tx=tx)
-    assert tx_factory.create.call_count == 1
-    vector_processor.process_and_save_vectors_from_uploads.assert_awaited_once()
+    assert document_repo.create.await_count == 2
+    assert tx_factory.create.call_count == 2
+    assert document_processor.save_document_chunks.await_count == 2
 
 
 @pytest.mark.asyncio

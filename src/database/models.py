@@ -21,7 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, declarative_base
 from pgvector.sqlalchemy import Vector
 
-from src.config.constants import ChatMessageRole, ProcessingStatus
+from src.config.constants import ChatMessageRole, DocumentSourceType, ProcessingStatus
 from src.utils import format_datetime
 
 Base = declarative_base()
@@ -143,6 +143,9 @@ class Document(Base):
     )
     source = Column(String(255), nullable=False)
     source_size = Column(BigInteger, nullable=False)
+    source_type = Column(
+        Enum(DocumentSourceType), default=DocumentSourceType.UPLOAD, nullable=False
+    )
     processing_status = Column(
         Enum(ProcessingStatus), default=ProcessingStatus.PROCESSING, nullable=False
     )
@@ -172,6 +175,7 @@ class Document(Base):
             "session_id": _serialize_value(self.session_id),
             "source": self.source,
             "source_size": self.source_size,
+            "source_type": _serialize_value(self.source_type),
             "processing_status": _serialize_value(self.processing_status),
             "created_at": _serialize_value(self.created_at),
             "updated_at": _serialize_value(self.updated_at),

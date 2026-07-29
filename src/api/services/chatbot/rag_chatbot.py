@@ -4,8 +4,8 @@ Service module for handling RAG chatbot interactions.
 
 from uuid import UUID
 
-from src.api.services.validation.chatbot import ChatRequest
-from src.api.services.validation.helper import check_if_chat_exists
+from src.api.validation.chatbot import ChatRequest
+from src.api.validation.helper import check_if_chat_exists
 from src.components.chatbot.core import RAGChatbot, ChatbotResponse
 from src.config.constants import ChatMessageRole
 from src.database.models import ChatMessage

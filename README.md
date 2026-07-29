@@ -14,21 +14,12 @@ For the purposes of the demo, no user registration is required, activity is full
 
 When the document context is insufficient, the system can optionally fall back to a live web search (via Brave Search API) to supplement the answer.
 
-## Things that need to be FIXED
-
-- Web documents return the exact resource url the data was retrived from
-- Figure out why web documents are not being marked as COMPLETED (was still being marked as PROCESSING)
-- Truncate or wrap document source names if they become to long on the frontend
-- Enforce strict document max MB across both web and uploaded documents
-- Integrate the use of reranker in the application
-- Chunk the resource name as  well as its content
-- Only save chunked web resources if the system can prodcue a response from them otherwise saving meaningless data is pointless
-
-Can you design a home page I can use for my website (remember its just a way to showcase my api but I would still like it be asthecyically pleasing)? Just keep things simple like boxes andplaceholder text for what I should add like a her section, an about, problem solved, why its important and how I did. First write in chat things my home should cover both in design and text?
-
 ## Changes I need to make to the frontend
 
-- 
+- Truncate or wrap document source names if they become to long on the frontend
+- Create a NotFound page for the frontend to handle 404 errors
+- Sort out loading states for the frontend so that the user knows when the system is processing their request
+- Hookup backend to the fronted
 
 ## Features
 
@@ -56,7 +47,7 @@ Can you design a home page I can use for my website (remember its just a way to 
 4. pgvector cosine similarity search retrieves the top-K relevant document chunks
 5. The query is expanded by the LLM for a fuller retrieval-friendly phrasing
 6. Chunks + expanded query are passed to GPT via a structured prompt
-7. LLM returns either an answer, `OUT_OF_SCOPE`, or `NEED_WEB_SEARCH`
+7. LLM returns either an answer (including a direct decline for unrelated questions) or `NEED_WEB_SEARCH`
 8. If `NEED_WEB_SEARCH` and web search is enabled: Brave Search fetches results, content is ingested, and the LLM generates a web-grounded answer
 9. Response (answer + sources) is returned to the client
 

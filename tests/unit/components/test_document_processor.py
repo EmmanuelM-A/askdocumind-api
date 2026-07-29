@@ -147,14 +147,18 @@ def test_extract_propagates_converter_errors(document_processor, mock_converter)
 
 
 def test_chunk_returns_contextualized_chunks_in_order(document_processor):
-    """Test that chunk() contextualizes every chunk yielded by the chunker, in order."""
+    """Test that chunk() contextualizes every chunk yielded by the chunker,
+    in order, and prefixes each with the source name."""
     raw_chunk_1, raw_chunk_2 = Mock(), Mock()
     document_processor._chunker.chunk.return_value = iter([raw_chunk_1, raw_chunk_2])
     document_processor._chunker.contextualize.side_effect = ["text-1", "text-2"]
 
-    result = document_processor.chunk(Mock(spec=DoclingDocument))
+    result = document_processor.chunk(Mock(spec=DoclingDocument), source_name="doc.pdf")
 
-    assert result == ["text-1", "text-2"]
+    assert result == [
+        "Source: doc.pdf\n\ntext-1",
+        "Source: doc.pdf\n\ntext-2",
+    ]
     document_processor._chunker.contextualize.assert_any_call(raw_chunk_1)
     document_processor._chunker.contextualize.assert_any_call(raw_chunk_2)
 
@@ -163,7 +167,7 @@ def test_chunk_empty_document_returns_empty_list(document_processor):
     """Test that chunk() returns an empty list when the chunker yields no chunks."""
     document_processor._chunker.chunk.return_value = iter([])
 
-    result = document_processor.chunk(Mock(spec=DoclingDocument))
+    result = document_processor.chunk(Mock(spec=DoclingDocument), source_name="doc.pdf")
 
     assert result == []
     document_processor._chunker.contextualize.assert_not_called()

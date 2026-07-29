@@ -11,7 +11,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from src.database.models import Document
-from src.config.constants import ProcessingStatus
+from src.config.constants import DocumentSourceType, ProcessingStatus
 from src.database.repository.interfaces.db_transaction import DBTransaction
 
 
@@ -23,6 +23,7 @@ class DocumentSearchCriteria(BaseModel):
     source: Optional[str] = None
     vector_id: Optional[UUID] = None
     processing_status: Optional[ProcessingStatus] = None
+    source_type: Optional[DocumentSourceType] = None
 
 
 class UpdatedDocumentData(BaseModel):

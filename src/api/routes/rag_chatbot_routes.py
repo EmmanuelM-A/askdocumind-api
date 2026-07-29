@@ -11,7 +11,7 @@ from src.api.middleware.rate_limiter import (
     user_key_func,
     limiter,
 )
-from src.api.services.validation.chatbot import ChatRequest
+from src.api.validation.chatbot import ChatRequest
 
 rag_chatbot_router = APIRouter(prefix="/chat", tags=["RAG Chatbot"])
 

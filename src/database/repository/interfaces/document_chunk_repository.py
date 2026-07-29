@@ -14,6 +14,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from src.config.constants import DocumentSourceType
 from src.database.models import DocumentChunk
 from src.database.repository.interfaces.db_transaction import DBTransaction
 
@@ -180,6 +181,7 @@ class DocumentChunkRepositoryInterface(ABC):
         vector: List[float],
         top_k: int = 10,
         threshold: Optional[float] = None,
+        source_type: Optional[DocumentSourceType] = None,
         tx: Optional[DBTransaction] = None,
     ) -> List[DocumentChunk]:
         """
@@ -194,6 +196,9 @@ class DocumentChunkRepositoryInterface(ABC):
         :param vector: Query embedding vector.
         :param top_k: Maximum number of results to return.
         :param threshold: Optional similarity/distance threshold to filter results.
+        :param source_type: Optional filter restricting candidates to chunks
+            belonging to documents of this source type (e.g. only UPLOAD).
+            When None, all chunks for the chat session are considered.
         :param tx: Optional DBTransaction.
         :return: List of matching DocumentChunk entities.
         """

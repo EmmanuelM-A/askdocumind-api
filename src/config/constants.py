@@ -19,3 +19,10 @@ class ChatMessageRole(enum.Enum):
     USER = "USER"
     ASSISTANT = "ASSISTANT"
     SYSTEM = "SYSTEM"
+
+
+class DocumentSourceType(enum.Enum):
+    """Enumeration for where a document's content originated from."""
+
+    UPLOAD = "UPLOAD"
+    WEB_SEARCH = "WEB_SEARCH"
