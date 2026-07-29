@@ -4,7 +4,7 @@ is mocked anywhere in this file - every test hits the real FastAPI app, the
 real database, the real auth middleware, and the real rate limiter.
 """
 
-import time
+import asyncio
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
@@ -72,8 +72,9 @@ async def test_create_timestamp_field_is_recent(app_client, seed_user, auth_cook
     )
     raw_timestamp = response.json()["timestamp"]
 
-    parsed_naive = datetime.strptime(raw_timestamp, "%d-%m-%Y %H:%M:%S")
-    parsed = parsed_naive.replace(tzinfo=ZoneInfo("Europe/London"))
+    parsed = datetime.strptime(raw_timestamp, "%d-%m-%Y %H:%M:%S").replace(
+        tzinfo=ZoneInfo("Europe/London")
+    )
     delta = abs((datetime.now(timezone.utc) - parsed).total_seconds())
     assert delta < 10
 
@@ -165,7 +166,7 @@ async def test_create_expired_cookie_returns_422(app_client, seed_user):
         ttl_hours=1 / 3600,  # 1 second
     )
     expiring_token = short_lived_manager.create_token(user_id)
-    time.sleep(1.1)
+    await asyncio.sleep(1.1)
 
     response = app_client.post(
         ENDPOINT, json={"title": "Chat"}, cookies={COOKIE_NAME: expiring_token}

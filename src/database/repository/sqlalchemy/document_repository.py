@@ -73,7 +73,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 error_code="DOCUMENT_CREATION_ERROR",
                 stack_trace=str(e),
             )
-        except (SQLAlchemyError, Exception) as e:
+        except (SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while creating a new document.",
                 error_code="DOCUMENT_CREATION_ERROR",
@@ -107,7 +107,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 self._logger.debug("Found documents matching criteria")
                 return result.scalars().all()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while listing documents by criteria.",
                 error_code="DOCUMENT_LISTING_ERROR",
@@ -134,7 +134,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                     self._logger.debug(f"Found document: {document_id}")
                 return document
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while getting document by id.",
                 error_code="DOCUMENT_GET_ERROR",
@@ -165,7 +165,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 self._logger.debug("Found document matching criteria")
                 return result.scalars().first()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while getting document by criteria.",
                 error_code="DOCUMENT_GET_ERROR",
@@ -223,7 +223,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 await session.flush()
                 return existing
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while updating document.",
                 error_code="DOCUMENT_UPDATE_ERROR",
@@ -244,7 +244,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 result = await session.execute(stmt)
                 return (result.rowcount or 0) > 0
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting document.",
                 error_code="DOCUMENT_DELETE_ERROR",
@@ -267,7 +267,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalar_one() > 0
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while determining if document exists.",
                 error_code="DOCUMENT_EXISTS_ERROR",
@@ -292,7 +292,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalar_one()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while counting documents.",
                 error_code="DOCUMENT_COUNT_ERROR",
@@ -321,7 +321,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 total_bytes = result.scalar_one() or 0
                 return float(total_bytes) / (1024 * 1024)
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while calculating document storage size.",
                 error_code="DOCUMENT_SIZE_TOTAL_ERROR",
@@ -361,7 +361,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 error_code="DOCUMENT_BULK_CREATION_ERROR",
                 stack_trace=str(e),
             )
-        except (SQLAlchemyError, Exception) as e:
+        except (SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while creating multiple documents.",
                 error_code="DOCUMENT_BULK_CREATION_ERROR",
@@ -389,7 +389,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 self._logger.debug(f"Deleted {deleted_count} document entries")
                 return deleted_count
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting multiple documents.",
                 error_code="DOCUMENT_DELETE_ERROR",
@@ -428,7 +428,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 )
                 return updated_count
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while updating processing statuses.",
                 error_code="DOCUMENT_UPDATE_ERROR",
@@ -452,7 +452,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 result = await session.execute(stmt)
                 return list(result.scalars().all())
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while fetching stuck processing document IDs.",
                 error_code="DOCUMENT_GET_STUCK_IDS_ERROR",
@@ -476,7 +476,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 result = await session.execute(stmt)
                 return list(result.scalars().all())
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while fetching failed document IDs.",
                 error_code="DOCUMENT_GET_FAILED_IDS_ERROR",

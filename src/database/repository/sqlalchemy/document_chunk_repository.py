@@ -55,7 +55,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 self._logger.debug(f"New chunk created: {data.id}")
                 return data.id
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while creating a document chunk.",
                 error_code="DOCUMENT_CHUNK_CREATION_ERROR",
@@ -81,7 +81,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalars().all()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while listing document chunks.",
                 error_code="DOCUMENT_CHUNK_LISTING_ERROR",
@@ -102,7 +102,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalar_one_or_none()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while getting document chunk by id.",
                 error_code="DOCUMENT_CHUNK_GET_ERROR",
@@ -128,7 +128,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalars().first()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while getting document chunk by criteria.",
                 error_code="DOCUMENT_CHUNK_GET_ERROR",
@@ -159,7 +159,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 await session.flush()
                 return [c.id for c in chunks]
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while upserting document chunks.",
                 error_code="DOCUMENT_CHUNK_UPSERT_ERROR",
@@ -178,7 +178,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 result = await session.execute(stmt)
                 return (result.rowcount or 0) > 0
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting document chunk.",
                 error_code="DOCUMENT_CHUNK_DELETE_ERROR",
@@ -199,7 +199,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.rowcount or 0
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting document chunks by document id.",
                 error_code="DOCUMENT_CHUNK_DELETE_ERROR",
@@ -222,7 +222,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalar_one() > 0
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while checking chunk existence.",
                 error_code="DOCUMENT_CHUNK_EXISTS_ERROR",
@@ -245,7 +245,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalar_one()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while counting document chunks.",
                 error_code="DOCUMENT_CHUNK_COUNT_ERROR",
@@ -318,7 +318,8 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                     emb_list = list(emb)
                 else:
                     continue
-            except Exception:
+            except Exception as e:  # noqa: BLE001
+                self._logger.debug(f"Skipping chunk {c.id} with unusable embedding: {e}")
                 continue
 
             emb_norm = math.sqrt(sum(x * x for x in emb_list))
@@ -375,7 +376,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 self._logger.debug(f"Retrieved {len(filenames)} unique filenames for chunks")
                 return filenames
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while retrieving filenames for chunks.",
                 error_code="DOCUMENT_CHUNK_FILENAMES_ERROR",
@@ -399,7 +400,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.rowcount or 0
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting orphaned web chunks.",
                 error_code="DOCUMENT_CHUNK_DELETE_ORPHANED_ERROR",

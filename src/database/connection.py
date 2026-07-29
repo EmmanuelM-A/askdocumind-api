@@ -52,7 +52,7 @@ class DatabaseConnection:
             self.session_maker = async_sessionmaker(
                 bind=self.engine, expire_on_commit=False, autoflush=False
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             raise database_error(
                 message="Failed to connect to the database during initialization.",
                 error_code="DB_CONNECTION_ERROR",

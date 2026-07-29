@@ -51,7 +51,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 self._logger.debug(f"New chat message entry created: {data.id}")
                 return data.id
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while creating a new chat message.",
                 error_code="CHAT_MESSAGE_CREATION_ERROR",
@@ -89,7 +89,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 self._logger.debug("Found chat messages matching criteria")
                 return result.scalars().all()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while listing chat messages by criteria.",
                 error_code="CHAT_MESSAGE_LISTING_ERROR",
@@ -120,7 +120,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                     )
                 return chat_message
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while getting chat message by id.",
                 error_code="CHAT_MESSAGE_GET_ERROR",
@@ -151,7 +151,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 self._logger.debug("Found chat messages matching criteria")
                 return result.scalars().first()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while getting chat message by criteria.",
                 error_code="CHAT_MESSAGE_GET_ERROR",
@@ -209,7 +209,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 await session.flush()
                 return existing
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while updating chat message.",
                 error_code="CHAT_MESSAGE_UPDATE_ERROR",
@@ -230,7 +230,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 result = await session.execute(stmt)
                 return (result.rowcount or 0) > 0
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting chat message.",
                 error_code="CHAT_MESSAGE_DELETE_ERROR",
@@ -255,7 +255,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalar_one() > 0
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while determining if chat message exists.",
                 error_code="CHAT_MESSAGE_EXISTS_ERROR",
@@ -280,7 +280,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalar_one()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while counting chat messages.",
                 error_code="CHAT_MESSAGE_COUNT_ERROR",
@@ -308,7 +308,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 self._logger.debug(f"Created {len(created_ids)} chat messages")
                 return created_ids
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while creating multiple chat messages.",
                 error_code="CHAT_MESSAGE_BULK_CREATION_ERROR",
@@ -336,7 +336,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 self._logger.debug(f"Deleted {deleted_count} chat messages")
                 return deleted_count
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting multiple chat messages.",
                 error_code="CHAT_MESSAGE_DELETE_ERROR",

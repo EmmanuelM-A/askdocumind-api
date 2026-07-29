@@ -52,7 +52,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 self._logger.debug(f"New chat session created: {data.id}")
                 return cast(UUID, data.id)
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while creating a new chat session.",
                 error_code="CHAT_SESSION_CREATION_ERROR",
@@ -90,7 +90,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 self._logger.debug("Found chat sessions matching criteria")
                 return result.scalars().all()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while listing chat sessions by criteria.",
                 error_code="CHAT_SESSION_LISTING_ERROR",
@@ -117,7 +117,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                     self._logger.debug(f"Found chat session: {session_id}")
                 return chat_session
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while getting chat session by id.",
                 error_code="CHAT_SESSION_GET_ERROR",
@@ -149,7 +149,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                     self._logger.debug(f"Found most recent chat session for user: {user_id}")
                 return chat_session
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while getting chat session by user ID.",
                 error_code="CHAT_SESSION_GET_BY_USER_ERROR",
@@ -180,7 +180,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 self._logger.debug("Found chat session matching criteria")
                 return result.scalars().first()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while getting chat session by criteria.",
                 error_code="CHAT_SESSION_GET_ERROR",
@@ -228,7 +228,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 await session.flush()
                 return existing
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while updating chat session.",
                 error_code="CHAT_SESSION_UPDATE_ERROR",
@@ -246,7 +246,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
 
             return chat_id
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting chat session.",
                 error_code="CHAT_SESSION_DELETE_ERROR",
@@ -269,7 +269,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalar_one() > 0
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while determining if chat session exists.",
                 error_code="CHAT_SESSION_EXISTS_ERROR",
@@ -294,7 +294,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalar_one()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while counting chat sessions.",
                 error_code="CHAT_SESSION_COUNT_ERROR",
@@ -322,7 +322,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 self._logger.debug(f"Created {len(created_ids)} chat sessions")
                 return cast(list[UUID], created_ids)
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while creating multiple chat sessions.",
                 error_code="CHAT_SESSION_BULK_CREATION_ERROR",
@@ -350,7 +350,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 self._logger.debug(f"Deleted {deleted_count} chat sessions")
                 return deleted_count
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting multiple chat sessions.",
                 error_code="CHAT_SESSION_DELETE_ERROR",

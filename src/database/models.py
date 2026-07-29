@@ -22,7 +22,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, relationship
 
 from src.config.constants import ChatMessageRole, DocumentSourceType, ProcessingStatus
+from src.logger.base_logger import BaseLogger
 from src.utils import format_datetime
+
+_logger = BaseLogger(__name__)
 
 Base = declarative_base()
 metadata = Base.metadata
@@ -40,8 +43,8 @@ def _serialize_value(value: Any) -> Any:
     try:
         # Many enums are instances of Python Enum and expose .name
         return value.name
-    except Exception:
-        pass
+    except Exception as e:  # noqa: BLE001
+        _logger.debug(f"Could not serialize enum-like value {value!r}: {e}")
     return value
 
 
@@ -235,8 +238,8 @@ class DocumentChunk(Base):
                 # sequences (lists/tuples)
                 if isinstance(val, (list, tuple)):
                     return list(val)
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001
+                _logger.debug(f"Could not serialize embedding value: {e}")
             return None
 
         return {

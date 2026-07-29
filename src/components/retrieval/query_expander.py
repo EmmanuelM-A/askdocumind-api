@@ -25,7 +25,7 @@ def expand_query(
 
     try:
         expanded_query = expansion_chain.invoke({"query": query})
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         raise server_error(
             message="The AI service is temporarily unavailable. Please try again shortly.",
             error_code="LLM_SERVICE_ERROR",

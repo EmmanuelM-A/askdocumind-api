@@ -68,7 +68,9 @@ class RequestSizeLimitMiddleware:
             message = await receive()
 
             if message["type"] != "http.request":
-                await self.app(scope, lambda: message, send)  # type: ignore[arg-type]
+                await self.app(
+                    scope, lambda message=message: message, send
+                )  # type: ignore[arg-type]
                 return False
 
             chunk = message.get("body", b"")

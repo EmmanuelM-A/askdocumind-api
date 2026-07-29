@@ -149,7 +149,7 @@ class QueryHandler:
             response = rag_chain.invoke(
                 {"context": context_text, "query": query}
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             raise server_error(
                 message="The AI service is temporarily unavailable. Please try again shortly.",
                 error_code="LLM_SERVICE_ERROR",

@@ -54,10 +54,10 @@ async def list_uploaded_documents(request: Request, chat_id: UUID):
 @limiter.limit(upload_limit, key_func=user_key_func)
 async def upload_documents(
     request: Request,
-    documents: list[UploadFile] = File(
+    documents: list[UploadFile] = File(  # noqa: B008
         ..., description="List of document files to upload (PDF, DOCX, TXT, MD)"
     ),
-    chat_id: UUID = Form(..., description="The target chat session ID"),
+    chat_id: UUID = Form(..., description="The target chat session ID"),  # noqa: B008
 ):
     """
     Upload multiple documents to a chat session.

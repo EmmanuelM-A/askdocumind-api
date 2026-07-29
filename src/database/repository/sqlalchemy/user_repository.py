@@ -57,7 +57,7 @@ class UserRepository(UserRepositoryInterface):
                 self._logger.debug(f"New user created: {data.id}")
                 return cast(UUID, data.id)
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while creating a new user.",
                 error_code="USER_CREATION_ERROR",
@@ -84,7 +84,7 @@ class UserRepository(UserRepositoryInterface):
                     self._logger.debug(f"Found user: {user_id}")
                 return user
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while getting user by id.",
                 error_code="USER_GET_ERROR",
@@ -134,7 +134,7 @@ class UserRepository(UserRepositoryInterface):
                 self._logger.debug(f"User updated: {user_id}")
                 return existing
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while updating user.",
                 error_code="USER_UPDATE_ERROR",
@@ -161,7 +161,7 @@ class UserRepository(UserRepositoryInterface):
                     self._logger.debug(f"User deleted: {user_id}")
                 return deleted
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting user.",
                 error_code="USER_DELETE_ERROR",
@@ -189,7 +189,7 @@ class UserRepository(UserRepositoryInterface):
                 self._logger.debug(f"Deleted {deleted_count} user(s) in bulk.")
                 return deleted_count
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting multiple users.",
                 error_code="USER_BULK_DELETE_ERROR",
@@ -210,7 +210,7 @@ class UserRepository(UserRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalar_one() > 0
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while checking if user exists.",
                 error_code="USER_EXISTS_ERROR",
@@ -251,7 +251,7 @@ class UserRepository(UserRepositoryInterface):
                     )
                 return deleted_count
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting users by criteria.",
                 error_code="USER_DELETE_BY_CRITERIA_ERROR",
@@ -285,7 +285,7 @@ class UserRepository(UserRepositoryInterface):
                 await session.flush()
                 self._logger.debug(f"Updated last seen for user: {user_id}")
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while updating the user's last seen timestamp.",
                 error_code="USER_UPDATE_LAST_SEEN_ERROR",
@@ -309,7 +309,7 @@ class UserRepository(UserRepositoryInterface):
                 result = await session.execute(stmt)
                 return list(result.scalars().all())
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while fetching expired user IDs.",
                 error_code="USER_GET_EXPIRED_IDS_ERROR",

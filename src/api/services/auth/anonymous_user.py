@@ -55,7 +55,7 @@ class AnonymousUserSessionService:
 
         try:
             payload = self._token_manager.decode_token(cookie_value)
-        except Exception:
+        except Exception:  # noqa: BLE001
             self._logger.debug("Anonymous session cookie could not be reused.")
             return await self._create_anonymous_user_session()
         
@@ -107,7 +107,7 @@ class AnonymousUserSessionService:
 
             try:
                 total_deleted += await self._user_repo.delete_many(batch)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 failed_deletions += len(batch)
                 self._logger.warning(
                     f"Failed to delete expired user batch {i // batch_size + 1}: {exc}"

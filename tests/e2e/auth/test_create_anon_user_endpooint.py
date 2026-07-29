@@ -4,7 +4,7 @@ session). No dependency is mocked anywhere in this file — every test hits
 the real FastAPI app, the real database, and the real TokenManager.
 """
 
-import time
+import asyncio
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
@@ -123,8 +123,9 @@ async def test_timestamp_field_is_recent(app_client, created_user_ids):
     raw_timestamp = body["timestamp"]
     # Response timestamps are formatted as DD-MM-YYYY HH:MM:SS in Europe/London
     # time (see src/utils/datetime_utils.py::format_datetime) — not ISO-8601.
-    parsed_naive = datetime.strptime(raw_timestamp, "%d-%m-%Y %H:%M:%S")
-    parsed = parsed_naive.replace(tzinfo=ZoneInfo("Europe/London"))
+    parsed = datetime.strptime(raw_timestamp, "%d-%m-%Y %H:%M:%S").replace(
+        tzinfo=ZoneInfo("Europe/London")
+    )
 
     delta = abs((datetime.now(timezone.utc) - parsed).total_seconds())
     assert delta < 10
@@ -211,7 +212,7 @@ async def test_expired_cookie_falls_back_to_new_user(app_client, user_repo, seed
         ttl_hours=1 / 3600,  # 1 second
     )
     expiring_token = short_lived_manager.create_token(user_id)
-    time.sleep(1.1)
+    await asyncio.sleep(1.1)
 
     response = app_client.post(ENDPOINT, cookies={COOKIE_NAME: expiring_token})
 

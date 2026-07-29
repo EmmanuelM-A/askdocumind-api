@@ -436,7 +436,7 @@ def test_search_and_retrieve_web_content_continues_after_fetch_error(web_searche
 
     def fetch_side_effect(result):
         if "1" in result.url:
-            raise Exception("fetch failed")
+            raise RuntimeError("fetch failed")
         return "<html>ok</html>"
 
     with patch.object(

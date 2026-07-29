@@ -136,7 +136,7 @@ class WebSearcher:
                         )
                         successful_fetches += 1
 
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     self._logger.error(f"Error processing search result {i}: {e}")
                     continue
 
@@ -145,7 +145,7 @@ class WebSearcher:
             )
             return documents
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self._logger.error(f"Critical error in web search: {e}", exception=e)
             return []
 
@@ -229,7 +229,7 @@ class WebSearcher:
                 )
 
                 total_saved += saved
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self._logger.error(
                     f"Failed to stage web content from {web_content.source}: {e}"
                 )
@@ -299,7 +299,7 @@ class WebSearcher:
             body = e.response.text if e.response is not None else "<no response body>"
             self._logger.error(f"Error in web search: {e}, response body: {body}")
             return self._fallback_search(query, num_results)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self._logger.error(f"Error in web search: {e}")
             return self._fallback_search(query, num_results)
 
@@ -330,7 +330,7 @@ class WebSearcher:
         except DDGSException as e:
             self._logger.error(f"Error in fallback search: {e}")
             return []
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self._logger.error(f"Unexpected error in fallback search: {e}")
             return []
 
@@ -361,7 +361,7 @@ class WebSearcher:
                 "</body></html>"
             )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self._logger.error(f"Error fetching content for {result.url}: {e}")
             return None
 
@@ -380,7 +380,7 @@ class WebSearcher:
                 or ip.is_reserved
                 or ip.is_multicast
             )
-        except Exception:
+        except Exception:  # noqa: BLE001
             return False
 
     def _fetch_page_html(self, url: str) -> str | None:
@@ -415,6 +415,6 @@ class WebSearcher:
             )
             return response.text
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self._logger.error(f"Error fetching content from {url}: {e}")
             return None

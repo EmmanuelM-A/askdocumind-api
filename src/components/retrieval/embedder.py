@@ -31,7 +31,7 @@ class Embedder:
             self._logger.info(
                 f"Initialized embedder with the model: {settings.llm.EMBEDDING_MODEL_NAME}"
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             raise server_error(
                 message="Failed to initialize the embedding model.",
                 error_code="EMBEDDER_INIT_ERROR",
@@ -93,7 +93,7 @@ class Embedder:
             self._logger.info(f"The query '{query}' has been embedded successfully.")
             return embedding
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             raise server_error(
                 message="Failed to embed query.",
                 error_code="EMBEDDER_EMBED_QUERY_ERROR",
@@ -118,7 +118,7 @@ class Embedder:
 
         try:
             return self.embedding_model.embed_documents(documents)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             raise server_error(
                 message="Failed to get embeddings from model.",
                 error_code="EMBEDDING_ERROR",

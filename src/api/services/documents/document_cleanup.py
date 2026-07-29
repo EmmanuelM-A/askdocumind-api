@@ -57,7 +57,7 @@ class DocumentCleanupService:
                     document_ids=batch,
                     status=ProcessingStatus.FAILED,
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 failed_batches += len(batch)
                 self._logger.warning(
                     f"Failed to mark stuck-doc batch {i // batch_size + 1} as FAILED: {exc}"
@@ -95,7 +95,7 @@ class DocumentCleanupService:
             batch = failed_ids[i : i + batch_size]
             try:
                 total_deleted += await self._document_repo.delete_many(batch)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 failed_batches += len(batch)
                 self._logger.warning(
                     f"Failed to delete FAILED-doc batch {i // batch_size + 1}: {exc}"
@@ -119,6 +119,6 @@ class DocumentCleanupService:
             deleted = await self._chunk_repo.delete_orphaned_web_chunks(cutoff=cutoff)
             self._logger.info(f"Deleted {deleted} orphaned web chunk(s).")
             return deleted
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             self._logger.warning(f"Failed to delete orphaned web chunks: {exc}")
             return 0
