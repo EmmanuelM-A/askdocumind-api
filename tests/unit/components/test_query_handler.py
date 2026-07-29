@@ -74,6 +74,7 @@ async def test_search_for_vectors_success(query_handler):
         vector=[0.1, 0.2, 0.3, 0.4, 0.5],
         top_k=15,
         threshold=0.4,
+        source_type=None,
         tx=None,
     )
     query_handler.reranker.rerank.assert_awaited_once_with(

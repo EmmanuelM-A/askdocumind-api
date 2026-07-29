@@ -13,7 +13,7 @@ from src.api.validation.document import UploadDocumentsRequest
 from src.api.validation.helper import check_if_chat_exists
 from src.components.ingestion.document_processor import DocumentProcessor
 from src.config.configs import settings
-from src.config.constants import ProcessingStatus
+from src.config.constants import DocumentSourceType, ProcessingStatus
 from src.database.models import Document
 from src.database.repository.interfaces import (
     ChatSessionRepositoryInterface,
@@ -92,6 +92,7 @@ class UploadDocumentService:
                 session_id=request.chat_id,
                 source=filename,
                 source_size=len(document_data),
+                source_type=DocumentSourceType.UPLOAD,
                 processing_status=ProcessingStatus.COMPLETED,
             )
 

@@ -4,6 +4,7 @@ relevant documents are found.
 """
 
 import ipaddress
+import re
 import socket
 import time
 from dataclasses import dataclass
@@ -18,7 +19,7 @@ from ddgs.exceptions import DDGSException
 
 from src.components.ingestion.document_processor import DocumentProcessor
 from src.config.configs import settings
-from src.config.constants import ProcessingStatus
+from src.config.constants import DocumentSourceType, ProcessingStatus
 from src.database.models import Document
 from src.database.repository.interfaces.document_repository import (
     DocumentRepositoryInterface,
@@ -48,6 +49,25 @@ _MAX_SOURCE_LEN = 255
 # applied here too so web-search ingestion can't bypass them.
 _MAX_FILE_SIZE_BYTES = int(settings.files.MAX_FILE_SIZE_MB * 1024 * 1024)
 _MAX_FILES_PER_CHAT_BYTES = int(settings.files.MAX_FILES_PER_CHAT_MB * 1024 * 1024)
+
+# Matches literal two-character escape sequences (backslash+n, backslash+t,
+# backslash+r) as opposed to real newline/tab/carriage-return characters.
+_LITERAL_ESCAPE_SEQUENCE_RE = re.compile(r"\\r\\n|\\n|\\t")
+_REPEATED_WHITESPACE_RE = re.compile(r" {2,}")
+
+
+def _clean_web_text(text: str) -> str:
+    """
+    Replace literal `\\n`/`\\r\\n`/`\\t` escape sequences (as they'd appear
+    in the extracted text of a web page, not real whitespace characters)
+    with a single space, then collapse repeated whitespace. Web-fetched
+    content sometimes carries these through as raw text, which reads as
+    unfriendly noise once it ends up in a chunk or an LLM-generated answer.
+    """
+
+    cleaned = _LITERAL_ESCAPE_SEQUENCE_RE.sub(" ", text)
+    cleaned = _REPEATED_WHITESPACE_RE.sub(" ", cleaned)
+    return cleaned.strip()
 
 
 class WebSearcher:
@@ -187,6 +207,7 @@ class WebSearcher:
                         session_id=chat_session_id,
                         source=web_doc_source,
                         source_size=content_bytes,
+                        source_type=DocumentSourceType.WEB_SEARCH,
                         processing_status=ProcessingStatus.COMPLETED,
                     ),
                     tx=tx
@@ -199,6 +220,7 @@ class WebSearcher:
                 chunks = self._document_processor.chunk(
                     docling_document, source_name=web_doc_source
                 )
+                chunks = [_clean_web_text(chunk) for chunk in chunks]
 
                 saved = await self._document_processor.save_document_chunks(
                     chunks=chunks,

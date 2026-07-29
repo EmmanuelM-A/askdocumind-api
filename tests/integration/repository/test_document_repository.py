@@ -15,7 +15,7 @@ from src.database.repository.interfaces.document_repository import (
     DocumentSearchCriteria,
     UpdatedDocumentData,
 )
-from src.config.constants import ProcessingStatus
+from src.config.constants import DocumentSourceType, ProcessingStatus
 from src.errors.api_exceptions import ApiException
 
 
@@ -189,6 +189,35 @@ class TestDocumentRepositoryCore:
 
         assert len(results) == 1
         assert results[0].processing_status == ProcessingStatus.COMPLETED
+
+    @pytest.mark.asyncio
+    async def test_list_by_source_type(
+        self, document_repo, test_chat_session, cleanup_documents
+    ):
+        """Test filtering by source_type distinguishes uploads from web-search documents."""
+        doc_upload = Document(
+            id=uuid4(),
+            session_id=test_chat_session.id,
+            source="uploaded.pdf",
+            source_size=123,
+            source_type=DocumentSourceType.UPLOAD,
+        )
+        doc_web = Document(
+            id=uuid4(),
+            session_id=test_chat_session.id,
+            source="https://example.com/page.html",
+            source_size=123,
+            source_type=DocumentSourceType.WEB_SEARCH,
+        )
+        await document_repo.create(doc_upload)
+        await document_repo.create(doc_web)
+
+        criteria = DocumentSearchCriteria(source_type=DocumentSourceType.WEB_SEARCH)
+        results = await document_repo.list_by(criteria)
+
+        assert len(results) == 1
+        assert results[0].id == doc_web.id
+        assert results[0].source_type == DocumentSourceType.WEB_SEARCH
 
     @pytest.mark.asyncio
     async def test_update_document_success(

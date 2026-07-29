@@ -143,6 +143,43 @@ async def test_chat_web_search_enabled_falls_back_to_real_web_search(
     assert len(body["sources"]) > 0
 
 
+async def test_chat_ignores_old_web_search_chunks_from_previous_turn(
+    app_client, seed_user, seed_chat_session, auth_cookie, seed_chunk
+):
+    """A WEB_SEARCH-typed chunk left over from an earlier turn's web search
+    must not be picked up by the primary (uploaded-documents-only) search,
+    even when it's a near-perfect vector match for the new question - so a
+    web search from a previous, unrelated query can't make an unrelated new
+    question look document-relevant. Since web_search_enabled is omitted
+    (defaults to False), no live web search runs here, keeping this fully
+    deterministic."""
+    from src.config.constants import DocumentSourceType
+
+    user_id = await seed_user()
+    chat_id = await seed_chat_session(user_id)
+    await seed_chunk(
+        chat_id,
+        text="Our premium subscription plan costs $29 per month and includes "
+        "unlimited document uploads and priority support.",
+        source="https://example.com/old-web-result.html",
+        source_type=DocumentSourceType.WEB_SEARCH,
+    )
+
+    response = app_client.post(
+        ENDPOINT,
+        json={
+            "user_query": "How much does the premium subscription cost per month?",
+            "chat_id": str(chat_id),
+        },
+        headers=auth_cookie(user_id),
+    )
+
+    assert response.status_code == 200
+    body = response.json()["data"]
+    assert body["sources"] == []
+    assert "old-web-result.html" not in body["answer"]
+
+
 async def test_chat_response_shape(app_client, seed_user, seed_chat_session, auth_cookie):
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)

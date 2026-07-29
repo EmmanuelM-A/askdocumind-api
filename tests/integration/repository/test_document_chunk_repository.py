@@ -10,7 +10,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import delete
 
-from src.config.constants import ProcessingStatus
+from src.config.constants import DocumentSourceType, ProcessingStatus
 from src.database.models import ChatSession, Document, DocumentChunk, User
 from src.database.repository.interfaces.document_chunk_repository import (
     DocumentChunkSearchCriteria,
@@ -424,3 +424,57 @@ class TestDocumentChunkRepositoryCore:
         assert len(results) == 2
         assert results[0].id == chunk_a.id
         assert results[1].id == chunk_b.id
+
+    async def test_search_similar_source_type_filter_excludes_other_type(
+        self,
+        db_connection,
+        document_chunk_repo,
+        test_document,
+        chunk_factory,
+        cleanup_document_chunks,
+    ):
+        """A chunk belonging to a WEB_SEARCH document is excluded when
+        searching with source_type=UPLOAD, even though it's the closer
+        vector match - and included when no filter is applied."""
+        web_document = Document(
+            id=uuid4(),
+            session_id=test_document.session_id,
+            source="https://example.com/page.html",
+            source_size=100,
+            source_type=DocumentSourceType.WEB_SEARCH,
+            processing_status=ProcessingStatus.COMPLETED,
+        )
+        async with db_connection.get_session() as session:
+            session.add(web_document)
+            await session.commit()
+
+        upload_chunk = chunk_factory(
+            test_document.id,
+            chat_session_id=test_document.session_id,
+            chunk_text="Upload match",
+            head=(0.5, 0.5, 0.0),
+        )
+        web_chunk = chunk_factory(
+            web_document.id,
+            chat_session_id=test_document.session_id,
+            chunk_text="Web match",
+            head=(1.0, 0.0, 0.0),
+        )
+        await _create_chunks(document_chunk_repo, [upload_chunk, web_chunk])
+
+        upload_only_results = await document_chunk_repo.search_similar(
+            chat_session_id=test_document.session_id,
+            vector=[1.0, 0.0, 0.0] + [0.0] * 1533,
+            top_k=5,
+            threshold=0.0,
+            source_type=DocumentSourceType.UPLOAD,
+        )
+        assert {r.id for r in upload_only_results} == {upload_chunk.id}
+
+        unfiltered_results = await document_chunk_repo.search_similar(
+            chat_session_id=test_document.session_id,
+            vector=[1.0, 0.0, 0.0] + [0.0] * 1533,
+            top_k=5,
+            threshold=0.0,
+        )
+        assert {r.id for r in unfiltered_results} == {upload_chunk.id, web_chunk.id}

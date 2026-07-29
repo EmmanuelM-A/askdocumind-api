@@ -14,6 +14,7 @@ from src.components.prompts.prompt_loader import create_prompt_template
 from src.components.retrieval.query_expander import expand_query
 from src.components.retrieval.web_searcher import WebSearcher
 from src.config.configs import settings
+from src.config.constants import DocumentSourceType
 from src.database.repository.interfaces.db_transaction import DBTransactionFactory
 from src.errors.api_exceptions import ApiException
 from src.logger.base_logger import BaseLogger
@@ -93,7 +94,7 @@ class RAGChatbot:
             expanded_query = query
 
         results, sources = await self._query_handler.search_for_vectors(
-            expanded_query, chat_session_id
+            expanded_query, chat_session_id, source_type=DocumentSourceType.UPLOAD
         )
 
         include_web_search = " or through web search" if is_web_enabled else ""

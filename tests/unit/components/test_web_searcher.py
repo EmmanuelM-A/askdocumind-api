@@ -17,6 +17,7 @@ from src.components.retrieval.web_searcher import (
     WebContent,
     WebSearcher,
     WebSearchResult,
+    _clean_web_text,
 )
 
 # ==================== INITIALIZATION TESTS ====================
@@ -527,6 +528,29 @@ async def test_ingest_web_content_saves_exact_source_url_as_source(web_searcher,
 
 
 @pytest.mark.asyncio
+async def test_ingest_web_content_marks_document_as_web_search_source_type(
+    web_searcher, mock_tx
+):
+    """Test that documents created from web ingestion are tagged
+    WEB_SEARCH, distinguishing them from uploaded documents."""
+    from src.config.constants import DocumentSourceType
+
+    chat_session_id = uuid4()
+    web_contents = [
+        WebContent(content="Some content", source="https://example.com/a"),
+    ]
+    web_searcher._document_processor.save_document_chunks = AsyncMock(return_value=1)
+
+    with patch.object(
+        web_searcher, "search_and_retrieve_web_content", return_value=web_contents
+    ):
+        await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
+
+    saved_document = web_searcher._document_repository.create.call_args.kwargs["data"]
+    assert saved_document.source_type == DocumentSourceType.WEB_SEARCH
+
+
+@pytest.mark.asyncio
 async def test_ingest_web_content_skips_content_over_per_document_limit(web_searcher, mock_tx):
     """Test that a single piece of web content larger than MAX_FILE_SIZE_MB
     is skipped rather than saved, mirroring the upload size limit."""
@@ -570,6 +594,62 @@ async def test_ingest_web_content_skips_when_chat_storage_quota_exceeded(web_sea
 
     assert result == 0
     web_searcher._document_repository.create.assert_not_called()
+
+
+# ==================== _clean_web_text TESTS ====================
+
+
+def test_clean_web_text_replaces_literal_escape_sequences():
+    """Test that literal backslash-n/backslash-t two-character sequences are
+    replaced with a space, not treated as real whitespace."""
+    result = _clean_web_text("line1\\nline2\\tindented")
+
+    assert result == "line1 line2 indented"
+
+
+def test_clean_web_text_preserves_real_whitespace_structure():
+    """Test that a real newline (as would appear in the `Source: name\\n\\n...`
+    chunk prefix) is left untouched, since it's a single real character, not
+    the two-character literal sequence being targeted."""
+    result = _clean_web_text("Source: page.html\n\nActual body text")
+
+    assert result == "Source: page.html\n\nActual body text"
+
+
+def test_clean_web_text_collapses_repeated_whitespace():
+    """Test that repeated spaces left behind by escape-sequence replacement
+    are collapsed to a single space."""
+    result = _clean_web_text("a\\n\\n\\nb")
+
+    assert result == "a b"
+
+
+def test_clean_web_text_strips_leading_and_trailing_whitespace():
+    result = _clean_web_text("\\n  leading and trailing  \\t")
+
+    assert result == "leading and trailing"
+
+
+@pytest.mark.asyncio
+async def test_ingest_web_content_sanitizes_chunks_before_saving(web_searcher, mock_tx):
+    """Test that chunk text is cleaned of literal escape sequences before
+    being handed to save_document_chunks."""
+    chat_session_id = uuid4()
+    web_contents = [
+        WebContent(content="Some content", source="https://example.com/a"),
+    ]
+    web_searcher._document_processor.chunk.return_value = ["line1\\nline2"]
+    web_searcher._document_processor.save_document_chunks = AsyncMock(return_value=1)
+
+    with patch.object(
+        web_searcher, "search_and_retrieve_web_content", return_value=web_contents
+    ):
+        await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
+
+    saved_chunks = web_searcher._document_processor.save_document_chunks.call_args.kwargs[
+        "chunks"
+    ]
+    assert saved_chunks == ["line1 line2"]
 
 
 # ==================== DATACLASS TESTS ====================

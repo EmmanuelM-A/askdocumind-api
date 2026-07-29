@@ -29,6 +29,7 @@ from src.api.app import create_app
 from src.api.utils.session_manager import TokenManager, get_token_manager
 from src.components.retrieval.embedder import Embedder
 from src.config.configs import settings
+from src.config.constants import DocumentSourceType
 from src.database.connection import DatabaseConnection
 from src.database.models import ChatSession, Document, DocumentChunk, User
 from src.database.repository.sqlalchemy.chat_message_repository import (
@@ -152,9 +153,19 @@ def seed_chunk(
 ):
     """Factory: creates a real Document + DocumentChunk with a real embedding."""
 
-    async def _seed(chat_id: UUID, text: str, source: str = "seeded.txt") -> UUID:
+    async def _seed(
+        chat_id: UUID,
+        text: str,
+        source: str = "seeded.txt",
+        source_type: DocumentSourceType = DocumentSourceType.UPLOAD,
+    ) -> UUID:
         doc_id = await document_repo.create(
-            Document(session_id=chat_id, source=source, source_size=len(text.encode()))
+            Document(
+                session_id=chat_id,
+                source=source,
+                source_size=len(text.encode()),
+                source_type=source_type,
+            )
         )
         chunk = DocumentChunk(
             document_id=doc_id,

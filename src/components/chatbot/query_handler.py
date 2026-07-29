@@ -11,6 +11,7 @@ from langchain_core.output_parsers import StrOutputParser
 
 from src.api.validation.helper import validate_and_sanitize_query
 from src.config.configs import settings
+from src.config.constants import DocumentSourceType
 from src.components.prompts.prompt_loader import create_prompt_template
 from src.components.retrieval.embedder import Embedder
 from src.components.retrieval.reranker import Reranker
@@ -63,10 +64,16 @@ class QueryHandler:
         self,
         query: str,
         chat_session_id: UUID,
+        source_type: Optional[DocumentSourceType] = None,
         tx: Optional[DBTransaction] = None,
     ) -> Tuple[List[DocumentChunk], List[str]]:
         """
         Embeds query, searches vector DB, returns top_k results.
+
+        `source_type`: optional filter restricting the search to chunks
+        belonging to documents of this type (e.g. UPLOAD only, excluding
+        previously-ingested web-search content). When None, all chunks for
+        the chat session are searched.
 
         `tx`: optional transaction to run the search under - used so a
         caller can search over rows staged (flushed but not yet committed)
@@ -89,6 +96,7 @@ class QueryHandler:
             vector=query_vector,
             top_k=settings.vector.RERANK_CANDIDATE_POOL_SIZE,
             threshold=settings.vector.SIMILARITY_THRESHOLD,
+            source_type=source_type,
             tx=tx,
         )
 

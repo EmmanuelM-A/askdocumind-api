@@ -57,6 +57,7 @@ async def test_list_returns_uploaded_document_with_correct_shape(
         "session_id",
         "source",
         "source_size",
+        "source_type",
         "processing_status",
         "created_at",
         "updated_at",
