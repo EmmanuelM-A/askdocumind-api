@@ -510,8 +510,9 @@ async def test_ingest_web_content_success_sums_saved_chunks(web_searcher, mock_t
 
 @pytest.mark.asyncio
 async def test_ingest_web_content_saves_exact_source_url_as_source(web_searcher, mock_tx):
-    """Test that the Document's source is the exact source URL (plus
-    .html), not a hashed/sanitized version - so the origin is preserved."""
+    """Test that the Document's source is the exact source URL, not a
+    hashed/sanitized version and not suffixed with an extension - so the
+    origin is preserved exactly."""
     chat_session_id = uuid4()
     web_contents = [
         WebContent(content="Some content", source="https://en.wikipedia.org/wiki/London"),
@@ -524,7 +525,7 @@ async def test_ingest_web_content_saves_exact_source_url_as_source(web_searcher,
         await web_searcher.ingest_web_content("query", chat_session_id, tx=mock_tx)
 
     saved_document = web_searcher._document_repository.create.call_args.kwargs["data"]
-    assert saved_document.source == "https://en.wikipedia.org/wiki/London.html"
+    assert saved_document.source == "https://en.wikipedia.org/wiki/London"
 
 
 @pytest.mark.asyncio

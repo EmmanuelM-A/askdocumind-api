@@ -176,10 +176,6 @@ class WebSearcher:
         total_saved = 0
 
         for web_content in web_contents:
-<<<<<<< HEAD
-            async with self._tx_factory.create() as tx:
-                web_doc_source = web_content.source[:_MAX_SOURCE_LEN]
-=======
             content_bytes = len(web_content.content.encode("utf-8"))
 
             if content_bytes > _MAX_FILE_SIZE_BYTES:
@@ -204,8 +200,7 @@ class WebSearcher:
                 continue
 
             try:
-                web_doc_source = f"{web_content.source}.html"[:_MAX_SOURCE_LEN]
->>>>>>> 309a14e16c5cd5923b91c2ad89a592a57d4ac636
+                web_doc_source = web_content.source[:_MAX_SOURCE_LEN]
 
                 web_doc_id = await self._document_repository.create(
                     data=Document(
