@@ -2,10 +2,10 @@
 Global test fixtures and configurations for the repository tests
 """
 
-from src.database.connection import DatabaseConnection
-from src.database.models import User, ChatSession
-
 import pytest_asyncio
+
+from src.database.connection import DatabaseConnection
+from src.database.models import ChatSession, User
 
 # ========================= COMMON DATABASE FIXTURES =========================
 

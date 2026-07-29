@@ -3,20 +3,21 @@ Concrete implementation of the user repository, providing methods for CRUD
 operations and specific queries related to user entities.
 """
 
-from typing import Optional, cast
-from uuid import UUID
 from datetime import datetime, timezone
+from typing import cast
+from uuid import UUID
 
-from sqlalchemy import select, func, delete
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+
 from src.database.connection import DatabaseConnection
 from src.database.models import User
+from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.database.repository.interfaces.user_repository import (
+    UpdatedUserData,
     UserRepositoryInterface,
     UserSearchCriteria,
-    UpdatedUserData,
 )
-from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.errors.custom_exceptions import database_error
 from src.logger.base_logger import BaseLogger
 
@@ -42,7 +43,7 @@ class UserRepository(UserRepositoryInterface):
 
         return filters
 
-    async def create(self, data: User, tx: Optional[DBTransaction] = None) -> UUID:
+    async def create(self, data: User, tx: DBTransaction | None = None) -> UUID:
         try:
             if tx is not None:
                 await tx.add(data)
@@ -64,8 +65,8 @@ class UserRepository(UserRepositoryInterface):
             )
 
     async def get_by_id(
-        self, user_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> Optional[User]:
+        self, user_id: UUID, tx: DBTransaction | None = None
+    ) -> User | None:
         try:
             stmt = select(User).where(User.id == user_id)
 
@@ -94,8 +95,8 @@ class UserRepository(UserRepositoryInterface):
         self,
         user_id: UUID,
         new_user_data: UpdatedUserData,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[User]:
+        tx: DBTransaction | None = None,
+    ) -> User | None:
         try:
             stmt = select(User).where(User.id == user_id)
 
@@ -141,7 +142,7 @@ class UserRepository(UserRepositoryInterface):
             )
 
     async def delete(
-        self, user_id: UUID, tx: Optional[DBTransaction] = None
+        self, user_id: UUID, tx: DBTransaction | None = None
     ) -> bool:
         try:
             stmt = delete(User).where(User.id == user_id)
@@ -168,7 +169,7 @@ class UserRepository(UserRepositoryInterface):
             )
 
     async def delete_many(
-        self, user_ids: list[UUID], tx: Optional[DBTransaction] = None
+        self, user_ids: list[UUID], tx: DBTransaction | None = None
     ) -> int:
         if not user_ids:
             return 0
@@ -196,7 +197,7 @@ class UserRepository(UserRepositoryInterface):
             )
 
     async def exists(
-        self, user_id: UUID, tx: Optional[DBTransaction] = None
+        self, user_id: UUID, tx: DBTransaction | None = None
     ) -> bool:
         try:
             stmt = select(func.count()).select_from(User).where(User.id == user_id)
@@ -219,7 +220,7 @@ class UserRepository(UserRepositoryInterface):
     async def delete_by_criteria(
         self,
         criteria: UserSearchCriteria,
-        tx: Optional[DBTransaction] = None,
+        tx: DBTransaction | None = None,
     ) -> int:
         try:
             filters = self._build_filters(criteria)
@@ -258,7 +259,7 @@ class UserRepository(UserRepositoryInterface):
             )
     
 
-    async def update_last_seen(self, user_id: UUID, tx: Optional[DBTransaction] = None) -> None:
+    async def update_last_seen(self, user_id: UUID, tx: DBTransaction | None = None) -> None:
         """Update the last_seen_at timestamp of a user to the current UTC time."""
         try:
             stmt = select(User).where(User.id == user_id)
@@ -292,7 +293,7 @@ class UserRepository(UserRepositoryInterface):
             )
 
     async def get_all_expired_user_ids(
-        self, cutoff: datetime, tx: Optional[DBTransaction] = None
+        self, cutoff: datetime, tx: DBTransaction | None = None
     ) -> list[UUID]:
         try:
             stmt = select(User.id).where(

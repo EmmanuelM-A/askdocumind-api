@@ -6,22 +6,21 @@ This implementation follows patterns used in other repository classes in
 `search_similar` if the database does not provide a vector search operator.
 """
 
-from datetime import datetime
-from typing import Optional, List
-from uuid import UUID
 import math
+from datetime import datetime
+from uuid import UUID
 
-from sqlalchemy import select, func, delete
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.config.constants import DocumentSourceType
 from src.database.connection import DatabaseConnection
-from src.database.models import DocumentChunk, Document
+from src.database.models import Document, DocumentChunk
+from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.database.repository.interfaces.document_chunk_repository import (
     DocumentChunkRepositoryInterface,
     DocumentChunkSearchCriteria,
 )
-from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.errors.custom_exceptions import database_error
 from src.logger.base_logger import BaseLogger
 
@@ -41,7 +40,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
         return filters
 
     async def create(
-        self, data: DocumentChunk, tx: Optional[DBTransaction] = None
+        self, data: DocumentChunk, tx: DBTransaction | None = None
     ) -> UUID:
         try:
             if tx is not None:
@@ -65,9 +64,9 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
 
     async def list_by(
         self,
-        criteria: Optional[DocumentChunkSearchCriteria] = None,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[DocumentChunk]:
+        criteria: DocumentChunkSearchCriteria | None = None,
+        tx: DBTransaction | None = None,
+    ) -> list[DocumentChunk]:
         try:
             stmt = select(DocumentChunk)
 
@@ -90,8 +89,8 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
             )
 
     async def get_by_id(
-        self, chunk_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> Optional[DocumentChunk]:
+        self, chunk_id: UUID, tx: DBTransaction | None = None
+    ) -> DocumentChunk | None:
         try:
             stmt = select(DocumentChunk).where(DocumentChunk.id == chunk_id)
 
@@ -111,8 +110,8 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
             )
 
     async def get_by_criteria(
-        self, criteria: DocumentChunkSearchCriteria, tx: Optional[DBTransaction] = None
-    ) -> Optional[DocumentChunk]:
+        self, criteria: DocumentChunkSearchCriteria, tx: DBTransaction | None = None
+    ) -> DocumentChunk | None:
         try:
             filters = self._build_filters(criteria)
 
@@ -137,15 +136,15 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
             )
 
     async def list_by_document_id(
-        self, document_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> List[DocumentChunk]:
+        self, document_id: UUID, tx: DBTransaction | None = None
+    ) -> list[DocumentChunk]:
         return await self.list_by(
             DocumentChunkSearchCriteria(document_id=document_id), tx=tx
         )
 
     async def upsert_many(
-        self, chunks: List[DocumentChunk], tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, chunks: list[DocumentChunk], tx: DBTransaction | None = None
+    ) -> list[UUID]:
         if not chunks:
             return []
 
@@ -167,7 +166,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def delete(self, chunk_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
+    async def delete(self, chunk_id: UUID, tx: DBTransaction | None = None) -> bool:
         try:
             stmt = delete(DocumentChunk).where(DocumentChunk.id == chunk_id)
 
@@ -187,7 +186,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
             )
 
     async def delete_by_document_id(
-        self, document_id: UUID, tx: Optional[DBTransaction] = None
+        self, document_id: UUID, tx: DBTransaction | None = None
     ) -> int:
         try:
             stmt = delete(DocumentChunk).where(DocumentChunk.document_id == document_id)
@@ -207,7 +206,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def exists(self, chunk_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
+    async def exists(self, chunk_id: UUID, tx: DBTransaction | None = None) -> bool:
         try:
             stmt = (
                 select(func.count())
@@ -231,7 +230,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
             )
 
     async def count(
-        self, document_id: Optional[UUID] = None, tx: Optional[DBTransaction] = None
+        self, document_id: UUID | None = None, tx: DBTransaction | None = None
     ) -> int:
         try:
             stmt = select(func.count(DocumentChunk.id)).select_from(DocumentChunk)
@@ -256,9 +255,9 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
     async def _get_similarity_candidates(
         self,
         chat_session_id: UUID,
-        source_type: Optional[DocumentSourceType] = None,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[DocumentChunk]:
+        source_type: DocumentSourceType | None = None,
+        tx: DBTransaction | None = None,
+    ) -> list[DocumentChunk]:
         stmt = select(DocumentChunk).where(
             DocumentChunk.chat_session_id == chat_session_id
         )
@@ -279,12 +278,12 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
     async def search_similar(
         self,
         chat_session_id: UUID,
-        vector: List[float],
+        vector: list[float],
         top_k: int = 10,
-        threshold: Optional[float] = None,
-        source_type: Optional[DocumentSourceType] = None,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[DocumentChunk]:
+        threshold: float | None = None,
+        source_type: DocumentSourceType | None = None,
+        tx: DBTransaction | None = None,
+    ) -> list[DocumentChunk]:
         """
         Fallback similarity search implementation.
 
@@ -339,10 +338,10 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
 
     async def get_filenames_for_chunks(
         self,
-        chunks: List[DocumentChunk],
+        chunks: list[DocumentChunk],
         chat_session_id: UUID,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[str]:
+        tx: DBTransaction | None = None,
+    ) -> list[str]:
         """
         Retrieves unique filenames for all documents associated with the given chunks.
         Results are filtered to only include documents from the specified chat_session_id.
@@ -384,7 +383,7 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
             )
 
     async def delete_orphaned_web_chunks(
-        self, cutoff: datetime, tx: Optional[DBTransaction] = None
+        self, cutoff: datetime, tx: DBTransaction | None = None
     ) -> int:
         try:
             stmt = delete(DocumentChunk).where(

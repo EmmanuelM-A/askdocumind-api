@@ -4,21 +4,20 @@ operations and specific queries related to document entities.
 """
 
 from datetime import datetime
-from typing import Optional, List
 from uuid import UUID
 
-from sqlalchemy import select, func, update, delete
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from src.config.constants import ProcessingStatus
 from src.database.connection import DatabaseConnection
 from src.database.models import Document
-from src.config.constants import ProcessingStatus
+from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.database.repository.interfaces.document_repository import (
     DocumentRepositoryInterface,
     DocumentSearchCriteria,
     UpdatedDocumentData,
 )
-from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.errors.custom_exceptions import conflict_error, database_error
 from src.logger.base_logger import BaseLogger
 
@@ -48,7 +47,7 @@ class DocumentRepository(DocumentRepositoryInterface):
             and "document" in message
         )
 
-    async def create(self, data: Document, tx: Optional[DBTransaction] = None) -> UUID:
+    async def create(self, data: Document, tx: DBTransaction | None = None) -> UUID:
         try:
             if tx is not None:
                 await tx.add(data)
@@ -83,9 +82,9 @@ class DocumentRepository(DocumentRepositoryInterface):
 
     async def list_by(
         self,
-        criteria: Optional[DocumentSearchCriteria] = None,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[Document]:
+        criteria: DocumentSearchCriteria | None = None,
+        tx: DBTransaction | None = None,
+    ) -> list[Document]:
         try:
             stmt = select(Document)
 
@@ -116,8 +115,8 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def get_by_id(
-        self, document_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> Optional[Document]:
+        self, document_id: UUID, tx: DBTransaction | None = None
+    ) -> Document | None:
         try:
             stmt = select(Document).where(Document.id == document_id)
 
@@ -145,8 +144,8 @@ class DocumentRepository(DocumentRepositoryInterface):
     async def get_by_criteria(
         self,
         criteria: DocumentSearchCriteria,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[Document]:
+        tx: DBTransaction | None = None,
+    ) -> Document | None:
         try:
             filters = self._build_filters(criteria)
 
@@ -177,8 +176,8 @@ class DocumentRepository(DocumentRepositoryInterface):
         self,
         entity_id: UUID,
         new_entity_data: UpdatedDocumentData,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[Document]:
+        tx: DBTransaction | None = None,
+    ) -> Document | None:
         try:
             stmt = select(Document).where(Document.id == entity_id)
 
@@ -232,7 +231,7 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def delete(
-        self, document_id: UUID, tx: Optional[DBTransaction] = None
+        self, document_id: UUID, tx: DBTransaction | None = None
     ) -> bool:
         try:
             stmt = delete(Document).where(Document.id == document_id)
@@ -252,7 +251,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def exists(self, entity_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
+    async def exists(self, entity_id: UUID, tx: DBTransaction | None = None) -> bool:
         try:
             stmt = (
                 select(func.count())
@@ -277,8 +276,8 @@ class DocumentRepository(DocumentRepositoryInterface):
 
     async def count(
         self,
-        filter_id: Optional[UUID] = None,
-        tx: Optional[DBTransaction] = None,
+        filter_id: UUID | None = None,
+        tx: DBTransaction | None = None,
     ) -> int:
         try:
             stmt = select(func.count(Document.id)).select_from(Document)
@@ -303,7 +302,7 @@ class DocumentRepository(DocumentRepositoryInterface):
     async def get_total_size_mb(
         self,
         chat_session_id: UUID,
-        tx: Optional[DBTransaction] = None,
+        tx: DBTransaction | None = None,
     ) -> float:
         try:
             stmt = select(
@@ -330,8 +329,8 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def create_many(
-        self, entities: List[Document], tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, entities: list[Document], tx: DBTransaction | None = None
+    ) -> list[UUID]:
         if not entities:
             return []
 
@@ -370,7 +369,7 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def delete_many(
-        self, document_ids: list[UUID], tx: Optional[DBTransaction] = None
+        self, document_ids: list[UUID], tx: DBTransaction | None = None
     ) -> int:
         if not document_ids:
             return 0
@@ -399,9 +398,9 @@ class DocumentRepository(DocumentRepositoryInterface):
 
     async def bulk_update_processing_status(
         self,
-        document_ids: List[UUID],
+        document_ids: list[UUID],
         status: ProcessingStatus,
-        tx: Optional[DBTransaction] = None,
+        tx: DBTransaction | None = None,
     ) -> int:
         if not document_ids:
             return 0
@@ -437,8 +436,8 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def get_stuck_processing_ids(
-        self, cutoff: datetime, tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, cutoff: datetime, tx: DBTransaction | None = None
+    ) -> list[UUID]:
         try:
             stmt = select(Document.id).where(
                 Document.processing_status == ProcessingStatus.PROCESSING,
@@ -461,8 +460,8 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def get_all_failed_ids(
-        self, cutoff: datetime, tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, cutoff: datetime, tx: DBTransaction | None = None
+    ) -> list[UUID]:
         try:
             stmt = select(Document.id).where(
                 Document.processing_status == ProcessingStatus.FAILED,

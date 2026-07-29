@@ -2,11 +2,10 @@
 Responsible for managing chat message data access in the database.
 """
 
-from typing import Optional, List
 from uuid import UUID
 
-from sqlalchemy import select, func, delete
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.database.connection import DatabaseConnection
 from src.database.models import ChatMessage
@@ -37,7 +36,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
         return filters
 
     async def create(
-        self, data: ChatMessage, tx: Optional[DBTransaction] = None
+        self, data: ChatMessage, tx: DBTransaction | None = None
     ) -> UUID:
         try:
             if tx is not None:
@@ -61,9 +60,9 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
 
     async def list_by(
         self,
-        criteria: Optional[ChatMessageSearchCriteria] = None,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[ChatMessage]:
+        criteria: ChatMessageSearchCriteria | None = None,
+        tx: DBTransaction | None = None,
+    ) -> list[ChatMessage]:
         try:
             stmt = select(ChatMessage)
 
@@ -98,8 +97,8 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
             )
 
     async def get_by_id(
-        self, message_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> Optional[ChatMessage]:
+        self, message_id: UUID, tx: DBTransaction | None = None
+    ) -> ChatMessage | None:
         try:
             stmt = select(ChatMessage).where(ChatMessage.id == message_id)
 
@@ -131,8 +130,8 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
     async def get_by_criteria(
         self,
         criteria: ChatMessageSearchCriteria,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[ChatMessage]:
+        tx: DBTransaction | None = None,
+    ) -> ChatMessage | None:
         try:
             filters = self._build_filters(criteria)
 
@@ -163,8 +162,8 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
         self,
         entity_id: UUID,
         new_entity_data: UpdatedChatMessageData,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[ChatMessage]:
+        tx: DBTransaction | None = None,
+    ) -> ChatMessage | None:
         try:
             stmt = select(ChatMessage).where(ChatMessage.id == entity_id)
 
@@ -218,7 +217,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
             )
 
     async def delete(
-        self, message_id: UUID, tx: Optional[DBTransaction] = None
+        self, message_id: UUID, tx: DBTransaction | None = None
     ) -> bool:
         try:
             stmt = delete(ChatMessage).where(ChatMessage.id == message_id)
@@ -239,7 +238,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
             )
 
     async def exists(
-        self, entity_id: UUID, tx: Optional[DBTransaction] = None
+        self, entity_id: UUID, tx: DBTransaction | None = None
     ) -> bool:
         try:
             stmt = (
@@ -265,8 +264,8 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
 
     async def count(
         self,
-        filter_id: Optional[UUID] = None,
-        tx: Optional[DBTransaction] = None,
+        filter_id: UUID | None = None,
+        tx: DBTransaction | None = None,
     ) -> int:
         try:
             stmt = select(func.count()).select_from(ChatMessage)
@@ -289,8 +288,8 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
             )
 
     async def create_many(
-        self, entities: List[ChatMessage], tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, entities: list[ChatMessage], tx: DBTransaction | None = None
+    ) -> list[UUID]:
         if not entities:
             return []
 
@@ -317,7 +316,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
             )
 
     async def delete_many(
-        self, message_ids: List[UUID], tx: Optional[DBTransaction] = None
+        self, message_ids: list[UUID], tx: DBTransaction | None = None
     ) -> int:
         if not message_ids:
             return 0

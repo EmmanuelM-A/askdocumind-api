@@ -4,8 +4,8 @@ from io import BytesIO
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
-from fastapi import UploadFile
 import pytest
+from fastapi import UploadFile
 from starlette.requests import Request
 
 from src.api.middleware.rate_limiter import (

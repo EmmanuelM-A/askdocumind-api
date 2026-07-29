@@ -16,8 +16,7 @@ class APIVersionMiddleware(BaseHTTPMiddleware):
             return None
 
         version = raw_version.strip().lower()
-        if version.startswith("v"):
-            version = version[1:]
+        version = version.removeprefix("v")
 
         return version or None
 

@@ -57,7 +57,7 @@ async def test_upload_documents_returns_count_of_created_documents(
     document_processor.chunk = Mock(return_value=["chunk 1"])
     document_processor.save_document_chunks = AsyncMock(return_value=1)
 
-    tx_factory, tx = _mock_tx_factory_and_tx()
+    tx_factory, _tx = _mock_tx_factory_and_tx()
 
     service = _make_service(
         document_repo=document_repo,

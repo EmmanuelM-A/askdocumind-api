@@ -20,7 +20,6 @@ import pytest
 from src.components.retrieval.reranker import CrossEncoderReranker, Reranker
 from src.database.models import DocumentChunk
 
-
 # ==================== HELPERS ====================
 
 

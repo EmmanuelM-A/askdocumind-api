@@ -1,13 +1,14 @@
 from datetime import datetime, timedelta, timezone
-from typing import List, cast
+from typing import cast
 from uuid import UUID
 
 from alembic.environment import Optional
+
+from src.api.utils.session_manager import TokenManager
+from src.config.configs import settings
 from src.database.models import User
 from src.database.repository.interfaces import UserRepositoryInterface
-from src.api.utils.session_manager import TokenManager
 from src.logger.base_logger import BaseLogger
-from src.config.configs import settings
 
 
 class AnonymousUserSessionService:
@@ -86,7 +87,7 @@ class AnonymousUserSessionService:
             hours=settings.anon.TTL_HOURS
         )
 
-        expired_ids: List[UUID] = await self._user_repo.get_all_expired_user_ids(
+        expired_ids: list[UUID] = await self._user_repo.get_all_expired_user_ids(
             cutoff=cutoff
         )
 

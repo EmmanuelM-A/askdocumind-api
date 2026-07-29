@@ -9,7 +9,6 @@ operations and similarity search hooks.
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Optional, List
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -22,17 +21,17 @@ from src.database.repository.interfaces.db_transaction import DBTransaction
 class DocumentChunkSearchCriteria(BaseModel):
     """Criteria for filtering document chunks in list/search operations."""
 
-    id: Optional[UUID] = None
-    document_id: Optional[UUID] = None
+    id: UUID | None = None
+    document_id: UUID | None = None
 
 
 class UpdatedDocumentChunkData(BaseModel):
     """Schema for updating document chunk fields."""
 
-    chunk_text: Optional[str] = None
+    chunk_text: str | None = None
     # Embedding updates may be supported by some implementations; keep it
     # generic (implementation may accept list[float] if applicable).
-    embedding: Optional[object] = None
+    embedding: object | None = None
 
 
 class DocumentChunkRepositoryInterface(ABC):
@@ -44,7 +43,7 @@ class DocumentChunkRepositoryInterface(ABC):
 
     @abstractmethod
     async def create(
-        self, data: DocumentChunk, tx: Optional[DBTransaction] = None
+        self, data: DocumentChunk, tx: DBTransaction | None = None
     ) -> UUID:
         """
         Persist a new document chunk (embedding) record.
@@ -58,9 +57,9 @@ class DocumentChunkRepositoryInterface(ABC):
     @abstractmethod
     async def list_by(
         self,
-        criteria: Optional[DocumentChunkSearchCriteria] = None,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[DocumentChunk]:
+        criteria: DocumentChunkSearchCriteria | None = None,
+        tx: DBTransaction | None = None,
+    ) -> list[DocumentChunk]:
         """
         Retrieve document chunks matching the provided criteria. If no
         criteria is provided, return all chunks (use with care).
@@ -73,8 +72,8 @@ class DocumentChunkRepositoryInterface(ABC):
 
     @abstractmethod
     async def get_by_id(
-        self, chunk_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> Optional[DocumentChunk]:
+        self, chunk_id: UUID, tx: DBTransaction | None = None
+    ) -> DocumentChunk | None:
         """
         Retrieve a single chunk by its UUID.
 
@@ -86,8 +85,8 @@ class DocumentChunkRepositoryInterface(ABC):
 
     @abstractmethod
     async def get_by_criteria(
-        self, criteria: DocumentChunkSearchCriteria, tx: Optional[DBTransaction] = None
-    ) -> Optional[DocumentChunk]:
+        self, criteria: DocumentChunkSearchCriteria, tx: DBTransaction | None = None
+    ) -> DocumentChunk | None:
         """
         Retrieve the first chunk matching the given criteria.
 
@@ -99,8 +98,8 @@ class DocumentChunkRepositoryInterface(ABC):
 
     @abstractmethod
     async def list_by_document_id(
-        self, document_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> List[DocumentChunk]:
+        self, document_id: UUID, tx: DBTransaction | None = None
+    ) -> list[DocumentChunk]:
         """
         Convenience method to fetch all chunks for a document.
 
@@ -112,8 +111,8 @@ class DocumentChunkRepositoryInterface(ABC):
 
     @abstractmethod
     async def upsert_many(
-        self, chunks: List[DocumentChunk], tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, chunks: list[DocumentChunk], tx: DBTransaction | None = None
+    ) -> list[UUID]:
         """
         Insert or update multiple chunks in a single operation.
 
@@ -127,7 +126,7 @@ class DocumentChunkRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def delete(self, chunk_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
+    async def delete(self, chunk_id: UUID, tx: DBTransaction | None = None) -> bool:
         """
         Delete a single chunk by its UUID.
 
@@ -139,7 +138,7 @@ class DocumentChunkRepositoryInterface(ABC):
 
     @abstractmethod
     async def delete_by_document_id(
-        self, document_id: UUID, tx: Optional[DBTransaction] = None
+        self, document_id: UUID, tx: DBTransaction | None = None
     ) -> int:
         """
         Delete all chunks associated with a document.
@@ -151,7 +150,7 @@ class DocumentChunkRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def exists(self, chunk_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
+    async def exists(self, chunk_id: UUID, tx: DBTransaction | None = None) -> bool:
         """
         Check whether a chunk exists by UUID.
 
@@ -163,7 +162,7 @@ class DocumentChunkRepositoryInterface(ABC):
 
     @abstractmethod
     async def count(
-        self, document_id: Optional[UUID] = None, tx: Optional[DBTransaction] = None
+        self, document_id: UUID | None = None, tx: DBTransaction | None = None
     ) -> int:
         """
         Count chunks, optionally filtered by document.
@@ -178,12 +177,12 @@ class DocumentChunkRepositoryInterface(ABC):
     async def search_similar(
         self,
         chat_session_id: UUID,
-        vector: List[float],
+        vector: list[float],
         top_k: int = 10,
-        threshold: Optional[float] = None,
-        source_type: Optional[DocumentSourceType] = None,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[DocumentChunk]:
+        threshold: float | None = None,
+        source_type: DocumentSourceType | None = None,
+        tx: DBTransaction | None = None,
+    ) -> list[DocumentChunk]:
         """
         Search for chunks similar to the provided embedding vector.
 
@@ -207,10 +206,10 @@ class DocumentChunkRepositoryInterface(ABC):
     @abstractmethod
     async def get_filenames_for_chunks(
         self,
-        chunks: List[DocumentChunk],
+        chunks: list[DocumentChunk],
         chat_session_id: UUID,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[str]:
+        tx: DBTransaction | None = None,
+    ) -> list[str]:
         """
         Retrieves unique filenames for all documents associated with the given chunks.
         Results are filtered to only include documents from the specified chat_session_id.
@@ -224,7 +223,7 @@ class DocumentChunkRepositoryInterface(ABC):
 
     @abstractmethod
     async def delete_orphaned_web_chunks(
-        self, cutoff: datetime, tx: Optional[DBTransaction] = None
+        self, cutoff: datetime, tx: DBTransaction | None = None
     ) -> int:
         """
         Delete web-search chunks (document_id IS NULL) created before the cutoff.

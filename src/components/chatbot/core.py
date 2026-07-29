@@ -5,7 +5,6 @@ Handles chatbot interactions using Retrieval-Augmented Generation (RAG).
 import json
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List
 from uuid import UUID
 
 from src.components.chatbot.query_handler import PossibleResponse, QueryHandler
@@ -21,13 +20,13 @@ from src.logger.base_logger import BaseLogger
 
 # Per-session web search counter. Resets on server restart, which is acceptable
 # for keeping Brave API usage within the free tier (2,000 req/month).
-_web_search_counts: Dict[str, int] = defaultdict(int)
+_web_search_counts: dict[str, int] = defaultdict(int)
 
 
 @dataclass
 class ChatbotResponse:
     answer: str
-    sources: List[str]
+    sources: list[str]
 
     def to_dict(self) -> dict:
         """Return a JSON-serializable dictionary representation."""

@@ -8,8 +8,8 @@ from fastapi import APIRouter, Request
 from src.api.controllers.rag_chatbot_controller import RAGChatbotController
 from src.api.middleware.rate_limiter import (
     chat_query_limit,
-    user_key_func,
     limiter,
+    user_key_func,
 )
 from src.api.validation.chatbot import ChatRequest
 

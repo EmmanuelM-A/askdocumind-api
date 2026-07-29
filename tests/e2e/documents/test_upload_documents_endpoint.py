@@ -71,7 +71,7 @@ def _json(name: str, data: dict | None = None) -> tuple:
 
 
 def _html(name: str, text: str = "Hello world, this is a test document.") -> tuple:
-    content = f"<html><body><p>{text}</p></body></html>".encode("utf-8")
+    content = f"<html><body><p>{text}</p></body></html>".encode()
     return ("documents", (name, content, "text/html"))
 
 
@@ -141,7 +141,7 @@ async def test_upload_persists_document_with_correct_metadata(
 
     assert len(stored) == 1
     assert stored[0].source == "metadata-check.txt"
-    assert stored[0].source_size == len("Some content for metadata checking.".encode())
+    assert stored[0].source_size == len(b"Some content for metadata checking.")
 
 
 async def test_upload_creates_real_document_chunks(

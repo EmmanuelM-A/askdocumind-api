@@ -11,7 +11,6 @@ from fastapi import UploadFile
 
 from src.components.retrieval.embedder import Embedder
 
-
 # ====================== DOCUMENT PROCESSOR FIXTURES ======================
 
 

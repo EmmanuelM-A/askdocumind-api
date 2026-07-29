@@ -3,18 +3,18 @@ Responsible for handling user queries and generating their corresponding
 response.
 """
 
-from typing import List, Literal, Optional, Tuple, cast
+from typing import Literal, cast
 from uuid import UUID
 
-from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
+from langchain_openai import ChatOpenAI
 
 from src.api.validation.helper import validate_and_sanitize_query
-from src.config.configs import settings
-from src.config.constants import DocumentSourceType
 from src.components.prompts.prompt_loader import create_prompt_template
 from src.components.retrieval.embedder import Embedder
 from src.components.retrieval.reranker import Reranker
+from src.config.configs import settings
+from src.config.constants import DocumentSourceType
 from src.database.models import DocumentChunk
 from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.database.repository.interfaces.document_chunk_repository import (
@@ -64,9 +64,9 @@ class QueryHandler:
         self,
         query: str,
         chat_session_id: UUID,
-        source_type: Optional[DocumentSourceType] = None,
-        tx: Optional[DBTransaction] = None,
-    ) -> Tuple[List[DocumentChunk], List[str]]:
+        source_type: DocumentSourceType | None = None,
+        tx: DBTransaction | None = None,
+    ) -> tuple[list[DocumentChunk], list[str]]:
         """
         Embeds query, searches vector DB, returns top_k results.
 
@@ -91,7 +91,7 @@ class QueryHandler:
 
         top_k = settings.vector.RETRIEVAL_TOP_K
 
-        chunks: List[DocumentChunk] = await self.document_chunk_repo.search_similar(
+        chunks: list[DocumentChunk] = await self.document_chunk_repo.search_similar(
             chat_session_id=chat_session_id,
             vector=query_vector,
             top_k=settings.vector.RERANK_CANDIDATE_POOL_SIZE,
@@ -104,7 +104,7 @@ class QueryHandler:
             self._logger.debug(f"Reranking {len(chunks)} candidate chunks...")
             chunks = await self.reranker.rerank(query=query, chunks=chunks, top_k=top_k)
 
-        sources: List[str] = await self.document_chunk_repo.get_filenames_for_chunks(
+        sources: list[str] = await self.document_chunk_repo.get_filenames_for_chunks(
             chunks=chunks,
             chat_session_id=chat_session_id,
             tx=tx,
@@ -123,7 +123,7 @@ class QueryHandler:
     def generate_response(
         self,
         query: str,
-        retrieved_chunks: List[DocumentChunk],
+        retrieved_chunks: list[DocumentChunk],
         from_web_search: bool = False,
     ) -> PossibleResponse:
         """

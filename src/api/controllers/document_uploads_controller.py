@@ -2,7 +2,6 @@
 Controller layer responsible for handling document uploads.
 """
 
-from typing import Optional
 from uuid import UUID
 
 from fastapi import Request, status
@@ -10,9 +9,9 @@ from starlette.responses import JSONResponse
 
 from src.api.services.documents.document_uploads import UploadDocumentService
 from src.api.services.service_factory import get_upload_service
-from src.api.validation.document import UploadDocumentsRequest
 from src.api.utils.api_responses import SuccessResponseModel
 from src.api.utils.response_delivery import create_success_response
+from src.api.validation.document import UploadDocumentsRequest
 
 
 class DocumentUploadController:
@@ -21,7 +20,7 @@ class DocumentUploadController:
     """
 
     def __init__(self):
-        self._upload_service: Optional[UploadDocumentService] = None
+        self._upload_service: UploadDocumentService | None = None
 
     def lazy_init(self) -> None:
         if self._upload_service is None:

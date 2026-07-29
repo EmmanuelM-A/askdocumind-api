@@ -4,11 +4,11 @@ Each configuration class handles a specific domain of settings.
 """
 
 from pathlib import Path
-from typing import List, Literal, Optional
+from typing import Literal
 
+from dotenv import load_dotenv
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from dotenv import load_dotenv
 
 # ------------------------------------------------------------------
 # Environment Setup
@@ -44,7 +44,7 @@ class CoreAppSettings(_BaseSettings):
     HOST: str = Field(default="0.0.0.0")
 
     # Sentry
-    SENTRY_DSN: Optional[str] = Field(default=None)
+    SENTRY_DSN: str | None = Field(default=None)
     SENTRY_ENVIRONMENT: str = Field(default="production")
     SENTRY_TRACES_SAMPLE_RATE: float = Field(default=0.1)
 
@@ -100,7 +100,7 @@ class AuthSettings(_BaseSettings):
     COOKIE_SAMESITE: Literal["lax", "strict", "none"] = Field(
         default="none", validation_alias="ANON_SESSION_COOKIE_SAMESITE"
     )
-    COOKIE_DOMAIN: Optional[str] = Field(
+    COOKIE_DOMAIN: str | None = Field(
         default=None, validation_alias="ANON_SESSION_COOKIE_DOMAIN"
     )
 
@@ -141,8 +141,8 @@ class FileProcessingSettings(_BaseSettings):
         default=1
     )  # Max total size of all files per chat
     MAX_DOCUMENTS_PER_CHAT: int = Field(default=10)
-    ALLOED_FILE_EXTENSIONS: List[str] = Field(
-        default=[".pdf", ".docx", ".txt", ".md", ".html", ".csv"] 
+    ALLOED_FILE_EXTENSIONS: list[str] = Field(
+        default=[".pdf", ".docx", ".txt", ".md", ".html", ".csv"]
     )
 
     LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{_PROJECT_ROOT}/data/local/documents")
@@ -195,7 +195,7 @@ class VectorStoreSettings(_BaseSettings):
     VECTOR_BATCH_SIZE: int = Field(default=100)
     # Number of candidate chunks fetched from the vector search before the
     # reranker trims/reorders them down to RETRIEVAL_TOP_K.
-    RERANK_CANDIDATE_POOL_SIZE: int = Field(default=15) # Add to .env file
+    RERANK_CANDIDATE_POOL_SIZE: int = Field(default=15)  # Add to .env file
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -207,7 +207,7 @@ class WebSearchSettings(_BaseSettings):
     """Web search configuration settings."""
 
     IS_WEB_SEARCH_ENABLED: bool = Field(default=False)
-    BRAVE_SEARCH_API_KEY: Optional[SecretStr] = Field(default=None)
+    BRAVE_SEARCH_API_KEY: SecretStr | None = Field(default=None)
 
     @model_validator(mode="after")
     def _require_api_key_when_enabled(self) -> "WebSearchSettings":
@@ -259,12 +259,12 @@ class APIServerSettings(_BaseSettings):
 
     WORKERS: int = Field(default=1)
 
-    CORS_ORIGINS: List[str] = Field(default=...)
+    CORS_ORIGINS: list[str] = Field(default=...)
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
-    CORS_ALLOW_METHODS: List[str] = Field(
+    CORS_ALLOW_METHODS: list[str] = Field(
         default=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     )
-    CORS_ALLOW_HEADERS: List[str] = Field(
+    CORS_ALLOW_HEADERS: list[str] = Field(
         default=["Content-Type", "Accept-Version", "Authorization", "X-Requested-With"]
     )
 

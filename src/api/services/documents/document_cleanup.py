@@ -7,8 +7,8 @@ from datetime import datetime, timedelta, timezone
 from src.config.configs import settings
 from src.config.constants import ProcessingStatus
 from src.database.repository.interfaces import (
-    DocumentRepositoryInterface,
     DocumentChunkRepositoryInterface,
+    DocumentRepositoryInterface,
 )
 from src.logger.base_logger import BaseLogger
 

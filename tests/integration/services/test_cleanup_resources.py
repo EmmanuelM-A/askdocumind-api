@@ -48,7 +48,9 @@ async def test_run_scheduler_does_not_run_when_stop_event_already_set():
 @pytest.mark.asyncio
 async def test_init_cleanup_returns_early_when_disabled(monkeypatch: pytest.MonkeyPatch):
     """init_anon_user_sessions_cleanup should no-op when CLEANUP_ENABLED is False."""
-    from src.api.services.cleanup.cleanup_resources import init_anon_user_sessions_cleanup
+    from src.api.services.cleanup.cleanup_resources import (
+        init_anon_user_sessions_cleanup,
+    )
 
     monkeypatch.setattr(settings.anon, "CLEANUP_ENABLED", False)
 
@@ -110,7 +112,9 @@ async def test_init_cleanup_passes_configured_interval_to_scheduler(
     monkeypatch: pytest.MonkeyPatch,
 ):
     """init_anon_user_sessions_cleanup converts CLEANUP_INTERVAL_H to minutes."""
-    from src.api.services.cleanup.cleanup_resources import init_anon_user_sessions_cleanup
+    from src.api.services.cleanup.cleanup_resources import (
+        init_anon_user_sessions_cleanup,
+    )
 
     monkeypatch.setattr(settings.anon, "CLEANUP_ENABLED", True)
     monkeypatch.setattr(settings.anon, "CLEANUP_INTERVAL_H", 2)

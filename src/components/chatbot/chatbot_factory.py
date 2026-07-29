@@ -2,7 +2,8 @@
 Factory method to create and return an instance of RAGChatbot.
 """
 
-from typing import Optional
+
+from docling.document_converter import DocumentConverter
 
 from src.components.chatbot.core import RAGChatbot
 from src.components.chatbot.query_handler import QueryHandler
@@ -10,7 +11,6 @@ from src.components.ingestion.document_processor import (
     DocumentProcessor,
     get_chunking_config,
 )
-from docling.document_converter import DocumentConverter
 from src.components.retrieval.embedder import Embedder
 from src.components.retrieval.reranker import CrossEncoderReranker
 from src.components.retrieval.web_searcher import WebSearcher
@@ -18,7 +18,7 @@ from src.database.repository import get_database_repository
 from src.database.repository.database_repository_factory import get_tx_factory
 
 # Singleton instance of RAGChatbot (USE FACTORY METHOD TO ACCESS)
-_rag_chatbot_instance: Optional[RAGChatbot] = None
+_rag_chatbot_instance: RAGChatbot | None = None
 
 
 def _build_chatbot() -> RAGChatbot:

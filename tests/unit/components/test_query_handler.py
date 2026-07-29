@@ -226,9 +226,8 @@ def test_generate_response_llm_service_error(query_handler):
     with patch(
         "src.components.chatbot.query_handler.StrOutputParser",
         return_value=Mock(),
-    ):
-        with pytest.raises(ApiException) as exc_info:
-            query_handler.generate_response("query", chunks)
+    ), pytest.raises(ApiException) as exc_info:
+        query_handler.generate_response("query", chunks)
 
     assert exc_info.value.error.code == "LLM_SERVICE_ERROR"
 

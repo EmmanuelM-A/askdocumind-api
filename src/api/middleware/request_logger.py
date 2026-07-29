@@ -1,9 +1,11 @@
 """Logs every incoming request with method, path, status, and duration."""
 
 import time
+
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
+
 from src.logger.base_logger import BaseLogger
 
 _logger = BaseLogger(__name__)

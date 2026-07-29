@@ -4,7 +4,7 @@ Routes for the document upload endpoints.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Request, UploadFile, File, Form
+from fastapi import APIRouter, File, Form, Request, UploadFile
 from pydantic import ValidationError
 
 from src.api.controllers.document_uploads_controller import DocumentUploadController

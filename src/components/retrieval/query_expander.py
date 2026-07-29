@@ -46,7 +46,7 @@ def expand_query(
         )
     else:
         _logger.info("The query was successfully expanded.")
-    
+
     _logger.debug(f"Expanded query: {expanded_query}")
 
     return expanded_query

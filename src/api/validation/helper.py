@@ -4,15 +4,14 @@ Handles input validation for user queries, file paths, and URLs.
 
 import html
 import re
-
-
 from uuid import UUID
 
-from src.database.models import ChatSession
-from src.database.repository.interfaces import ChatSessionRepositoryInterface
-from src.database.repository.interfaces import ChatSessionSearchCriteria
-
 from src.config.configs import settings
+from src.database.models import ChatSession
+from src.database.repository.interfaces import (
+    ChatSessionRepositoryInterface,
+    ChatSessionSearchCriteria,
+)
 from src.errors.custom_exceptions import not_found_error, unprocessable_entity_error
 from src.logger.base_logger import BaseLogger
 

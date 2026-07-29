@@ -2,28 +2,29 @@
 Factory method to get the appropriate database repository for a given model.
 """
 
-from typing import Literal, TypeAlias, Optional, overload
+from typing import Literal, TypeAlias, overload
 
 from src.database.connection import get_database_connection
 from src.database.repository.interfaces import DBTransactionFactory
-
 from src.database.repository.interfaces.chat_message_repository import (
     ChatMessageRepositoryInterface,
 )
 from src.database.repository.interfaces.chat_session_repository import (
     ChatSessionRepositoryInterface,
 )
-from src.database.repository.interfaces.document_chunk_repository import DocumentChunkRepositoryInterface
+from src.database.repository.interfaces.document_chunk_repository import (
+    DocumentChunkRepositoryInterface,
+)
 from src.database.repository.interfaces.document_repository import (
     DocumentRepositoryInterface,
 )
 from src.database.repository.interfaces.user_repository import UserRepositoryInterface
 from src.database.repository.sqlalchemy import (
-    DocumentRepository,
-    ChatSessionRepository,
     ChatMessageRepository,
-    UserRepository,
+    ChatSessionRepository,
+    DocumentRepository,
     SQLAlchemyDBTransactionFactory,
+    UserRepository,
 )
 from src.database.repository.sqlalchemy.document_chunk_repository import (
     DocumentChunkRepository,
@@ -37,7 +38,7 @@ _database_repositories = {
     "USER": UserRepository(connection=get_database_connection()),
 }
 
-_db_transaction_factory: Optional[DBTransactionFactory] = None
+_db_transaction_factory: DBTransactionFactory | None = None
 
 RepositoryModelKey: TypeAlias = Literal[
     "DOCUMENT", "CHAT_SESSION", "CHAT_MESSAGE", "USER", "DOCUMENT_CHUNK"

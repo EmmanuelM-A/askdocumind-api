@@ -2,10 +2,10 @@
 Responsible for managing chat session storage in the remote database.
 """
 
-from typing import Optional, List, cast
+from typing import cast
 from uuid import UUID
 
-from sqlalchemy import select, func, delete
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.database.connection import DatabaseConnection
@@ -37,7 +37,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
         return filters
 
     async def create(
-        self, data: ChatSession, tx: Optional[DBTransaction] = None
+        self, data: ChatSession, tx: DBTransaction | None = None
     ) -> UUID:
         try:
             if tx is not None:
@@ -61,9 +61,9 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
 
     async def list_by(
         self,
-        criteria: Optional[ChatSessionSearchCriteria] = None,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[ChatSession]:
+        criteria: ChatSessionSearchCriteria | None = None,
+        tx: DBTransaction | None = None,
+    ) -> list[ChatSession]:
         try:
             stmt = select(ChatSession)
 
@@ -98,8 +98,8 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
             )
 
     async def get_by_id(
-        self, session_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> Optional[ChatSession]:
+        self, session_id: UUID, tx: DBTransaction | None = None
+    ) -> ChatSession | None:
         try:
             stmt = select(ChatSession).where(ChatSession.id == session_id)
 
@@ -125,8 +125,8 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
             )
 
     async def get_by_user_id(
-        self, user_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> Optional[ChatSession]:
+        self, user_id: UUID, tx: DBTransaction | None = None
+    ) -> ChatSession | None:
         try:
             stmt = (
                 select(ChatSession)
@@ -159,8 +159,8 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
     async def get_by_criteria(
         self,
         criteria: ChatSessionSearchCriteria,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[ChatSession]:
+        tx: DBTransaction | None = None,
+    ) -> ChatSession | None:
         try:
             filters = self._build_filters(criteria)
 
@@ -191,8 +191,8 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
         self,
         chat_id: UUID,
         new_entity_data: UpdatedChatSessionData,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[ChatSession]:
+        tx: DBTransaction | None = None,
+    ) -> ChatSession | None:
         try:
             stmt = select(ChatSession).where(ChatSession.id == chat_id)
 
@@ -235,7 +235,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def delete(self, chat_id: UUID, tx: Optional[DBTransaction] = None) -> UUID:
+    async def delete(self, chat_id: UUID, tx: DBTransaction | None = None) -> UUID:
         try:
             stmt = delete(ChatSession).where(ChatSession.id == chat_id)
             if tx is not None:
@@ -253,7 +253,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def exists(self, chat_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
+    async def exists(self, chat_id: UUID, tx: DBTransaction | None = None) -> bool:
         try:
             stmt = (
                 select(func.count())
@@ -278,8 +278,8 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
 
     async def count(
         self,
-        filter_id: Optional[UUID] = None,
-        tx: Optional[DBTransaction] = None,
+        filter_id: UUID | None = None,
+        tx: DBTransaction | None = None,
     ) -> int:
         try:
             stmt = select(func.count()).select_from(ChatSession)
@@ -302,8 +302,8 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
             )
 
     async def create_many(
-        self, entities: List[ChatSession], tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, entities: list[ChatSession], tx: DBTransaction | None = None
+    ) -> list[UUID]:
         if not entities:
             return []
 
@@ -313,14 +313,14 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 await tx.flush()
                 created_ids = [entity.id for entity in entities]
                 self._logger.debug(f"Created {len(created_ids)} chat sessions")
-                return cast(List[UUID], created_ids)
+                return cast(list[UUID], created_ids)
 
             async with self._db.get_session() as session:
                 session.add_all(entities)
                 await session.flush()
                 created_ids = [entity.id for entity in entities]
                 self._logger.debug(f"Created {len(created_ids)} chat sessions")
-                return cast(List[UUID], created_ids)
+                return cast(list[UUID], created_ids)
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:
             raise database_error(
@@ -330,7 +330,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
             )
 
     async def delete_many(
-        self, chat_ids: List[UUID], tx: Optional[DBTransaction] = None
+        self, chat_ids: list[UUID], tx: DBTransaction | None = None
     ) -> int:
         if not chat_ids:
             return 0

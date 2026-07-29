@@ -9,7 +9,6 @@ import socket
 import time
 from dataclasses import dataclass
 from html import escape
-from typing import List, Optional
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -21,10 +20,10 @@ from src.components.ingestion.document_processor import DocumentProcessor
 from src.config.configs import settings
 from src.config.constants import DocumentSourceType, ProcessingStatus
 from src.database.models import Document
+from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.database.repository.interfaces.document_repository import (
     DocumentRepositoryInterface,
 )
-from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.logger.base_logger import BaseLogger
 
 
@@ -93,7 +92,7 @@ class WebSearcher:
 
     # ======================== WEB SEARCH METHODS ========================
 
-    def search_and_retrieve_web_content(self, query: str) -> List[WebContent]:
+    def search_and_retrieve_web_content(self, query: str) -> list[WebContent]:
         """
         Search the web based on the `query` and return the any raw HTML content
         for each matching result.
@@ -112,7 +111,7 @@ class WebSearcher:
                 self._logger.info("No web search results found")
                 return []
 
-            documents: List[WebContent] = []
+            documents: list[WebContent] = []
             successful_fetches = 0
 
             for i, result in enumerate(search_results):
@@ -210,7 +209,7 @@ class WebSearcher:
                         source_type=DocumentSourceType.WEB_SEARCH,
                         processing_status=ProcessingStatus.COMPLETED,
                     ),
-                    tx=tx
+                    tx=tx,
                 )
 
                 docling_document = self._document_processor.extract(
@@ -226,7 +225,7 @@ class WebSearcher:
                     chunks=chunks,
                     chat_session_id=chat_session_id,
                     document_id=web_doc_id,
-                    tx=tx
+                    tx=tx,
                 )
 
                 total_saved += saved
@@ -243,7 +242,7 @@ class WebSearcher:
 
     # ========================== HELPER METHODS ==========================
 
-    def _search_web(self, query: str) -> List[WebSearchResult]:
+    def _search_web(self, query: str) -> list[WebSearchResult]:
         """
         Perform web search using Brave Search API.
 
@@ -283,7 +282,7 @@ class WebSearcher:
                 self._logger.warning("No search results found")
                 return []
 
-            results: List[WebSearchResult] = [
+            results: list[WebSearchResult] = [
                 WebSearchResult(
                     title=item.get("title", ""),
                     snippet=item.get("description", ""),
@@ -304,7 +303,7 @@ class WebSearcher:
             self._logger.error(f"Error in web search: {e}")
             return self._fallback_search(query, num_results)
 
-    def _fallback_search(self, query: str, num_results: int) -> List[WebSearchResult]:
+    def _fallback_search(self, query: str, num_results: int) -> list[WebSearchResult]:
         """
         Fallback search using DuckDuckGo via the `ddgs` library.
         """
@@ -316,7 +315,7 @@ class WebSearcher:
         try:
             raw_results = DDGS().text(query, max_results=num_results)
 
-            results: List[WebSearchResult] = [
+            results: list[WebSearchResult] = [
                 WebSearchResult(
                     title=item.get("title", ""),
                     snippet=item.get("body", ""),
@@ -335,7 +334,7 @@ class WebSearcher:
             self._logger.error(f"Unexpected error in fallback search: {e}")
             return []
 
-    def _fetch_content(self, result: WebSearchResult) -> Optional[str]:
+    def _fetch_content(self, result: WebSearchResult) -> str | None:
         """
         Fetch the raw HTML for a search result, falling back to a minimal
         HTML wrapper around the title/snippet if the page can't be fetched.
@@ -384,7 +383,7 @@ class WebSearcher:
         except Exception:
             return False
 
-    def _fetch_page_html(self, url: str) -> Optional[str]:
+    def _fetch_page_html(self, url: str) -> str | None:
         """
         Fetch the raw HTML for a page at the given URL, or return None if any
         error occurs.

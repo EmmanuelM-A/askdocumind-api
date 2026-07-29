@@ -1,23 +1,22 @@
 from dataclasses import dataclass
 from io import BytesIO
-from typing import List, Optional
 from uuid import UUID
-from docling.document_converter import DocumentConverter
-from docling.datamodel.base_models import DocumentStream
 
+from docling.datamodel.base_models import DocumentStream
+from docling.document_converter import DocumentConverter
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
 from docling_core.types.doc.document import DoclingDocument
 from docling_core.types.doc.labels import DocItemLabel
 
 from src.components.retrieval.embedder import Embedder
+from src.config.configs import settings
 from src.database.models import DocumentChunk
 from src.database.repository.interfaces import DBTransaction
 from src.database.repository.interfaces.document_chunk_repository import (
     DocumentChunkRepositoryInterface,
 )
 from src.logger.base_logger import BaseLogger
-from src.config.configs import settings
 
 
 @dataclass
@@ -92,16 +91,16 @@ class DocumentProcessor:
 
     async def save_document_chunks(
         self,
-        chunks: List[str],
+        chunks: list[str],
         chat_session_id: UUID,
         document_id: UUID,
-        tx: Optional[DBTransaction] = None,
+        tx: DBTransaction | None = None,
     ) -> int:
         if len(chunks) == 0:
             self._logger.warning(f"No chunks to save for document_id: {document_id}")
             return 0
 
-        entities: List[DocumentChunk] = []
+        entities: list[DocumentChunk] = []
         offset = 0
 
         for vector_batch in self._embedder.embed_documents(chunks):

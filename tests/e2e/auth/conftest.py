@@ -15,7 +15,6 @@ in tests/integration/repository/conftest.py.
 """
 
 from datetime import datetime, timezone
-from typing import List, Optional
 from uuid import UUID
 
 import pytest
@@ -58,12 +57,12 @@ def token_manager() -> TokenManager:
 
 
 @pytest.fixture
-def created_user_ids() -> List[UUID]:
+def created_user_ids() -> list[UUID]:
     return []
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def cleanup_users(db_connection: DatabaseConnection, created_user_ids: List[UUID]):
+async def cleanup_users(db_connection: DatabaseConnection, created_user_ids: list[UUID]):
     """Deletes every user row a test registered as created, after the test runs.
     Autouse so every test in this package gets cleanup without needing to
     explicitly request the fixture."""
@@ -78,10 +77,10 @@ async def cleanup_users(db_connection: DatabaseConnection, created_user_ids: Lis
 
 
 @pytest.fixture
-def seed_user(user_repo: UserRepository, created_user_ids: List[UUID]):
+def seed_user(user_repo: UserRepository, created_user_ids: list[UUID]):
     """Factory fixture: inserts a real User row via the real repository."""
 
-    async def _seed(last_seen_at: Optional[datetime] = None) -> UUID:
+    async def _seed(last_seen_at: datetime | None = None) -> UUID:
         user = User(last_seen_at=last_seen_at or datetime.now(timezone.utc))
         user_id = await user_repo.create(user)
         created_user_ids.append(user_id)

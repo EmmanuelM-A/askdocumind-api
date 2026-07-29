@@ -5,17 +5,17 @@ Revises: d3a9f5c1e2b7
 Create Date: 2026-07-29 00:00:00.000000
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "a1f6c2d8b3e4"
-down_revision: Union[str, Sequence[str], None] = "d3a9f5c1e2b7"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "d3a9f5c1e2b7"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 document_source_type_enum = sa.Enum(

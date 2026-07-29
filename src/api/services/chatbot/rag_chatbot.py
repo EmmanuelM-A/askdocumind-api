@@ -6,12 +6,12 @@ from uuid import UUID
 
 from src.api.validation.chatbot import ChatRequest
 from src.api.validation.helper import check_if_chat_exists
-from src.components.chatbot.core import RAGChatbot, ChatbotResponse
+from src.components.chatbot.core import ChatbotResponse, RAGChatbot
 from src.config.constants import ChatMessageRole
 from src.database.models import ChatMessage
 from src.database.repository.interfaces import (
-    ChatSessionRepositoryInterface,
     ChatMessageRepositoryInterface,
+    ChatSessionRepositoryInterface,
 )
 from src.logger.base_logger import BaseLogger
 

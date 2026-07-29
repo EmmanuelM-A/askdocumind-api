@@ -4,7 +4,7 @@ Each function raises an ApiException with a specific HTTP status code and
 consistent structure for error handling across the API.
 """
 
-from typing import Optional
+
 from fastapi import status
 
 from src.errors.api_exceptions import ApiException
@@ -13,9 +13,9 @@ from src.errors.api_exceptions import ApiException
 def bad_request_error(
     message: str,
     error_code: str,
-    error_details: Optional[str] = None,
-    stack_trace: Optional[str] = None,
-    headers: Optional[dict] = None,
+    error_details: str | None = None,
+    stack_trace: str | None = None,
+    headers: dict | None = None,
 ) -> ApiException:
     """Raises a 400 Bad Request exception."""
     return ApiException(
@@ -31,9 +31,9 @@ def bad_request_error(
 def unauthorized_error(
     message: str = "Unauthorized access.",
     error_code: str = "UNAUTHORIZED",
-    error_details: Optional[str] = None,
-    stack_trace: Optional[str] = None,
-    headers: Optional[dict] = None,
+    error_details: str | None = None,
+    stack_trace: str | None = None,
+    headers: dict | None = None,
 ) -> ApiException:
     """Raises a 401 Unauthorized exception."""
     return ApiException(
@@ -49,9 +49,9 @@ def unauthorized_error(
 def forbidden_error(
     message: str = "Forbidden: insufficient permissions.",
     error_code: str = "FORBIDDEN",
-    error_details: Optional[str] = None,
-    stack_trace: Optional[str] = None,
-    headers: Optional[dict] = None,
+    error_details: str | None = None,
+    stack_trace: str | None = None,
+    headers: dict | None = None,
 ) -> ApiException:
     """Raises a 403 Forbidden exception."""
     return ApiException(
@@ -67,9 +67,9 @@ def forbidden_error(
 def not_found_error(
     message: str = "Requested resource not found.",
     error_code: str = "NOT_FOUND",
-    error_details: Optional[str] = None,
-    stack_trace: Optional[str] = None,
-    headers: Optional[dict] = None,
+    error_details: str | None = None,
+    stack_trace: str | None = None,
+    headers: dict | None = None,
 ) -> ApiException:
     """Raises a 404 Not Found exception."""
     return ApiException(
@@ -85,9 +85,9 @@ def not_found_error(
 def conflict_error(
     message: str = "Resource conflict occurred.",
     error_code: str = "CONFLICT",
-    error_details: Optional[str] = None,
-    stack_trace: Optional[str] = None,
-    headers: Optional[dict] = None,
+    error_details: str | None = None,
+    stack_trace: str | None = None,
+    headers: dict | None = None,
 ) -> ApiException:
     """Raises a 409 Conflict exception."""
     return ApiException(
@@ -103,9 +103,9 @@ def conflict_error(
 def unprocessable_entity_error(
     message: str = "Unprocessable entity.",
     error_code: str = "UNPROCESSABLE_ENTITY",
-    error_details: Optional[str] = None,
-    stack_trace: Optional[str] = None,
-    headers: Optional[dict] = None,
+    error_details: str | None = None,
+    stack_trace: str | None = None,
+    headers: dict | None = None,
 ) -> ApiException:
     """Raises a 422 Unprocessable Entity exception."""
     return ApiException(
@@ -121,9 +121,9 @@ def unprocessable_entity_error(
 def database_error(
     message: str = "An error occurred in the database",
     error_code: str = "INTERNAL_SERVER_ERROR",
-    error_details: Optional[str] = None,
-    stack_trace: Optional[str] = None,
-    headers: Optional[dict] = None,
+    error_details: str | None = None,
+    stack_trace: str | None = None,
+    headers: dict | None = None,
 ) -> ApiException:
     """Raises a 500 Internal Server Error exception."""
     return ApiException(
@@ -139,9 +139,9 @@ def database_error(
 def server_error(
     message: str = "An internal server error occurred.",
     error_code: str = "INTERNAL_SERVER_ERROR",
-    error_details: Optional[str] = None,
-    stack_trace: Optional[str] = None,
-    headers: Optional[dict] = None,
+    error_details: str | None = None,
+    stack_trace: str | None = None,
+    headers: dict | None = None,
 ) -> ApiException:
     """Raises a 500 Internal Server Error exception."""
     return ApiException(

@@ -5,8 +5,8 @@ is mocked anywhere in this file.
 
 from uuid import uuid4
 
-from src.config.constants import ChatMessageRole
 from src.config.configs import settings
+from src.config.constants import ChatMessageRole
 from src.database.models import ChatMessage
 
 ENDPOINT = "/api/sessions"

@@ -7,8 +7,6 @@ import logging
 from datetime import datetime, timezone
 from typing import Literal
 
-
-
 LogTo = Literal["CONSOLE", "FILE", "BOTH"]
 
 

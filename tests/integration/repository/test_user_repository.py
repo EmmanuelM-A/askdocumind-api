@@ -4,13 +4,14 @@ Integration tests for User Repository.
 Tests the UserRepository implementation against the UserRepositoryInterface.
 """
 
-import pytest
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
-from datetime import datetime, timezone, timedelta
+
+import pytest
 
 from src.database.models import User
-from src.database.repository.sqlalchemy import UserRepository
 from src.database.repository.interfaces.user_repository import UpdatedUserData
+from src.database.repository.sqlalchemy import UserRepository
 
 
 @pytest.fixture
@@ -24,7 +25,8 @@ async def cleanup_users(db_connection):
     """Cleanup test users after each test."""
     yield
     from sqlalchemy import delete
-    from src.database.models import ChatMessage, Document, ChatSession
+
+    from src.database.models import ChatMessage, ChatSession, Document
 
     async with db_connection.get_session() as session:
         await session.execute(delete(ChatMessage))

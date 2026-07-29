@@ -4,8 +4,8 @@ Main entry point to start the API server using Uvicorn.
 
 import uvicorn
 
-from src.config.configs import settings
 from src.api.app import create_app
+from src.config.configs import settings
 
 app = create_app()
 

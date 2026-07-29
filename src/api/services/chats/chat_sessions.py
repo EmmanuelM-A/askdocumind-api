@@ -3,7 +3,7 @@ Chat session management service for handling creation, retrieval, updates, and d
 of chat sessions with proper authorization and transaction management.
 """
 
-from typing import List, cast
+from typing import cast
 from uuid import UUID
 
 from src.api.validation.chat_session import CreateChatSessionData
@@ -11,9 +11,9 @@ from src.api.validation.helper import check_if_chat_exists
 from src.config.configs import settings
 from src.database.models import ChatSession
 from src.database.repository.interfaces import (
-    ChatSessionRepositoryInterface,
-    ChatMessageSearchCriteria,
     ChatMessageRepositoryInterface,
+    ChatMessageSearchCriteria,
+    ChatSessionRepositoryInterface,
     ChatSessionSearchCriteria,
 )
 from src.errors.custom_exceptions import unprocessable_entity_error
@@ -92,7 +92,7 @@ class ChatSessionService:
         self._logger.info(f"Deleted chat session {deleted_id}")
         return deleted_id
 
-    async def get_chat_messages(self, chat_id: UUID, owner_id: UUID) -> List[dict]:
+    async def get_chat_messages(self, chat_id: UUID, owner_id: UUID) -> list[dict]:
         """Retrieve messages for a chat session after verifying ownership."""
         await check_if_chat_exists(
             chat_id=chat_id,

@@ -2,24 +2,24 @@
 Responsible for defining all the database models used in the application.
 """
 
-import uuid
 import json
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    UUID,
+    BigInteger,
     Column,
     DateTime,
-    String,
-    UUID,
-    Text,
-    BigInteger,
     Enum,
     ForeignKey,
+    String,
+    Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import relationship, declarative_base
-from pgvector.sqlalchemy import Vector
+from sqlalchemy.orm import declarative_base, relationship
 
 from src.config.constants import ChatMessageRole, DocumentSourceType, ProcessingStatus
 from src.utils import format_datetime

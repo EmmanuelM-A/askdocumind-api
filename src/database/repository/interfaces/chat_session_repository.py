@@ -3,7 +3,6 @@ Repository interface for chat session CRUD operations.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, List
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -15,14 +14,14 @@ from src.database.repository.interfaces.db_transaction import DBTransaction
 class ChatSessionSearchCriteria(BaseModel):
     """Criteria for filtering chat sessions in list/search operations."""
 
-    id: Optional[UUID] = None
-    user_id: Optional[UUID] = None
-    title: Optional[str] = None
+    id: UUID | None = None
+    user_id: UUID | None = None
+    title: str | None = None
 
 class UpdatedChatSessionData(BaseModel):
     """Data structure for updating a chat session."""
 
-    title: Optional[str] = None
+    title: str | None = None
 
 
 class ChatSessionRepositoryInterface(ABC):
@@ -35,7 +34,7 @@ class ChatSessionRepositoryInterface(ABC):
 
     @abstractmethod
     async def create(
-        self, data: ChatSession, tx: Optional[DBTransaction] = None
+        self, data: ChatSession, tx: DBTransaction | None = None
     ) -> UUID:
         """
         Create and persist a new chat session entity.
@@ -49,9 +48,9 @@ class ChatSessionRepositoryInterface(ABC):
     @abstractmethod
     async def list_by(
         self,
-        criteria: Optional[ChatSessionSearchCriteria] = None,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[ChatSession]:
+        criteria: ChatSessionSearchCriteria | None = None,
+        tx: DBTransaction | None = None,
+    ) -> list[ChatSession]:
         """
         Retrieve chat sessions matching the given criteria.
 
@@ -65,8 +64,8 @@ class ChatSessionRepositoryInterface(ABC):
 
     @abstractmethod
     async def get_by_id(
-        self, session_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> Optional[ChatSession]:
+        self, session_id: UUID, tx: DBTransaction | None = None
+    ) -> ChatSession | None:
         """
         Retrieve a single chat session by its unique identifier.
 
@@ -78,8 +77,8 @@ class ChatSessionRepositoryInterface(ABC):
     
     @abstractmethod
     async def get_by_user_id(
-        self, user_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> Optional[ChatSession]:
+        self, user_id: UUID, tx: DBTransaction | None = None
+    ) -> ChatSession | None:
         """
         Retrieve the most recently created chat session for a given user.
 
@@ -93,8 +92,8 @@ class ChatSessionRepositoryInterface(ABC):
     async def get_by_criteria(
         self,
         criteria: ChatSessionSearchCriteria,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[ChatSession]:
+        tx: DBTransaction | None = None,
+    ) -> ChatSession | None:
         """
         Retrieve a single chat session matching the given criteria.
 
@@ -111,8 +110,8 @@ class ChatSessionRepositoryInterface(ABC):
         self,
         chat_id: UUID,
         new_entity_data: UpdatedChatSessionData,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[ChatSession]:
+        tx: DBTransaction | None = None,
+    ) -> ChatSession | None:
         """
         Update an existing chat session with new data.
 
@@ -124,7 +123,7 @@ class ChatSessionRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def delete(self, chat_id: UUID, tx: Optional[DBTransaction] = None) -> UUID:
+    async def delete(self, chat_id: UUID, tx: DBTransaction | None = None) -> UUID:
         """
         Delete a chat session by its unique identifier.
 
@@ -135,7 +134,7 @@ class ChatSessionRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def exists(self, chat_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
+    async def exists(self, chat_id: UUID, tx: DBTransaction | None = None) -> bool:
         """
         Check if a chat session with the given UUID exists.
 
@@ -148,8 +147,8 @@ class ChatSessionRepositoryInterface(ABC):
     @abstractmethod
     async def count(
         self,
-        filter_id: Optional[UUID] = None,
-        tx: Optional[DBTransaction] = None,
+        filter_id: UUID | None = None,
+        tx: DBTransaction | None = None,
     ) -> int:
         """
         Count chat sessions, optionally filtered by chat session ID.
@@ -162,8 +161,8 @@ class ChatSessionRepositoryInterface(ABC):
 
     @abstractmethod
     async def create_many(
-        self, entities: List[ChatSession], tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, entities: list[ChatSession], tx: DBTransaction | None = None
+    ) -> list[UUID]:
         """
         Create and persist multiple chat session entities.
 
@@ -175,7 +174,7 @@ class ChatSessionRepositoryInterface(ABC):
 
     @abstractmethod
     async def delete_many(
-        self, chat_ids: List[UUID], tx: Optional[DBTransaction] = None
+        self, chat_ids: list[UUID], tx: DBTransaction | None = None
     ) -> int:
         """
         Delete multiple chat sessions by their identifiers.

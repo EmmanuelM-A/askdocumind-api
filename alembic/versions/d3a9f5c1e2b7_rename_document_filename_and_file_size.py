@@ -5,16 +5,15 @@ Revises: ff3dea15a12f
 Create Date: 2026-07-24 00:00:00.000000
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 from alembic import op
 
-
 # revision identifiers, used by Alembic.
 revision: str = "d3a9f5c1e2b7"
-down_revision: Union[str, Sequence[str], None] = "ff3dea15a12f"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "ff3dea15a12f"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

@@ -2,21 +2,24 @@
 
 from typing import TYPE_CHECKING
 
+from docling.document_converter import DocumentConverter
+
 from src.api.services.chats.chat_sessions import ChatSessionService
 from src.api.utils.session_manager import get_token_manager
 from src.components.chatbot.chatbot_factory import get_chatbot
-from src.components.ingestion.document_processor import DocumentProcessor, get_chunking_config
+from src.components.ingestion.document_processor import (
+    DocumentProcessor,
+    get_chunking_config,
+)
 from src.components.retrieval.embedder import Embedder
 from src.database.repository import get_database_repository
-from docling.document_converter import DocumentConverter
-
 from src.database.repository.database_repository_factory import get_tx_factory
 
 if TYPE_CHECKING:
     from src.api.services.auth.anonymous_user import AnonymousUserSessionService
-    from src.api.services.documents.document_uploads import UploadDocumentService
-    from src.api.services.documents.document_cleanup import DocumentCleanupService
     from src.api.services.chatbot.rag_chatbot import RAGChatbotService
+    from src.api.services.documents.document_cleanup import DocumentCleanupService
+    from src.api.services.documents.document_uploads import UploadDocumentService
 
 _rag_chatbot_service: "RAGChatbotService | None" = None
 _upload_service: "UploadDocumentService | None" = None

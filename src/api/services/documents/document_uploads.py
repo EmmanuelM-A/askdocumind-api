@@ -4,7 +4,6 @@ Service module for handling document uploads.
 
 import asyncio
 import uuid
-from typing import List
 from uuid import UUID
 
 from fastapi import UploadFile
@@ -17,16 +16,15 @@ from src.config.constants import DocumentSourceType, ProcessingStatus
 from src.database.models import Document
 from src.database.repository.interfaces import (
     ChatSessionRepositoryInterface,
+    DBTransactionFactory,
     DocumentRepositoryInterface,
     DocumentSearchCriteria,
-    DBTransactionFactory,
 )
-
 from src.errors.custom_exceptions import (
     conflict_error,
     database_error,
-    unprocessable_entity_error,
     not_found_error,
+    unprocessable_entity_error,
 )
 from src.logger.base_logger import BaseLogger
 
@@ -68,7 +66,7 @@ class UploadDocumentService:
         await self._assert_no_duplicate_uploads(request)
         await self._assert_document_count_limit(request.chat_id, len(request.documents))
 
-        failed_to_upload: List[str] = []
+        failed_to_upload: list[str] = []
         docs_saved: int = 0
 
         for uploaded_file in request.documents:
@@ -127,7 +125,7 @@ class UploadDocumentService:
 
     async def fetch_uploaded_document_metadata(
         self, chat_id: UUID, owner_id: UUID
-    ) -> List[dict]:
+    ) -> list[dict]:
         """Fetch metadata for uploaded documents associated with a chat session."""
         await check_if_chat_exists(
             chat_id=chat_id,
@@ -247,7 +245,7 @@ class UploadDocumentService:
     async def _read_data_from_upload(self, upload: UploadFile) -> bytes:
         try:
             data = await asyncio.to_thread(upload.file.read)
-        except (FileNotFoundError, IOError) as e:
+        except (OSError, FileNotFoundError) as e:
             raise database_error(
                 message=f"Failed to process uploaded file {upload.filename}",
                 error_code="DOCUMENT_READ_FAILED",

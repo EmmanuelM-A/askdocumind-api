@@ -5,17 +5,18 @@ Tests the DocumentRepository implementation against the DocumentRepositoryInterf
 Can be reused for other implementations by changing the repository instantiation.
 """
 
-import pytest
-import pytest_asyncio
 from uuid import uuid4
 
-from src.database.models import Document, ChatSession
-from src.database.repository.sqlalchemy import DocumentRepository
+import pytest
+import pytest_asyncio
+
+from src.config.constants import DocumentSourceType, ProcessingStatus
+from src.database.models import ChatSession, Document
 from src.database.repository.interfaces.document_repository import (
     DocumentSearchCriteria,
     UpdatedDocumentData,
 )
-from src.config.constants import DocumentSourceType, ProcessingStatus
+from src.database.repository.sqlalchemy import DocumentRepository
 from src.errors.api_exceptions import ApiException
 
 

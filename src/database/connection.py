@@ -2,15 +2,16 @@
 Handles connections to the database and session management.
 """
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Optional
+from typing import Any
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from src.config.configs import settings
 from src.errors.custom_exceptions import database_error
 from src.logger.base_logger import BaseLogger
-from src.config.configs import settings
 
 logger = BaseLogger(__name__)
 
@@ -20,7 +21,7 @@ class DatabaseConnection:
     This class handles connection pooling, session management, and cleanup.
     """
 
-    def __init__(self, database_url: Optional[str] = None):
+    def __init__(self, database_url: str | None = None):
         self.database_url = database_url or str(
             settings.database.DATABASE_URL.get_secret_value()
         )
@@ -82,9 +83,9 @@ class DatabaseConnection:
         try:
             yield session
             await session.commit()
-        except Exception as e:
+        except Exception:
             await session.rollback()
-            raise e
+            raise
         finally:
             await session.close()
     
@@ -95,7 +96,7 @@ class DatabaseConnection:
 
 
 # Global database connection instance
-_database_connection: Optional[DatabaseConnection] = None
+_database_connection: DatabaseConnection | None = None
 
 
 def get_database_connection() -> DatabaseConnection:

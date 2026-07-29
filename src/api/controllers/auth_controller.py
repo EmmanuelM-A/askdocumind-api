@@ -1,9 +1,7 @@
 """Controller for authentication-related endpoints."""
 
-from typing import Optional
 
-from fastapi import status
-from fastapi import Request
+from fastapi import Request, status
 from starlette.responses import JSONResponse
 
 from src.api.services.auth.anonymous_user import AnonymousUserSessionService
@@ -18,8 +16,8 @@ from src.logger.base_logger import BaseLogger
 
 class AuthController:
     def __init__(self) -> None:
-        self._anonymous_user_service: Optional[AnonymousUserSessionService] = None
-        self._token_manager: Optional[TokenManager] = None
+        self._anonymous_user_service: AnonymousUserSessionService | None = None
+        self._token_manager: TokenManager | None = None
         self._logger = BaseLogger(__name__)
 
     def lazy_init(self) -> None:
