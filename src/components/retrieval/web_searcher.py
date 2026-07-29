@@ -145,7 +145,7 @@ class WebSearcher:
 
         for web_content in web_contents:
             async with self._tx_factory.create() as tx:
-                web_doc_source = f"{web_content.source}.html"[:_MAX_SOURCE_LEN]
+                web_doc_source = web_content.source[:_MAX_SOURCE_LEN]
 
                 web_doc_id = await self._document_repository.create(
                     data=Document(
