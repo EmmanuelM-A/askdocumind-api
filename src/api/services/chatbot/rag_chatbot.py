@@ -59,6 +59,7 @@ class RAGChatbotService:
                     session_id=request.chat_id,
                     role=ChatMessageRole.ASSISTANT,
                     content=response.answer,
+                    sources=response.sources,
                 ),
             ]
         )
