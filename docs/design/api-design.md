@@ -375,11 +375,20 @@ Deleting a session cascades (DB-level) to delete its messages and documents.
             "session_id": "<uuid>",
             "role": "USER" | "ASSISTANT" | "SYSTEM",
             "content": "<string>",
+            "sources": ["<string>", "..."] | null,
             "created_at": "<formatted datetime>"
         }
     ]
 }
 ```
+
+`sources` is a snapshot of the document filenames used to generate that specific
+message, taken at generation time — it is `null` for `USER`/`SYSTEM` messages, and `[]`
+for an `ASSISTANT` message that answered without citing any documents (e.g. a
+fallback/no-match response). It is **not** kept in sync with the documents endpoints: if
+a cited document is later deleted via `DELETE /documents/{document_id}`, its filename
+still appears here unchanged — treat it as a historical record of what was used, not a
+live reference. See `POST /chat` below for where this value originates.
 
 ---
 
@@ -549,5 +558,8 @@ Rate limit: 10 req/min.
 }
 ```
 
-On success, both the user's message and the assistant's reply are persisted and will
-subsequently appear via `GET /sessions/{session_id}/messages`.
+On success, both the user's message and the assistant's reply are persisted — including
+this response's `sources` array, saved onto the assistant's `ChatMessage.sources` — and
+will subsequently appear via `GET /sessions/{session_id}/messages`. This is what lets
+the frontend redisplay sources after a page refresh without re-deriving them from
+`GET /documents`.
