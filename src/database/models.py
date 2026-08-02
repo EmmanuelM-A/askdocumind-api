@@ -19,6 +19,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import declarative_base, relationship
 
 from src.config.constants import ChatMessageRole, DocumentSourceType, ProcessingStatus
@@ -269,6 +270,7 @@ class ChatMessage(Base):
     )
     role = Column(Enum(ChatMessageRole), nullable=False)
     content = Column(Text, nullable=False)
+    sources = Column(ARRAY(String), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationship
@@ -287,6 +289,7 @@ class ChatMessage(Base):
             "session_id": _serialize_value(self.session_id),
             "role": _serialize_value(self.role),
             "content": self.content,
+            "sources": self.sources,
             "created_at": _serialize_value(self.created_at),
         }
 
