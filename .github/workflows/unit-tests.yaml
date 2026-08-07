@@ -29,8 +29,6 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://ask_docu_mind:secret@localhost:5432/ask_docu_mind_postgres
       USER_SESSION_SECRET: test-user-session-secret
       ANON_SESSION_TTL_HOURS: "24"
-      SEARCH_API_KEY: test-search-key
-      SEARCH_ENGINE_ID: test-search-engine
       IS_WEB_SEARCH_ENABLED: "false"
       LLM_MODEL_NAME: gpt-4o-mini
       EMBEDDING_MODEL_NAME: text-embedding-3-small
