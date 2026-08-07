@@ -57,7 +57,14 @@ async def test_get_messages_returns_seeded_messages_with_correct_shape(
     contents = {m["content"] for m in messages}
     assert contents == {"Hello", "Hi there"}
     for message in messages:
-        assert set(message.keys()) == {"id", "session_id", "role", "content", "created_at"}
+        assert set(message.keys()) == {
+            "id",
+            "session_id",
+            "role",
+            "content",
+            "sources",
+            "created_at",
+        }
         assert message["session_id"] == str(chat_id)
 
 
