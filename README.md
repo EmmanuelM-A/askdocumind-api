@@ -59,7 +59,7 @@ When the document context is insufficient, the system can optionally fall back t
 | Reranking | Cross-encoder (sentence-transformers) | Rescoring retrieved chunks for relevance |
 | Web search | Brave Search API | Optional live search fallback |
 | Rate limiting | SlowAPI | Per-user request throttling |
-| Session auth | JWT (HS256) in HttpOnly cookies | Anonymous user sessions |
+| Session auth | HMAC-signed rotating token in HttpOnly cookies | Anonymous user sessions |
 | File storage | Local filesystem / AWS S3 | Document file storage |
 | Deployment | Docker + Railway | Container hosting |
 | Error tracking | Sentry | Production error monitoring |
@@ -122,7 +122,7 @@ alembic upgrade head
 ### 7. Start the API
 
 ```bash
-uvicorn src.main:app --host localhost --port 5000 --reload
+uvicorn src.api.server:app --host localhost --port 5000 --reload
 
 # OR Run this
 python -m src.api.server
@@ -153,6 +153,16 @@ The API is now available at `http://localhost:5000`. Interactive docs are at `ht
 | `LOG_LEVEL` | No | `DEBUG` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `LOG_TO` | No | `FILE` | `CONSOLE`, `FILE`, or `BOTH` |
 | `SENTRY_DSN` | No | — | Sentry DSN for error tracking |
+| `RATE_LIMIT_REQUESTS` | No | `100` | Global request cap per `RATE_LIMIT_WINDOW`, keyed by IP |
+| `RATE_LIMIT_WINDOW` | No | `60` | Window (seconds) for `RATE_LIMIT_REQUESTS` |
+| `MAX_CHAT_QUERIES_PER_MINUTE` | No | `10` | Chat query cap per anonymous session |
+| `MAX_UPLOAD_REQUESTS_PER_MINUTE` | No | `5` | Document upload cap per anonymous session |
+| `MAX_SESSION_REQUESTS_PER_MINUTE` | No | `10` | Chat-session mutation cap per anonymous session |
+| `MAX_CONCURRENT_REQUESTS` | No | `50` | Max in-flight requests before returning `503` |
+| `HF_TOKEN` | No | — | Hugging Face token (model downloads for reranking) |
+| `DB_POOL_SIZE` | No | — | SQLAlchemy connection pool size |
+| `DB_MAX_OVERFLOW` | No | — | SQLAlchemy pool overflow allowance |
+| `DB_POOL_TIMEOUT_SECS` | No | — | Seconds to wait for a pooled connection before erroring |
 
 ## Deployment
 

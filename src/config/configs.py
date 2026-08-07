@@ -267,13 +267,13 @@ class APIServerSettings(_BaseSettings):
 
     MAX_REQUEST_BODY_SIZE_MB: float = Field(default=10.0)
 
-    RATE_LIMIT_REQUESTS: int = Field(default=100)
+    RATE_LIMIT_REQUESTS: int = Field(default=60)
     RATE_LIMIT_WINDOW: int = Field(default=60)
 
     MAX_CHAT_QUERIES_PER_MINUTE: int = Field(default=10)
     MAX_UPLOAD_REQUESTS_PER_MINUTE: int = Field(default=5)
     MAX_SESSION_REQUESTS_PER_MINUTE: int = Field(default=10)
-    MAX_CONCURRENT_REQUESTS: int = Field(default=50)
+    MAX_CONCURRENT_REQUESTS: int = Field(default=20)
 
     model_config = _DEFAULT_MODEL_CONFIG
 

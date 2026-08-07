@@ -1,4 +1,4 @@
-name: Run Unit Tests
+name: Run Integration Tests
 
 on:
   workflow_call:
@@ -7,6 +7,9 @@ on:
         required: false
         type: string
         default: "3.12"
+    secrets:
+      OPENAI_API_KEY:
+        required: true
   workflow_dispatch:
 
 permissions:
@@ -16,9 +19,24 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  unit-tests:
+  integration-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: ask_docu_mind
+          POSTGRES_PASSWORD: secret
+          POSTGRES_DB: ask_docu_mind_postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     env:
       PYTHONPATH: .
@@ -30,9 +48,10 @@ jobs:
       USER_SESSION_SECRET: test-user-session-secret
       ANON_SESSION_TTL_HOURS: "24"
       IS_WEB_SEARCH_ENABLED: "false"
-      LLM_MODEL_NAME: gpt-4o-mini
-      EMBEDDING_MODEL_NAME: text-embedding-3-small
-      LLM_TEMPERATURE: "0.7"
+      # Real key - the query-expansion integration tests hit the actual OpenAI API, no mocking
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_LLM_MODEL_NAME: gpt-4o-mini
+      OPENAI_EMBEDDING_MODEL_NAME: text-embedding-3-small
 
     steps:
       - name: Checkout
@@ -49,19 +68,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run unit tests
-        # --cov-fail-under is a regression floor, not a target: tests/unit only
-        # exercises pure logic by design (repositories/DB/storage are covered by
-        # tests/integration and tests/e2e instead), so this number is intentionally
-        # well below "whole app" coverage. Raise it if coverage improves; don't
-        # read it as the project's real test coverage.
-        run: |
-          pytest -q tests/unit --junitxml=unit-test-results.xml \
-            --cov=src --cov-report=term-missing --cov-fail-under=35
+      - name: Run DB migrations
+        run: alembic upgrade head
 
-      - name: Upload unit test report
+      - name: Run integration tests
+        run: |
+          pytest -q tests/integration --junitxml=integration-test-results.xml
+
+      - name: Upload integration test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: unit-test-results
-          path: unit-test-results.xml
+          name: integration-test-results
+          path: integration-test-results.xml
