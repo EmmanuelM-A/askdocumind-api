@@ -256,9 +256,6 @@ class LoggingSettings(_BaseSettings):
 # ------------------------------------------------------------------
 class APIServerSettings(_BaseSettings):
     """API server configuration settings."""
-
-    WORKERS: int = Field(default=1)
-
     CORS_ORIGINS: list[str] = Field(default=...)
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
     CORS_ALLOW_METHODS: list[str] = Field(
