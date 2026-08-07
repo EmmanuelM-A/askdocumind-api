@@ -45,6 +45,18 @@ jobs:
     with:
       python-version: "3.12"
 
+  e2e-tests:
+    name: E2E Tests
+    needs: unit-tests
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.base_ref == 'main' &&
+      github.event.pull_request.draft == false
+    uses: ./.github/workflows/e2e-tests.yaml
+    with:
+      python-version: "3.12"
+    secrets: inherit
+
   docker-build:
     name: Docker Build
     needs: unit-tests
