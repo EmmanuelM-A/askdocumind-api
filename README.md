@@ -14,13 +14,6 @@ For the purposes of the demo, no user registration is required, activity is full
 
 When the document context is insufficient, the system can optionally fall back to a live web search (via Brave Search API) to supplement the answer.
 
-## Changes I need to make to the frontend
-
-- Truncate or wrap document source names if they become to long on the frontend
-- Create a NotFound page for the frontend to handle 404 errors
-- Sort out loading states for the frontend so that the user knows when the system is processing their request
-- Hookup backend to the fronted
-
 ## Features
 
 - **Document upload**: PDF, DOCX, TXT, and Markdown, CSV, HTML files up to 0.5 MB each
