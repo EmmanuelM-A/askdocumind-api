@@ -1,7 +1,10 @@
 FROM python:3.13-slim AS builder
 WORKDIR /app
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# --extra-index-url pulls the CPU-only torch build instead of the default CUDA
+# build on Linux, which drags in ~800MB of unused nvidia-* packages — this app
+# never touches a GPU, in this container or on Railway.
+RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 
 FROM python:3.13-slim
 WORKDIR /app

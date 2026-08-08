@@ -17,6 +17,9 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  # CPU-only torch build — avoids pulling ~800MB of unused nvidia-* CUDA
+  # packages that the default Linux torch wheel drags in.
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
 
 jobs:
   integration-tests:
