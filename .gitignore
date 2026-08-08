@@ -210,6 +210,5 @@ __marimo__/
 # Logs
 logs/
 
-rag-service-microservice.md
-things-to-complete-before-launch.md
 .claude
+docs/
