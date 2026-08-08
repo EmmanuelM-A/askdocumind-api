@@ -68,7 +68,6 @@ jobs:
             -e "USER_SESSION_SECRET=$USER_SESSION_SECRET" \
             -e "OPENAI_API_KEY=$OPENAI_API_KEY" \
             -e "BRAVE_SEARCH_API_KEY=$BRAVE_SEARCH_API_KEY" \
-
             askdocumind-api:ci
 
       - name: Wait for API to be ready
