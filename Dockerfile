@@ -1,10 +1,17 @@
 FROM python:3.13-slim AS builder
 WORKDIR /app
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 COPY requirements.txt .
-# --extra-index-url pulls the CPU-only torch build instead of the default CUDA
-# build on Linux, which drags in ~800MB of unused nvidia-* packages — this app
-# never touches a GPU, in this container or on Railway.
-RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+# Install the CPU-only torch build in its own step, from its own dedicated
+# index — this app never touches a GPU, in this container or on Railway, and
+# the default Linux torch wheel otherwise drags in ~800MB of unused nvidia-*
+# packages. Installing it first (rather than combining indices on the main
+# install) keeps the two indices from being resolved together, which
+# otherwise blows up the resolver ("resolution-too-deep") given the loose
+# version ranges elsewhere in requirements.txt. --system installs into the
+# image's system Python, matching how pip behaved here (no venv in this image).
+RUN uv pip install --system --no-cache --index-url https://download.pytorch.org/whl/cpu torch==2.12.1
+RUN uv pip install --system --no-cache -r requirements.txt
 
 FROM python:3.13-slim
 WORKDIR /app

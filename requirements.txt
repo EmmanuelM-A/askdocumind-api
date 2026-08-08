@@ -2,7 +2,7 @@ dotenv==0.9.9
 fastapi==0.118.0
 python-multipart~=0.0.20
 pydantic==2.11.10
-pydantic-settings==2.11.0
+pydantic-settings==2.14.2
 python-dotenv==1.1.1
 slowapi==0.1.9
 SQLAlchemy==2.0.43
