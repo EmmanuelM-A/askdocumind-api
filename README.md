@@ -1,18 +1,36 @@
 # AskDocuMind API
 
-A Retrieval-Augmented Generation (RAG) chatbot backend that lets users upload documents and ask questions about them. Built with FastAPI, PostgreSQL + pgvector, and OpenAI.
+## Quick Links
 
-**Live demo:** [askdocumind.com](https://askdocumind.com)
+- [Live demo](https://askdocumind.com)
+- [Overview](#overview)
+- [Problem](#problem)
+- [Solution](#solution)
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [How to Setup](#how-to-setup)
+- [Environment Variables Reference](#environment-variables-reference)
+- [Deployment](#deployment)
+- [Project Structure](#project-structure)
+- [API Documentation](#api-documentation)
 
-**Frontend code:** [askdocumind-web](https://github.com/EmmanuelM-A/askdocumind-web)
-
-## Project Overview
+## Overview
 
 AskDocuMind allows users to upload PDF, DOCX, TXT, or Markdown files and immediately start asking natural-language questions about their content. The backend handles document ingestion, vector embedding, semantic search, and LLM-powered response generation.
 
 For the purposes of the demo, no user registration is required, activity is fully tracked within an anonymous user session (cookie sessions).
 
 When the document context is insufficient, the system can optionally fall back to a live web search (via Brave Search API) to supplement the answer.
+
+**Live demo:** [askdocumind.com](https://askdocumind.com)
+
+## Problem
+
+Long documents bury the one answer you actually need. Finding it usually means re-reading pages you've already seen, guessing the exact phrasing `Ctrl+F` needs to match, or scanning page by page hoping to spot the right paragraph — all before you can even trust that what you found is complete or current.
+
+## Solution
+
+AskDocuMind answers questions directly from a document's content instead of a bare LLM guess. Retrieval-Augmented Generation (RAG) embeds the document, retrieves only the chunks relevant to the question, and generates an answer grounded in — and citing — those chunks. No document match means the system says so rather than fabricating an answer, with an optional live web search fallback when the documents themselves don't have it. No sign-up is required: identity is a short-lived anonymous session, so there's no friction between landing on the page and asking a question.
 
 ## Features
 
@@ -29,20 +47,6 @@ When the document context is insufficient, the system can optionally fall back t
 - **File validation**: MIME type checking, magic byte validation, size limits, and duplicate detection
 - **Structured error responses**: Consistent JSON error shape across all endpoints
 - **Health endpoints**: API and database health checks for uptime monitoring
-
-## Architecture
-
-### Request flow (chat query)
-
-1. Client sends query + session cookie to `POST /api/chatbot/query`
-2. `AnonymousSessionMiddleware` validates cookie and attaches `user_id` to request state
-3. `QueryHandler` embeds the query using OpenAI text-embedding-3-small
-4. pgvector cosine similarity search retrieves the top-K relevant document chunks
-5. The query is expanded by the LLM for a fuller retrieval-friendly phrasing
-6. Chunks + expanded query are passed to GPT via a structured prompt
-7. LLM returns either an answer (including a direct decline for unrelated questions) or `NEED_WEB_SEARCH`
-8. If `NEED_WEB_SEARCH` and web search is enabled: Brave Search fetches results, content is ingested, and the LLM generates a web-grounded answer
-9. Response (answer + sources) is returned to the client
 
 ## Technology Stack
 
@@ -64,7 +68,7 @@ When the document context is insufficient, the system can optionally fall back t
 | Deployment | Docker + Railway | Container hosting |
 | Error tracking | Sentry | Production error monitoring |
 
-## Installation Guide
+## How to Setup
 
 ### Prerequisites
 
