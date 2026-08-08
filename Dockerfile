@@ -1,7 +1,9 @@
 FROM python:3.13-slim AS builder
 WORKDIR /app
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN uv pip install --system --no-cache --index-url https://download.pytorch.org/whl/cpu torch==2.12.1 torchvision==0.27.1
+RUN uv pip install --system --no-cache -r requirements.txt
 
 FROM python:3.13-slim
 WORKDIR /app

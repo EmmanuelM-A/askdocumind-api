@@ -42,7 +42,7 @@ def create_prompt_template(prompt_filepath):
     try:
         with open(prompt_filepath, "r", encoding="utf-8") as f:
             prompt_data = yaml.safe_load(f)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         raise server_error(
             message="Failed to load prompt template.",
             error_code="PROMPT_TEMPLATE_LOAD_ERROR",

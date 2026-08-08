@@ -8,7 +8,8 @@ from fastapi.responses import JSONResponse
 from slowapi.util import get_remote_address
 from starlette import status
 from starlette.responses import Response
-from src.api.middleware.rate_limiter import limiter, health_api_limit, health_db_limit
+
+from src.api.middleware.rate_limiter import health_api_limit, health_db_limit, limiter
 from src.api.utils.api_responses import SuccessResponseModel
 from src.api.utils.response_delivery import create_success_response
 from src.database.connection import get_database_connection

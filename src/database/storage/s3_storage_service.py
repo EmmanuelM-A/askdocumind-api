@@ -1,7 +1,6 @@
-from typing import Optional
 
-from botocore.exceptions import ClientError
 import boto3
+from botocore.exceptions import ClientError
 
 from src.config.configs import settings
 from src.database.storage.storage_service import StorageService
@@ -21,7 +20,7 @@ class S3StorageService(StorageService):
     def save(self, key: str, data: bytes) -> None:
         self.s3_client.put_object(Bucket=self.bucket, Key=key, Body=data)
 
-    def load(self, key: str) -> Optional[bytes]:
+    def load(self, key: str) -> bytes | None:
         try:
             response = self.s3_client.get_object(
                 Bucket=self.bucket,
@@ -34,7 +33,7 @@ class S3StorageService(StorageService):
                 return None
             raise
 
-    def delete(self, key: str) -> Optional[str]:
+    def delete(self, key: str) -> str | None:
         self.s3_client.delete_object(Bucket=self.bucket, Key=key)
         return key
 

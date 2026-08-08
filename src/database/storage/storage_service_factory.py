@@ -4,12 +4,11 @@ This allows for easy swapping of storage implementations in the future without
 changing the service layer code.
 """
 
-from typing import Optional
 
-from src.database.storage.storage_service import StorageService
 from src.database.storage.s3_storage_service import S3StorageService
+from src.database.storage.storage_service import StorageService
 
-_storage_service: Optional[StorageService] = None
+_storage_service: StorageService | None = None
 
 
 def get_storage_service() -> StorageService:

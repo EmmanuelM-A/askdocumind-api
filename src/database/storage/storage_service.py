@@ -13,7 +13,6 @@ Concrete implementations should handle key normalization, security concerns
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
 
 class StorageService(ABC):
@@ -46,7 +45,7 @@ class StorageService(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def load(self, key: str) -> Optional[bytes]:
+    def load(self, key: str) -> bytes | None:
         """
         Load and return bytes stored at `key`.
 
@@ -56,7 +55,7 @@ class StorageService(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def delete(self, key: str) -> Optional[str]:
+    def delete(self, key: str) -> str | None:
         """
         Delete the object at `key`.
 

@@ -4,21 +4,14 @@ Fixtures for component tests (extractors, document processor, etc.)
 
 import io
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from uuid import uuid4
 
 import pytest
 from fastapi import UploadFile
 
-from src.components.ingestion.document_processor import UploadedDocumentProcessor
 from src.components.retrieval.embedder import Embedder
 
-
 # ====================== DOCUMENT PROCESSOR FIXTURES ======================
-
-
-@pytest.fixture
-def processor():
-    """Provides a fresh UploadedDocumentProcessor instance for each test."""
-    return UploadedDocumentProcessor()
 
 
 @pytest.fixture
@@ -154,7 +147,8 @@ def mock_document_chunk_repo():
 
 @pytest.fixture
 def query_handler(mock_embedder, mock_document_chunk_repo):
-    """Provides a QueryHandler instance with mocked embedder."""
+    """Provides a QueryHandler instance with mocked embedder, LLM, and
+    response prompt template."""
     from src.components.chatbot.query_handler import QueryHandler
 
     with patch("src.components.chatbot.query_handler.ChatOpenAI") as mock_llm, patch(
@@ -166,6 +160,7 @@ def query_handler(mock_embedder, mock_document_chunk_repo):
         handler = QueryHandler(
             embedder=mock_embedder,
             document_chunk_repo=mock_document_chunk_repo,
+            reranker=AsyncMock(),
         )
         return handler
 
@@ -235,38 +230,57 @@ def mock_document_chunk_repository():
 
 @pytest.fixture
 def mock_document_processor():
-    """Creates a mock UploadedDocumentProcessor instance."""
+    """Creates a mock DocumentProcessor instance for web content ingestion."""
     mock_proc = Mock()
-    mock_proc.process.return_value = iter([])
+    mock_proc.extract.return_value = Mock()
+    mock_proc.chunk.return_value = ["chunk 1", "chunk 2"]
+    mock_proc.save_document_chunks = AsyncMock(return_value=2)
     return mock_proc
 
 
 @pytest.fixture
-def mock_vector_store():
-    """Creates a mock VectorStore instance."""
-    mock_store = Mock()
-    return mock_store
+def mock_document_repository():
+    """Creates a mock DocumentRepository instance."""
+    mock_repo = Mock()
+    mock_repo.create = AsyncMock(return_value=uuid4())
+    mock_repo.get_total_size_mb = AsyncMock(return_value=0.0)
+    return mock_repo
 
 
 @pytest.fixture
-def mock_vector_processor():
-    """Creates a mock VectorProcessor instance."""
-    mock_processor = Mock()
-    mock_processor.process_and_save_vectors_from_web = AsyncMock(return_value=0)
-    return mock_processor
+def mock_tx():
+    """Creates a mock DBTransaction instance."""
+    tx = Mock()
+    tx.commit = AsyncMock()
+    tx.rollback = AsyncMock()
+    tx.close = AsyncMock()
+    tx.__aenter__ = AsyncMock(return_value=tx)
+    tx.__aexit__ = AsyncMock(return_value=None)
+    return tx
 
 
 @pytest.fixture
-def web_searcher(mock_embedder, mock_vector_processor):
-    """Provides a WebSearcher instance with mocked dependencies."""
+def mock_tx_factory(mock_tx):
+    """Creates a mock DBTransactionFactory whose create() returns mock_tx."""
+    factory = Mock()
+    factory.create.return_value = mock_tx
+    return factory
+
+
+@pytest.fixture
+def web_searcher(mock_document_processor, mock_document_repository):
+    """Provides a WebSearcher instance with mocked dependencies and a
+    configured (non-empty) Brave API key."""
     from src.components.retrieval.web_searcher import WebSearcher
 
     with patch("src.components.retrieval.web_searcher.settings") as mock_settings:
-        mock_settings.web.BRAVE_SEARCH_API_KEY.get_secret_value.return_value = "test_api_key"
-
-        searcher = WebSearcher(
-            embedder=mock_embedder,
-            vector_processor=mock_vector_processor,
+        mock_settings.web.BRAVE_SEARCH_API_KEY.get_secret_value.return_value = (
+            "test_api_key"
         )
 
-        yield searcher
+        searcher = WebSearcher(
+            document_processor=mock_document_processor,
+            document_repository=mock_document_repository,
+        )
+
+    return searcher

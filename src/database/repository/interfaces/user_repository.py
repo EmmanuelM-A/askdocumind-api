@@ -4,7 +4,6 @@ Repository interface for user CRUD operations.
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -16,14 +15,14 @@ from src.database.repository.interfaces.db_transaction import DBTransaction
 class UserSearchCriteria(BaseModel):
     """Criteria for filtering users in list/search operations."""
 
-    id: Optional[UUID] = None
-    last_seen_at_lte: Optional[datetime] = None
+    id: UUID | None = None
+    last_seen_at_lte: datetime | None = None
 
 
 class UpdatedUserData(BaseModel):
     """Schema for updating user fields."""
 
-    last_seen_at: Optional[datetime] = None
+    last_seen_at: datetime | None = None
 
 
 class UserRepositoryInterface(ABC):
@@ -35,7 +34,7 @@ class UserRepositoryInterface(ABC):
     """
 
     @abstractmethod
-    async def create(self, data: User, tx: Optional[DBTransaction] = None) -> UUID:
+    async def create(self, data: User, tx: DBTransaction | None = None) -> UUID:
         """
         Create and persist a new user entity.
 
@@ -47,8 +46,8 @@ class UserRepositoryInterface(ABC):
 
     @abstractmethod
     async def get_by_id(
-        self, user_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> Optional[User]:
+        self, user_id: UUID, tx: DBTransaction | None = None
+    ) -> User | None:
         """
         Retrieve a single user by its unique identifier.
 
@@ -63,8 +62,8 @@ class UserRepositoryInterface(ABC):
         self,
         user_id: UUID,
         new_user_data: UpdatedUserData,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[User]:
+        tx: DBTransaction | None = None,
+    ) -> User | None:
         """
         Update an existing user with new data.
 
@@ -76,7 +75,7 @@ class UserRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def delete(self, user_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
+    async def delete(self, user_id: UUID, tx: DBTransaction | None = None) -> bool:
         """
         Delete a user by its unique identifier.
 
@@ -87,7 +86,7 @@ class UserRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def delete_many(self, user_ids: list[UUID], tx: Optional[DBTransaction] = None) -> int:
+    async def delete_many(self, user_ids: list[UUID], tx: DBTransaction | None = None) -> int:
         """
         Delete multiple users by their unique identifiers.
 
@@ -99,7 +98,7 @@ class UserRepositoryInterface(ABC):
 
 
     @abstractmethod
-    async def exists(self, user_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
+    async def exists(self, user_id: UUID, tx: DBTransaction | None = None) -> bool:
         """
         Check if a user with the given UUID exists.
 
@@ -113,7 +112,7 @@ class UserRepositoryInterface(ABC):
     async def delete_by_criteria(
         self,
         criteria: UserSearchCriteria,
-        tx: Optional[DBTransaction] = None,
+        tx: DBTransaction | None = None,
     ) -> int:
         """
         Delete users that match the provided criteria.
@@ -126,7 +125,7 @@ class UserRepositoryInterface(ABC):
 
     @abstractmethod
     async def update_last_seen(
-        self, user_id: UUID, tx: Optional[DBTransaction] = None
+        self, user_id: UUID, tx: DBTransaction | None = None
     ) -> None:
         """
         Update the last seen timestamp of a user to the current time.
@@ -139,7 +138,7 @@ class UserRepositoryInterface(ABC):
 
     @abstractmethod
     async def get_all_expired_user_ids(
-        self, cutoff: datetime, tx: Optional[DBTransaction] = None
+        self, cutoff: datetime, tx: DBTransaction | None = None
     ) -> list[UUID]:
         """
         Retrieve all user IDs that have a last_seen_at timestamp older than the cutoff.

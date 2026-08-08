@@ -4,21 +4,20 @@ operations and specific queries related to document entities.
 """
 
 from datetime import datetime
-from typing import Optional, List
 from uuid import UUID
 
-from sqlalchemy import select, func, update, delete
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from src.config.constants import ProcessingStatus
 from src.database.connection import DatabaseConnection
 from src.database.models import Document
-from src.config.constants import ProcessingStatus
+from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.database.repository.interfaces.document_repository import (
     DocumentRepositoryInterface,
     DocumentSearchCriteria,
     UpdatedDocumentData,
 )
-from src.database.repository.interfaces.db_transaction import DBTransaction
 from src.errors.custom_exceptions import conflict_error, database_error
 from src.logger.base_logger import BaseLogger
 
@@ -40,15 +39,15 @@ class DocumentRepository(DocumentRepositoryInterface):
         return filters
 
     @staticmethod
-    def _is_duplicate_filename_error(error: IntegrityError) -> bool:
+    def _is_duplicate_source_error(error: IntegrityError) -> bool:
         message = str(error).lower()
         return (
-            "uq_document_session_filename" in message
+            "uq_document_session_source" in message
             or "unique constraint" in message
             and "document" in message
         )
 
-    async def create(self, data: Document, tx: Optional[DBTransaction] = None) -> UUID:
+    async def create(self, data: Document, tx: DBTransaction | None = None) -> UUID:
         try:
             if tx is not None:
                 await tx.add(data)
@@ -63,9 +62,9 @@ class DocumentRepository(DocumentRepositoryInterface):
                 return data.id
 
         except IntegrityError as e:
-            if self._is_duplicate_filename_error(e):
+            if self._is_duplicate_source_error(e):
                 raise conflict_error(
-                    message="A document with the same filename already exists for this chat.",
+                    message="A document with the same source already exists for this chat.",
                     error_code="DOCUMENT_ALREADY_EXISTS",
                     error_details=str(e.orig) if getattr(e, "orig", None) else None,
                 )
@@ -74,7 +73,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 error_code="DOCUMENT_CREATION_ERROR",
                 stack_trace=str(e),
             )
-        except (SQLAlchemyError, Exception) as e:
+        except (SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while creating a new document.",
                 error_code="DOCUMENT_CREATION_ERROR",
@@ -83,9 +82,9 @@ class DocumentRepository(DocumentRepositoryInterface):
 
     async def list_by(
         self,
-        criteria: Optional[DocumentSearchCriteria] = None,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[Document]:
+        criteria: DocumentSearchCriteria | None = None,
+        tx: DBTransaction | None = None,
+    ) -> list[Document]:
         try:
             stmt = select(Document)
 
@@ -108,7 +107,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 self._logger.debug("Found documents matching criteria")
                 return result.scalars().all()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while listing documents by criteria.",
                 error_code="DOCUMENT_LISTING_ERROR",
@@ -116,8 +115,8 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def get_by_id(
-        self, document_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> Optional[Document]:
+        self, document_id: UUID, tx: DBTransaction | None = None
+    ) -> Document | None:
         try:
             stmt = select(Document).where(Document.id == document_id)
 
@@ -135,7 +134,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                     self._logger.debug(f"Found document: {document_id}")
                 return document
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while getting document by id.",
                 error_code="DOCUMENT_GET_ERROR",
@@ -145,8 +144,8 @@ class DocumentRepository(DocumentRepositoryInterface):
     async def get_by_criteria(
         self,
         criteria: DocumentSearchCriteria,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[Document]:
+        tx: DBTransaction | None = None,
+    ) -> Document | None:
         try:
             filters = self._build_filters(criteria)
 
@@ -166,7 +165,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 self._logger.debug("Found document matching criteria")
                 return result.scalars().first()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while getting document by criteria.",
                 error_code="DOCUMENT_GET_ERROR",
@@ -177,8 +176,8 @@ class DocumentRepository(DocumentRepositoryInterface):
         self,
         entity_id: UUID,
         new_entity_data: UpdatedDocumentData,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[Document]:
+        tx: DBTransaction | None = None,
+    ) -> Document | None:
         try:
             stmt = select(Document).where(Document.id == entity_id)
 
@@ -190,10 +189,10 @@ class DocumentRepository(DocumentRepositoryInterface):
                     return None
 
                 if (
-                    hasattr(new_entity_data, "filename")
-                    and new_entity_data.filename is not None
+                    hasattr(new_entity_data, "source")
+                    and new_entity_data.source is not None
                 ):
-                    existing.filename = new_entity_data.filename
+                    existing.source = new_entity_data.source
                 if (
                     hasattr(new_entity_data, "processing_status")
                     and new_entity_data.processing_status is not None
@@ -211,10 +210,10 @@ class DocumentRepository(DocumentRepositoryInterface):
                     return None
 
                 if (
-                    hasattr(new_entity_data, "filename")
-                    and new_entity_data.filename is not None
+                    hasattr(new_entity_data, "source")
+                    and new_entity_data.source is not None
                 ):
-                    existing.filename = new_entity_data.filename
+                    existing.source = new_entity_data.source
                 if (
                     hasattr(new_entity_data, "processing_status")
                     and new_entity_data.processing_status is not None
@@ -224,7 +223,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 await session.flush()
                 return existing
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while updating document.",
                 error_code="DOCUMENT_UPDATE_ERROR",
@@ -232,7 +231,7 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def delete(
-        self, document_id: UUID, tx: Optional[DBTransaction] = None
+        self, document_id: UUID, tx: DBTransaction | None = None
     ) -> bool:
         try:
             stmt = delete(Document).where(Document.id == document_id)
@@ -245,14 +244,14 @@ class DocumentRepository(DocumentRepositoryInterface):
                 result = await session.execute(stmt)
                 return (result.rowcount or 0) > 0
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting document.",
                 error_code="DOCUMENT_DELETE_ERROR",
                 stack_trace=str(e),
             )
 
-    async def exists(self, entity_id: UUID, tx: Optional[DBTransaction] = None) -> bool:
+    async def exists(self, entity_id: UUID, tx: DBTransaction | None = None) -> bool:
         try:
             stmt = (
                 select(func.count())
@@ -268,7 +267,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalar_one() > 0
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while determining if document exists.",
                 error_code="DOCUMENT_EXISTS_ERROR",
@@ -277,8 +276,8 @@ class DocumentRepository(DocumentRepositoryInterface):
 
     async def count(
         self,
-        filter_id: Optional[UUID] = None,
-        tx: Optional[DBTransaction] = None,
+        filter_id: UUID | None = None,
+        tx: DBTransaction | None = None,
     ) -> int:
         try:
             stmt = select(func.count(Document.id)).select_from(Document)
@@ -293,7 +292,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalar_one()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while counting documents.",
                 error_code="DOCUMENT_COUNT_ERROR",
@@ -303,11 +302,11 @@ class DocumentRepository(DocumentRepositoryInterface):
     async def get_total_size_mb(
         self,
         chat_session_id: UUID,
-        tx: Optional[DBTransaction] = None,
+        tx: DBTransaction | None = None,
     ) -> float:
         try:
             stmt = select(
-                func.coalesce(func.sum(Document.file_size), 0)
+                func.coalesce(func.sum(Document.source_size), 0)
             ).select_from(
                 Document
             ).where(Document.session_id == chat_session_id)
@@ -322,7 +321,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 total_bytes = result.scalar_one() or 0
                 return float(total_bytes) / (1024 * 1024)
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while calculating document storage size.",
                 error_code="DOCUMENT_SIZE_TOTAL_ERROR",
@@ -330,8 +329,8 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def create_many(
-        self, entities: List[Document], tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, entities: list[Document], tx: DBTransaction | None = None
+    ) -> list[UUID]:
         if not entities:
             return []
 
@@ -351,9 +350,9 @@ class DocumentRepository(DocumentRepositoryInterface):
                 return created_ids
 
         except IntegrityError as e:
-            if self._is_duplicate_filename_error(e):
+            if self._is_duplicate_source_error(e):
                 raise conflict_error(
-                    message="A document with the same filename already exists for this chat.",
+                    message="A document with the same source already exists for this chat.",
                     error_code="DOCUMENT_ALREADY_EXISTS",
                     error_details=str(e.orig) if getattr(e, "orig", None) else None,
                 )
@@ -362,7 +361,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 error_code="DOCUMENT_BULK_CREATION_ERROR",
                 stack_trace=str(e),
             )
-        except (SQLAlchemyError, Exception) as e:
+        except (SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while creating multiple documents.",
                 error_code="DOCUMENT_BULK_CREATION_ERROR",
@@ -370,7 +369,7 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def delete_many(
-        self, document_ids: list[UUID], tx: Optional[DBTransaction] = None
+        self, document_ids: list[UUID], tx: DBTransaction | None = None
     ) -> int:
         if not document_ids:
             return 0
@@ -390,7 +389,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 self._logger.debug(f"Deleted {deleted_count} document entries")
                 return deleted_count
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting multiple documents.",
                 error_code="DOCUMENT_DELETE_ERROR",
@@ -399,9 +398,9 @@ class DocumentRepository(DocumentRepositoryInterface):
 
     async def bulk_update_processing_status(
         self,
-        document_ids: List[UUID],
+        document_ids: list[UUID],
         status: ProcessingStatus,
-        tx: Optional[DBTransaction] = None,
+        tx: DBTransaction | None = None,
     ) -> int:
         if not document_ids:
             return 0
@@ -429,7 +428,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 )
                 return updated_count
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while updating processing statuses.",
                 error_code="DOCUMENT_UPDATE_ERROR",
@@ -437,8 +436,8 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def get_stuck_processing_ids(
-        self, cutoff: datetime, tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, cutoff: datetime, tx: DBTransaction | None = None
+    ) -> list[UUID]:
         try:
             stmt = select(Document.id).where(
                 Document.processing_status == ProcessingStatus.PROCESSING,
@@ -453,7 +452,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 result = await session.execute(stmt)
                 return list(result.scalars().all())
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while fetching stuck processing document IDs.",
                 error_code="DOCUMENT_GET_STUCK_IDS_ERROR",
@@ -461,8 +460,8 @@ class DocumentRepository(DocumentRepositoryInterface):
             )
 
     async def get_all_failed_ids(
-        self, cutoff: datetime, tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, cutoff: datetime, tx: DBTransaction | None = None
+    ) -> list[UUID]:
         try:
             stmt = select(Document.id).where(
                 Document.processing_status == ProcessingStatus.FAILED,
@@ -477,7 +476,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 result = await session.execute(stmt)
                 return list(result.scalars().all())
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while fetching failed document IDs.",
                 error_code="DOCUMENT_GET_FAILED_IDS_ERROR",

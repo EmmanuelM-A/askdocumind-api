@@ -4,15 +4,16 @@ Integration tests for Chat Session Repository.
 Tests the ChatSessionRepository implementation against the ChatSessionRepositoryInterface.
 """
 
-import pytest
 from uuid import uuid4
 
+import pytest
+
 from src.database.models import ChatSession
-from src.database.repository.sqlalchemy import ChatSessionRepository
 from src.database.repository.interfaces.chat_session_repository import (
     ChatSessionSearchCriteria,
     UpdatedChatSessionData,
 )
+from src.database.repository.sqlalchemy import ChatSessionRepository
 
 
 @pytest.fixture
@@ -26,6 +27,7 @@ async def cleanup_sessions(db_connection):
     """Cleanup test chat sessions after each test."""
     yield
     from sqlalchemy import delete
+
     from src.database.models import ChatMessage, Document
 
     async with db_connection.get_session() as session:

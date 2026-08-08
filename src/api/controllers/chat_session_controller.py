@@ -4,17 +4,16 @@ Handles application logic related to chat sessions and interactions with the
 service layer.
 """
 
-from typing import Optional
 from uuid import UUID
 
-from fastapi import status, Request
+from fastapi import Request, status
 from starlette.responses import JSONResponse
 
 from src.api.services.chats.chat_sessions import ChatSessionService
 from src.api.services.service_factory import get_chat_service
-from src.api.services.validation.chat_session import CreateChatSessionData
 from src.api.utils.api_responses import SuccessResponseModel
 from src.api.utils.response_delivery import create_success_response
+from src.api.validation.chat_session import CreateChatSessionData
 from src.logger.base_logger import BaseLogger
 
 
@@ -24,7 +23,7 @@ class ChatSessionController:
     """
 
     def __init__(self):
-        self._chat_service: Optional[ChatSessionService] = None
+        self._chat_service: ChatSessionService | None = None
         self._logger = BaseLogger(__name__)
 
     def lazy_init(self) -> None:

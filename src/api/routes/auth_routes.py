@@ -1,7 +1,6 @@
 """Routes for authentication-related endpoints."""
 
-from fastapi import APIRouter
-from fastapi import Request
+from fastapi import APIRouter, Request
 
 from src.api.controllers.auth_controller import AuthController
 

@@ -2,11 +2,10 @@
 Responsible for managing chat message data access in the database.
 """
 
-from typing import Optional, List
 from uuid import UUID
 
-from sqlalchemy import select, func, delete
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.database.connection import DatabaseConnection
 from src.database.models import ChatMessage
@@ -37,7 +36,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
         return filters
 
     async def create(
-        self, data: ChatMessage, tx: Optional[DBTransaction] = None
+        self, data: ChatMessage, tx: DBTransaction | None = None
     ) -> UUID:
         try:
             if tx is not None:
@@ -52,7 +51,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 self._logger.debug(f"New chat message entry created: {data.id}")
                 return data.id
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while creating a new chat message.",
                 error_code="CHAT_MESSAGE_CREATION_ERROR",
@@ -61,9 +60,9 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
 
     async def list_by(
         self,
-        criteria: Optional[ChatMessageSearchCriteria] = None,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[ChatMessage]:
+        criteria: ChatMessageSearchCriteria | None = None,
+        tx: DBTransaction | None = None,
+    ) -> list[ChatMessage]:
         try:
             stmt = select(ChatMessage)
 
@@ -90,7 +89,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 self._logger.debug("Found chat messages matching criteria")
                 return result.scalars().all()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while listing chat messages by criteria.",
                 error_code="CHAT_MESSAGE_LISTING_ERROR",
@@ -98,8 +97,8 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
             )
 
     async def get_by_id(
-        self, message_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> Optional[ChatMessage]:
+        self, message_id: UUID, tx: DBTransaction | None = None
+    ) -> ChatMessage | None:
         try:
             stmt = select(ChatMessage).where(ChatMessage.id == message_id)
 
@@ -121,7 +120,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                     )
                 return chat_message
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while getting chat message by id.",
                 error_code="CHAT_MESSAGE_GET_ERROR",
@@ -131,8 +130,8 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
     async def get_by_criteria(
         self,
         criteria: ChatMessageSearchCriteria,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[ChatMessage]:
+        tx: DBTransaction | None = None,
+    ) -> ChatMessage | None:
         try:
             filters = self._build_filters(criteria)
 
@@ -152,7 +151,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 self._logger.debug("Found chat messages matching criteria")
                 return result.scalars().first()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while getting chat message by criteria.",
                 error_code="CHAT_MESSAGE_GET_ERROR",
@@ -163,8 +162,8 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
         self,
         entity_id: UUID,
         new_entity_data: UpdatedChatMessageData,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[ChatMessage]:
+        tx: DBTransaction | None = None,
+    ) -> ChatMessage | None:
         try:
             stmt = select(ChatMessage).where(ChatMessage.id == entity_id)
 
@@ -210,7 +209,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 await session.flush()
                 return existing
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while updating chat message.",
                 error_code="CHAT_MESSAGE_UPDATE_ERROR",
@@ -218,7 +217,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
             )
 
     async def delete(
-        self, message_id: UUID, tx: Optional[DBTransaction] = None
+        self, message_id: UUID, tx: DBTransaction | None = None
     ) -> bool:
         try:
             stmt = delete(ChatMessage).where(ChatMessage.id == message_id)
@@ -231,7 +230,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 result = await session.execute(stmt)
                 return (result.rowcount or 0) > 0
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting chat message.",
                 error_code="CHAT_MESSAGE_DELETE_ERROR",
@@ -239,7 +238,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
             )
 
     async def exists(
-        self, entity_id: UUID, tx: Optional[DBTransaction] = None
+        self, entity_id: UUID, tx: DBTransaction | None = None
     ) -> bool:
         try:
             stmt = (
@@ -256,7 +255,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalar_one() > 0
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while determining if chat message exists.",
                 error_code="CHAT_MESSAGE_EXISTS_ERROR",
@@ -265,8 +264,8 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
 
     async def count(
         self,
-        filter_id: Optional[UUID] = None,
-        tx: Optional[DBTransaction] = None,
+        filter_id: UUID | None = None,
+        tx: DBTransaction | None = None,
     ) -> int:
         try:
             stmt = select(func.count()).select_from(ChatMessage)
@@ -281,7 +280,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 result = await session.execute(stmt)
                 return result.scalar_one()
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while counting chat messages.",
                 error_code="CHAT_MESSAGE_COUNT_ERROR",
@@ -289,8 +288,8 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
             )
 
     async def create_many(
-        self, entities: List[ChatMessage], tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, entities: list[ChatMessage], tx: DBTransaction | None = None
+    ) -> list[UUID]:
         if not entities:
             return []
 
@@ -309,7 +308,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 self._logger.debug(f"Created {len(created_ids)} chat messages")
                 return created_ids
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while creating multiple chat messages.",
                 error_code="CHAT_MESSAGE_BULK_CREATION_ERROR",
@@ -317,7 +316,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
             )
 
     async def delete_many(
-        self, message_ids: List[UUID], tx: Optional[DBTransaction] = None
+        self, message_ids: list[UUID], tx: DBTransaction | None = None
     ) -> int:
         if not message_ids:
             return 0
@@ -337,7 +336,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 self._logger.debug(f"Deleted {deleted_count} chat messages")
                 return deleted_count
 
-        except (IntegrityError, SQLAlchemyError, Exception) as e:
+        except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
             raise database_error(
                 message="An error occurred while deleting multiple chat messages.",
                 error_code="CHAT_MESSAGE_DELETE_ERROR",

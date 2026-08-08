@@ -5,16 +5,16 @@ Logging utility class for the application and its modules.
 import logging
 import os
 import sys
-from typing import List, Optional
+
+from src.config.configs import settings
 from src.logger.logging_utils import (
     ColorFormatter,
     JsonFormatter,
     LogLevel,
     LogTo,
-    get_log_level,
     MaxLevelFilter,
+    get_log_level,
 )
-from src.config.configs import settings
 
 
 class BaseLogger:
@@ -26,7 +26,7 @@ class BaseLogger:
     def __init__(
         self,
         name: str,
-        log_path: Optional[str] = None,
+        log_path: str | None = None,
         log_to: LogTo = settings.logging.LOG_TO,
     ) -> None:
         """
@@ -38,7 +38,7 @@ class BaseLogger:
         """
 
         self.logger: logging.Logger = logging.getLogger(name)
-        self.handlers: List[logging.Handler] = []
+        self.handlers: list[logging.Handler] = []
 
         # Determine log directory
         self.log_path = log_path or settings.logging.LOG_DIRECTORY
@@ -150,7 +150,7 @@ class BaseLogger:
         """
         self.logger.warning(message, extra=kwargs or None)
 
-    def error(self, message: str, exception: Optional[Exception] = None, **kwargs) -> None:
+    def error(self, message: str, exception: Exception | None = None, **kwargs) -> None:
         """
         Logs error messages for failed operations or exceptions.
 
@@ -166,13 +166,12 @@ class BaseLogger:
             self.logger.error(
                 "%(message)s | Exception: %(exception)s",
                 {"message": message, "exception": exception},
-                exc_info=True,
                 extra=kwargs or None,
             )
         else:
             self.logger.error(message, extra=kwargs or None)
 
-    def critical(self, message: str, exception: Optional[Exception] = None, **kwargs) -> None:
+    def critical(self, message: str, exception: Exception | None = None, **kwargs) -> None:
         """
         Logs critical messages for severe errors causing application shutdown.
 
@@ -187,7 +186,6 @@ class BaseLogger:
             self.logger.critical(
                 "%(message)s | Exception: %(exception)s",
                 {"message": message, "exception": exception},
-                exc_info=True,
                 extra=kwargs or None,
             )
         else:

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request
 
 from src.api.controllers.chat_session_controller import ChatSessionController
 from src.api.middleware.rate_limiter import limiter, session_limit, user_key_func
-from src.api.services.validation.chat_session import CreateChatSessionData
+from src.api.validation.chat_session import CreateChatSessionData
 
 chat_session_router = APIRouter(prefix="/sessions", tags=["Chat Session"])
 

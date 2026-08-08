@@ -39,7 +39,7 @@ class LocalFileStorageService(StorageService):
             with open(path, "wb") as f:
                 f.write(data)
         except Exception as e:
-            raise IOError(f"Failed to save data to {key}: {e}") from e
+            raise OSError(f"Failed to save data to {key}: {e}") from e
 
     def load(self, key: str) -> bytes | None:
         """
@@ -60,7 +60,7 @@ class LocalFileStorageService(StorageService):
             with open(path, "rb") as f:
                 return f.read()
         except Exception as e:
-            raise IOError(f"Failed to load data from {key}: {e}") from e
+            raise OSError(f"Failed to load data from {key}: {e}") from e
 
     def delete(self, key: str) -> str | None:
         """
@@ -116,9 +116,9 @@ class LocalFileStorageService(StorageService):
             with open(path, "wb") as f:
                 f.write(new_data)
         except Exception as e:
-            raise IOError(f"Failed to update data at {key}: {e}") from e
+            raise OSError(f"Failed to update data at {key}: {e}") from e
 
-    def count(self, key: str = None) -> int:
+    def count(self, key: str | None = None) -> int:
         """
         Count the number of files stored under the given key (or root if no key).
 
@@ -189,7 +189,7 @@ class LocalFileStorageService(StorageService):
 
             return deleted_count
         except Exception as e:
-            raise IOError(f"Failed to delete all data under {key or '/'}: {e}") from e
+            raise OSError(f"Failed to delete all data under {key or '/'}: {e}") from e
 
     # ============================ HELPER METHODS ============================
 

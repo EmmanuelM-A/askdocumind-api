@@ -7,7 +7,7 @@ and encapsulate backend-specific session/transaction behavior.
 
 from abc import ABC, abstractmethod
 from types import TracebackType
-from typing import Any, Optional, Type
+from typing import Any
 
 
 class DBTransaction(ABC):
@@ -62,9 +62,9 @@ class DBTransaction(ABC):
 	@abstractmethod
 	async def __aexit__(
 		self,
-		exc_type: Optional[Type[BaseException]],
-		exc: Optional[BaseException],
-		tb: Optional[TracebackType],
+		exc_type: type[BaseException] | None,
+		exc: BaseException | None,
+		tb: TracebackType | None,
 	) -> None:
 		"""Commit on success or rollback on failure, then close resources."""
 		raise NotImplementedError

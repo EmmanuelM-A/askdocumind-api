@@ -1,212 +1,131 @@
-"""
-Memory-efficient document preprocessing pipeline for RAG systems.
-
-This module is responsible for:
-- Extracting text from uploaded files
-- Validating and cleaning content
-- Chunking text into smaller segments
-- Streaming chunks one-by-one to downstream consumers
-
-This implementation is optimized for large files and high concurrency.
-"""
-
-from typing import Any, Iterator, List, Optional, Tuple, cast
+from dataclasses import dataclass
+from io import BytesIO
 from uuid import UUID
 
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from docling.datamodel.base_models import DocumentStream
+from docling.document_converter import DocumentConverter
+from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
+from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
+from docling_core.types.doc.document import DoclingDocument
+from docling_core.types.doc.labels import DocItemLabel
 
-from src.components.extraction.text_extraction_factory import get_text_extractor
-from src.errors.custom_exceptions import unprocessable_entity_error
+from src.components.retrieval.embedder import Embedder
 from src.config.configs import settings
+from src.database.models import DocumentChunk
+from src.database.repository.interfaces import DBTransaction
+from src.database.repository.interfaces.document_chunk_repository import (
+    DocumentChunkRepositoryInterface,
+)
 from src.logger.base_logger import BaseLogger
 
-_logger = BaseLogger(__name__)
+
+@dataclass
+class ChunkingConfig:
+    max_tokens: int
+
+
+def get_chunking_config() -> ChunkingConfig:
+    """Factory method to get the chunking configuration."""
+    return ChunkingConfig(max_tokens=settings.vector.MAX_TOKENS)
+
+
+def convert_to_docling_document(
+    content: str, source_name: str, label: DocItemLabel
+) -> DoclingDocument:
+    doc = DoclingDocument(name=source_name)
+
+    doc.add_text(label=label, text=content)
+
+    return doc
 
 
 class DocumentProcessor:
     """
-    Base class for document processors.
+    A class responsible for processing documents, including conversion,
+    chunking, embedding, and saving to the database.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        converter: DocumentConverter,
+        config: ChunkingConfig,
+        embedder: Embedder,
+        document_chunk_repository: DocumentChunkRepositoryInterface,
+    ):
+        self._converter = converter
+        self._tokenizer = HuggingFaceTokenizer.from_pretrained(
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            max_tokens=config.max_tokens,
+        )
+        self._chunker = HybridChunker(tokenizer=self._tokenizer, merge_peers=True)
+        self._embedder = embedder
+        self._document_chunk_repository = document_chunk_repository
+        self._logger = BaseLogger(__name__)
+
+    def extract(self, document_data: bytes, filename: str) -> DoclingDocument:
+        stream = DocumentStream(name=filename, stream=BytesIO(document_data))
+
+        result = self._converter.convert(stream)
+
+        self._logger.debug(f"Extracted document: {result.document.name}")
+
+        return result.document
+
+    def chunk(self, docling_document: DoclingDocument, source_name: str) -> list[str]:
         """
-        Initialize the streaming document processor with a recursive
-        character-based text splitter.
+        Chunk the document's content, prefixing each chunk with the
+        document's source name so retrieval can also match on it (e.g. a
+        query referencing the document/page name directly).
         """
-        self.splitter = RecursiveCharacterTextSplitter(
-            chunk_size=settings.vector.CHUNK_SIZE,
-            chunk_overlap=settings.vector.CHUNK_OVERLAP,
+
+        chunks_itr = self._chunker.chunk(docling_document)
+
+        chunks = [
+            f"Source: {source_name}\n\n{self._chunker.contextualize(chunk)}"
+            for chunk in chunks_itr
+        ]
+
+        self._logger.debug(f"Chunked document into {len(chunks)} chunks")
+
+        return chunks
+
+    async def save_document_chunks(
+        self,
+        chunks: list[str],
+        chat_session_id: UUID,
+        document_id: UUID,
+        tx: DBTransaction | None = None,
+    ) -> int:
+        if len(chunks) == 0:
+            self._logger.warning(f"No chunks to save for document_id: {document_id}")
+            return 0
+
+        entities: list[DocumentChunk] = []
+        offset = 0
+
+        for vector_batch in self._embedder.embed_documents(chunks):
+            batch_chunk_texts = chunks[offset : offset + len(vector_batch)]
+            offset += len(vector_batch)
+
+            for chunk_text, embedding in zip(batch_chunk_texts, vector_batch):
+                entities.append(
+                    DocumentChunk(
+                        document_id=document_id,
+                        chat_session_id=chat_session_id,
+                        chunk_text=chunk_text,
+                        embedding=embedding,
+                    )
+                )
+
+        if len(entities) == 0:
+            self._logger.warning(
+                f"No document chunks were created for document_id: {document_id}"
+            )
+            return 0
+
+        self._logger.debug(
+            f"Saving {len(entities)} document chunks for document_id: {document_id}"
         )
 
-    @staticmethod
-    def _validate_content(
-        content: str, filename: Optional[str] = None
-    ) -> Tuple[bool, Optional[str]]:
-        """
-        Validate document content before processing, returning a tuple
-        containing a boolean indicating if the document is valid and the
-        cleaned content or None.
-        """
-
-        if not content:
-            return False, None
-
-        content = content.strip()
-        if len(content) < settings.app.MIN_DOCUMENT_CONTENT_LENGTH:
-            _logger.warning(f"Document {filename} too short, skipping")
-            return False, None
-
-        if len(content) > settings.app.MAX_DOCUMENT_CONTENT_LENGTH:
-            if settings.app.IS_QUERY_TRUNCATION_ENABLED:
-                _logger.warning(f"Document {filename} too large, truncating")
-                content = (
-                    content[: settings.app.MAX_DOCUMENT_CONTENT_LENGTH]
-                    + "... [TRUNCATED]"
-                )
-            else:
-                _logger.warning(f"Document {filename} too large, skipping")
-                return False, None
-
-        return True, content
-
-    def _split_content(self, clean_content: str) -> list[str]:
-        return self.splitter.split_text(clean_content)
-
-
-class UploadedDocumentProcessor(DocumentProcessor):
-    """
-    Document processor for memory-efficient RAG ingestion from bytes.
-
-    This processor extracts, cleans, and chunks uploaded documents
-    while yielding chunks incrementally instead of storing them in memory.
-
-    Intended usage:
-        documents = [(filename, byte_data), ...]
-        for chunk in processor.process(documents):
-            embed(chunk)
-            store(chunk)
-
-    Guarantees:
-    - Only one document is held in memory at a time
-    - Only one chunk is yielded at a time
-    - Suitable for large PDFs and many concurrent uploads
-    """
-
-    def __init__(self) -> None:
-        super().__init__()
-
-    def process(
-        self,
-        documents: List[Tuple[UUID, str, bytes]],
-    ) -> Iterator[Tuple[UUID, str]]:
-        """
-        Stream processed document chunks from bytes.
-
-        Pipeline (per document):
-            1. Select appropriate extractor based on filename
-            2. Extract raw text from bytes
-            3. Validate and clean content
-            4. Split text into chunks
-            5. Yield chunks immediately
-
-        Args:
-            documents: List of (document_id, filename, bytes) tuples
-
-        Yields:
-            (document_id, cleaned chunk text) tuples
-        """
-
-        if not documents or len(documents) == 0:
-            raise unprocessable_entity_error(
-                message="No files provided for document processing.",
-                error_code="NO_FILES_PROVIDED",
-            )
-
-        yielded_any_chunk = False
-
-        for document_id, filename, data in documents:
-            _logger.debug(f"Processing file: {filename}")
-
-            extractor = get_text_extractor(filename)
-            extractor_any = cast(Any, extractor)
-
-            try:
-                try:
-                    document_content = extractor_any.extract_text_from(data, filename)
-                except TypeError:
-                    document_content = extractor_any.extract_text_from(data, filename)
-            except Exception as exc:
-                _logger.warning(f"Failed to extract document {filename}: {exc}")
-                continue
-
-            success, cleaned_content = self._validate_content(
-                content=document_content, filename=filename
-            )
-
-            if not success or not cleaned_content:
-                _logger.warning(f"Document validation failed: {filename}")
-                del document_content
-                continue
-
-            for chunk_text in self._split_content(cleaned_content):
-                if not chunk_text.strip():
-                    continue
-
-                yielded_any_chunk = True
-
-                _logger.debug(f"Yielding document chunk from {filename}")
-
-                yield document_id, chunk_text
-
-        if not yielded_any_chunk:
-            raise unprocessable_entity_error(
-                message="No valid document chunks produced.",
-                error_code="NO_VALID_DOCUMENT_CHUNKS",
-            )
-
-
-class WebDocumentProcessor(DocumentProcessor):
-
-    def __init__(self) -> None:
-        super().__init__()
-
-    def process(
-        self,
-        raw_web_contents: List[str],
-    ) -> Iterator[str]:
-        """
-        Processes raw web contents.
-        """
-
-        if not raw_web_contents or len(raw_web_contents) == 0:
-            raise unprocessable_entity_error(
-                message="No raw web contents provided for document processing.",
-                error_code="NO_WEB_CONTENTS_PROVIDED",
-            )
-
-        yielded_any_chunk = False
-
-        for raw_web_content in raw_web_contents:
-            success, cleaned_web_content = self._validate_content(
-                content=raw_web_content
-            )
-
-            if not success or not cleaned_web_content:
-                _logger.warning("Raw web content validation failed")
-                continue
-
-            for chunked_text in self._split_content(cleaned_web_content):
-                if not chunked_text.strip():
-                    continue
-
-                yielded_any_chunk = True
-
-                _logger.debug("Yielding web content chunk")
-
-                yield chunked_text
-
-        if not yielded_any_chunk:
-            raise unprocessable_entity_error(
-                message="No valid document chunks produced.",
-                error_code="NO_VALID_DOCUMENT_CHUNKS",
-            )
+        saved_chunks = await self._document_chunk_repository.upsert_many(entities, tx)
+        return len(saved_chunks)

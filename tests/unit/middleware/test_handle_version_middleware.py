@@ -2,9 +2,9 @@
 
 from collections.abc import Generator
 
+import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
-import pytest
 
 from src.api.middleware.handle_version import APIVersionMiddleware
 from src.config.configs import settings

@@ -5,9 +5,7 @@ Contains logging utils used only for logging purposes.
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Literal
-
-
+from typing import ClassVar, Literal
 
 LogTo = Literal["CONSOLE", "FILE", "BOTH"]
 
@@ -18,7 +16,7 @@ LogLevel = Literal["CRITICAL", "FATAL", "ERROR", "WARNING", "WARN", "INFO", "DEB
 class ColorFormatter(logging.Formatter):
     """Custom formatter to add color to log messages."""
 
-    COLORS = {
+    COLORS: ClassVar[dict[int, str]] = {
         logging.DEBUG: "\033[94m",  # Blue
         logging.INFO: "\033[92m",  # Green
         logging.WARNING: "\033[93m",  # Yellow

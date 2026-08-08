@@ -210,5 +210,5 @@ __marimo__/
 # Logs
 logs/
 
-data/sample/
+.claude
 docs/

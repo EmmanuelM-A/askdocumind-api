@@ -2,7 +2,6 @@
 Controller layer for the RAG chatbot interactions.
 """
 
-from typing import Optional
 from uuid import UUID
 
 from fastapi import Request, status
@@ -10,9 +9,9 @@ from starlette.responses import JSONResponse
 
 from src.api.services.chatbot.rag_chatbot import RAGChatbotService
 from src.api.services.service_factory import get_rag_chatbot_service
-from src.api.services.validation.chatbot import ChatRequest
 from src.api.utils.api_responses import SuccessResponseModel
 from src.api.utils.response_delivery import create_success_response
+from src.api.validation.chatbot import ChatRequest
 
 
 class RAGChatbotController:
@@ -21,7 +20,7 @@ class RAGChatbotController:
     """
 
     def __init__(self):
-        self._rag_chatbot_service: Optional[RAGChatbotService] = None
+        self._rag_chatbot_service: RAGChatbotService | None = None
 
     def _lazy_init(self) -> None:
         if self._rag_chatbot_service is None:

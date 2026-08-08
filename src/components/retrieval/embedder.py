@@ -3,7 +3,8 @@ Responsible for wrapping the embedding model client to encode text into
 vectors.
 """
 
-from typing import Dict, Any, List, Iterable, Iterator
+from collections.abc import Iterable, Iterator
+from typing import Any
 
 from langchain_openai import OpenAIEmbeddings
 
@@ -30,14 +31,14 @@ class Embedder:
             self._logger.info(
                 f"Initialized embedder with the model: {settings.llm.EMBEDDING_MODEL_NAME}"
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             raise server_error(
                 message="Failed to initialize the embedding model.",
                 error_code="EMBEDDER_INIT_ERROR",
                 stack_trace=str(e),
             )
 
-    def embed_documents(self, documents: Iterable[str]) -> Iterator[List[List[float]]]:
+    def embed_documents(self, documents: Iterable[str]) -> Iterator[list[list[float]]]:
         """
         Incrementally embed documents in batches.
 
@@ -65,7 +66,7 @@ class Embedder:
         if buffer_docs:
             yield self._embed_batch(buffer_docs)
 
-    def embed_query(self, query: str) -> List[float]:
+    def embed_query(self, query: str) -> list[float]:
         """
         Embed a single query string with caching.
 
@@ -92,7 +93,7 @@ class Embedder:
             self._logger.info(f"The query '{query}' has been embedded successfully.")
             return embedding
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             raise server_error(
                 message="Failed to embed query.",
                 error_code="EMBEDDER_EMBED_QUERY_ERROR",
@@ -104,7 +105,7 @@ class Embedder:
     def _embed_batch(
         self,
         documents: list[str],
-    ) -> List[List[float]]:
+    ) -> list[list[float]]:
         """
         Embeds a single batch of documents.
 
@@ -117,14 +118,14 @@ class Embedder:
 
         try:
             return self.embedding_model.embed_documents(documents)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             raise server_error(
                 message="Failed to get embeddings from model.",
                 error_code="EMBEDDING_ERROR",
                 stack_trace=str(e),
             )
 
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """Perform health check on the embedder."""
 
         return {

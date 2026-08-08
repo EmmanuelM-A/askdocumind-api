@@ -163,24 +163,30 @@ def test_delete_all_rejects_path_traversal(local_storage: LocalFileStorageServic
 
 
 def test_save_wraps_ioerror_when_open_fails(local_storage: LocalFileStorageService):
-    with patch("builtins.open", side_effect=OSError("disk full")):
-        with pytest.raises(IOError):
-            local_storage.save("chat-1/file.txt", b"data")
+    with (
+        patch("builtins.open", side_effect=OSError("disk full")),
+        pytest.raises(IOError),
+    ):
+        local_storage.save("chat-1/file.txt", b"data")
 
 
 def test_load_wraps_ioerror_when_open_fails(local_storage: LocalFileStorageService):
     key = "chat-1/file.txt"
     local_storage.save(key, b"data")
 
-    with patch("builtins.open", side_effect=OSError("read failed")):
-        with pytest.raises(IOError):
-            local_storage.load(key)
+    with (
+        patch("builtins.open", side_effect=OSError("read failed")),
+        pytest.raises(IOError),
+    ):
+        local_storage.load(key)
 
 
 def test_update_wraps_ioerror_when_open_fails(local_storage: LocalFileStorageService):
     key = "chat-1/file.txt"
     local_storage.save(key, b"data")
 
-    with patch("builtins.open", side_effect=OSError("write failed")):
-        with pytest.raises(IOError):
-            local_storage.update(key, b"new-data")
+    with (
+        patch("builtins.open", side_effect=OSError("write failed")),
+        pytest.raises(IOError),
+    ):
+        local_storage.update(key, b"new-data")

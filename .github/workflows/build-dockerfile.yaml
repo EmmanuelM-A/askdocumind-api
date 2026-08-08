@@ -51,8 +51,7 @@ jobs:
         env:
           USER_SESSION_SECRET: ${{ secrets.USER_SESSION_SECRET }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          SEARCH_API_KEY: ${{ secrets.SEARCH_API_KEY }}
-          SEARCH_ENGINE_ID: ${{ secrets.SEARCH_ENGINE_ID }}
+          BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
         run: |
           docker run -d \
             --name askdocumind-ci \
@@ -68,8 +67,7 @@ jobs:
             -e CORS_ORIGINS='["http://localhost:3000"]' \
             -e "USER_SESSION_SECRET=$USER_SESSION_SECRET" \
             -e "OPENAI_API_KEY=$OPENAI_API_KEY" \
-            -e "SEARCH_API_KEY=$SEARCH_API_KEY" \
-            -e "SEARCH_ENGINE_ID=$SEARCH_ENGINE_ID" \
+            -e "BRAVE_SEARCH_API_KEY=$BRAVE_SEARCH_API_KEY" \
             askdocumind-api:ci
 
       - name: Wait for API to be ready

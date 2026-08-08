@@ -1,23 +1,29 @@
 """
-Web search module for retrieving information from the internet when no
+Web search module for retrieving raw content from the internet when no
 relevant documents are found.
 """
 
 import ipaddress
+import re
 import socket
+import time
 from dataclasses import dataclass
-from urllib.parse import quote_plus, urlparse
+from html import escape
+from urllib.parse import urlparse
 from uuid import UUID
 
 import requests
-import time
-from typing import List, Optional
-from bs4 import BeautifulSoup
+from ddgs import DDGS
+from ddgs.exceptions import DDGSException
 
-from src.components.ingestion.vector_processor import VectorProcessor
-from src.components.retrieval.embedder import Embedder
+from src.components.ingestion.document_processor import DocumentProcessor
 from src.config.configs import settings
-from src.database.repository.interfaces import DBTransaction
+from src.config.constants import DocumentSourceType, ProcessingStatus
+from src.database.models import Document
+from src.database.repository.interfaces.db_transaction import DBTransaction
+from src.database.repository.interfaces.document_repository import (
+    DocumentRepositoryInterface,
+)
 from src.logger.base_logger import BaseLogger
 
 
@@ -34,61 +40,63 @@ class WebSearchResult:
     url: str
 
 
+# document.source is String(255) - a URL plus ".html" could in rare cases
+# exceed that, so it's truncated defensively rather than raising on insert.
+_MAX_SOURCE_LEN = 255
+
+# Same per-file and per-chat size limits enforced for uploaded documents,
+# applied here too so web-search ingestion can't bypass them.
+_MAX_FILE_SIZE_BYTES = int(settings.files.MAX_FILE_SIZE_MB * 1024 * 1024)
+_MAX_FILES_PER_CHAT_BYTES = int(settings.files.MAX_FILES_PER_CHAT_MB * 1024 * 1024)
+
+# Matches literal two-character escape sequences (backslash+n, backslash+t,
+# backslash+r) as opposed to real newline/tab/carriage-return characters.
+_LITERAL_ESCAPE_SEQUENCE_RE = re.compile(r"\\r\\n|\\n|\\t")
+_REPEATED_WHITESPACE_RE = re.compile(r" {2,}")
+
+
+def _clean_web_text(text: str) -> str:
+    """
+    Replace literal `\\n`/`\\r\\n`/`\\t` escape sequences (as they'd appear
+    in the extracted text of a web page, not real whitespace characters)
+    with a single space, then collapse repeated whitespace. Web-fetched
+    content sometimes carries these through as raw text, which reads as
+    unfriendly noise once it ends up in a chunk or an LLM-generated answer.
+    """
+
+    cleaned = _LITERAL_ESCAPE_SEQUENCE_RE.sub(" ", text)
+    cleaned = _REPEATED_WHITESPACE_RE.sub(" ", cleaned)
+    return cleaned.strip()
+
+
 class WebSearcher:
     """
-    Handles web search functionality and content retrieval.
+    Handles web search and raw content retrieval only.
     """
 
     def __init__(
         self,
-        embedder: Embedder,
-        vector_processor: VectorProcessor,
+        document_processor: DocumentProcessor,
+        document_repository: DocumentRepositoryInterface,
     ) -> None:
         """
         Initializes the WebSearcher instance.
         """
 
+        self._document_processor = document_processor
+        self._document_repository = document_repository
         self._logger = BaseLogger(__name__)
 
-        self.brave_api_key = settings.web.BRAVE_SEARCH_API_KEY.get_secret_value()
-
-        self.embedder = embedder
-        self._vector_processor = vector_processor
+        brave_api_key = settings.web.BRAVE_SEARCH_API_KEY
+        self.brave_api_key = brave_api_key.get_secret_value() if brave_api_key else None
 
     # ======================== WEB SEARCH METHODS ========================
 
-    async def search_and_ingest_web_content(
-        self, query: str, chat_session_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> int:
-
-        self._logger.debug(f"Processing query via web search: '{query}'")
-
-        raw_web_documents = self._search_and_retrieve_content_from_web(query)
-
-        if not raw_web_documents:
-            self._logger.info("No documents retrieved from web search")
-            return 0
-
-        all_web_content: List[str] = []
-        all_content_sources: List[str] = []
-
-        for raw_web_document in raw_web_documents:
-            all_web_content.append(raw_web_document.content)
-            all_content_sources.append(raw_web_document.source)
-
-        ingested = await self._vector_processor.process_and_save_vectors_from_web(
-            chat_session_id=chat_session_id, raw_web_contents=all_web_content, tx=tx
-        )
-
-        self._logger.info(
-            f"Ingested {ingested} web chunks for query '{query}' into chat {chat_session_id}"
-        )
-        return ingested
-
-    # ========================== HELPER METHODS ==========================
-
-    def _search_and_retrieve_content_from_web(self, query: str) -> List[WebContent]:
-        """Enhanced web search with better error handling."""
+    def search_and_retrieve_web_content(self, query: str) -> list[WebContent]:
+        """
+        Search the web based on the `query` and return the any raw HTML content
+        for each matching result.
+        """
 
         if not query or not query.strip():
             self._logger.error("Empty query provided to web search")
@@ -103,7 +111,7 @@ class WebSearcher:
                 self._logger.info("No web search results found")
                 return []
 
-            documents: List[WebContent] = []
+            documents: list[WebContent] = []
             successful_fetches = 0
 
             for i, result in enumerate(search_results):
@@ -118,7 +126,7 @@ class WebSearcher:
                     if i > 0:
                         time.sleep(settings.web.WEB_REQUEST_DELAY_SECS)
 
-                    document_content = self._fetch_and_full_content(result)
+                    document_content = self._fetch_content(result)
                     if document_content:
                         documents.append(
                             WebContent(
@@ -128,7 +136,7 @@ class WebSearcher:
                         )
                         successful_fetches += 1
 
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     self._logger.error(f"Error processing search result {i}: {e}")
                     continue
 
@@ -137,16 +145,106 @@ class WebSearcher:
             )
             return documents
 
-        except Exception as e:
-            self._logger.error(f"Critical error in web search: {e}", exc_info=True)
+        except Exception as e:  # noqa: BLE001
+            self._logger.error(f"Critical error in web search: {e}", exception=e)
             return []
 
-    def _search_web(self, query: str) -> List[WebSearchResult]:
+    async def ingest_web_content(
+        self, query: str, chat_session_id: UUID, tx: DBTransaction
+    ) -> int:
+        """
+        Search the web for relevant content based on the `query`, retrieve the raw HTML for each
+        result, and stage it (document + chunks) within the given `tx`.
+
+        This only flushes the staged rows - it does NOT commit `tx`. Saving
+        web content that never produces a usable answer is meaningless, so
+        the caller is responsible for committing `tx` once it has confirmed
+        the ingested content actually produced a usable response, and
+        rolling it back otherwise so nothing gets persisted.
+
+        Returns:
+            The total number of document chunks staged within `tx`.
+        """
+
+        web_contents = self.search_and_retrieve_web_content(query)
+
+        if not web_contents:
+            self._logger.info(f"No web content retrieved for query: '{query}'")
+            return 0
+
+        total_saved = 0
+
+        for web_content in web_contents:
+            content_bytes = len(web_content.content.encode("utf-8"))
+
+            if content_bytes > _MAX_FILE_SIZE_BYTES:
+                self._logger.warning(
+                    f"Skipping web content from {web_content.source}: "
+                    f"{content_bytes} bytes exceeds the per-document limit "
+                    f"of {settings.files.MAX_FILE_SIZE_MB} MB."
+                )
+                continue
+
+            current_mb_in_chat = await self._document_repository.get_total_size_mb(
+                chat_session_id=chat_session_id, tx=tx
+            )
+            current_bytes_in_chat = int(current_mb_in_chat * 1024 * 1024)
+
+            if current_bytes_in_chat + content_bytes > _MAX_FILES_PER_CHAT_BYTES:
+                self._logger.warning(
+                    f"Skipping web content from {web_content.source}: would "
+                    f"exceed the {settings.files.MAX_FILES_PER_CHAT_MB} MB "
+                    f"per-chat storage limit for chat {chat_session_id}."
+                )
+                continue
+
+            try:
+                web_doc_source = web_content.source[:_MAX_SOURCE_LEN]
+
+                web_doc_id = await self._document_repository.create(
+                    data=Document(
+                        session_id=chat_session_id,
+                        source=web_doc_source,
+                        source_size=content_bytes,
+                        source_type=DocumentSourceType.WEB_SEARCH,
+                        processing_status=ProcessingStatus.COMPLETED,
+                    ),
+                    tx=tx,
+                )
+
+                docling_document = self._document_processor.extract(
+                    document_data=web_content.content.encode("utf-8"),
+                    filename=web_doc_source,
+                )
+                chunks = self._document_processor.chunk(
+                    docling_document, source_name=web_doc_source
+                )
+                chunks = [_clean_web_text(chunk) for chunk in chunks]
+
+                saved = await self._document_processor.save_document_chunks(
+                    chunks=chunks,
+                    chat_session_id=chat_session_id,
+                    document_id=web_doc_id,
+                    tx=tx,
+                )
+
+                total_saved += saved
+            except Exception as e:  # noqa: BLE001
+                self._logger.error(
+                    f"Failed to stage web content from {web_content.source}: {e}"
+                )
+                continue
+
+        self._logger.info(
+            f"Staged {total_saved} web chunks for query '{query}' into chat {chat_session_id}"
+        )
+        return total_saved
+
+    # ========================== HELPER METHODS ==========================
+
+    def _search_web(self, query: str) -> list[WebSearchResult]:
         """
         Perform web search using Brave Search API.
-
-        Args:
-            query: The search query string
 
         Returns:
             List of search results with title, snippet, and url.
@@ -170,7 +268,10 @@ class WebSearcher:
             params = {"q": query, "count": num_results}
 
             response = requests.get(
-                url, headers=headers, params=params, timeout=settings.web.WEB_REQUEST_TIMEOUT_SECS
+                url,
+                headers=headers,
+                params=params,
+                timeout=settings.web.WEB_REQUEST_TIMEOUT_SECS,
             )
             response.raise_for_status()
 
@@ -181,7 +282,7 @@ class WebSearcher:
                 self._logger.warning("No search results found")
                 return []
 
-            results: List[WebSearchResult] = [
+            results: list[WebSearchResult] = [
                 WebSearchResult(
                     title=item.get("title", ""),
                     snippet=item.get("description", ""),
@@ -198,16 +299,13 @@ class WebSearcher:
             body = e.response.text if e.response is not None else "<no response body>"
             self._logger.error(f"Error in web search: {e}, response body: {body}")
             return self._fallback_search(query, num_results)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self._logger.error(f"Error in web search: {e}")
             return self._fallback_search(query, num_results)
 
-    def _fallback_search(self, query: str, num_results: int) -> List[WebSearchResult]:
+    def _fallback_search(self, query: str, num_results: int) -> list[WebSearchResult]:
         """
-        Fallback search using DuckDuckGo (no API key required).
-
-        Note: This is a simple implementation. For production, consider using
-        dedicated libraries like `duckduckgo-search` or similar.
+        Fallback search using DuckDuckGo via the `ddgs` library.
         """
 
         if not settings.web.WEB_SEARCH_FALLBACK_ENABLED:
@@ -215,66 +313,56 @@ class WebSearcher:
             return []
 
         try:
-            # Simple DuckDuckGo search (note: this may not work reliably in production)
-            search_url = f"https://duckduckgo.com/html/?q={quote_plus(query)}"
-            headers = {"User-Agent": settings.web.WEB_USER_AGENT}
+            raw_results = DDGS().text(query, max_results=num_results)
 
-            response = requests.get(search_url, headers=headers, timeout=settings.web.WEB_REQUEST_TIMEOUT_SECS)
-            response.raise_for_status()
-
-            soup = BeautifulSoup(response.content, "html.parser")
-            results: List[WebSearchResult] = []
-
-            # Parse DuckDuckGo results (simplified)
-            result_elements = soup.find_all("div", class_="result")[:num_results]
-
-            for element in result_elements:
-                title_elem = element.find("a", class_="result__a")
-                snippet_elem = element.find("div", class_="result__snippet")
-
-                if title_elem and snippet_elem:
-                    results.append(
-                        WebSearchResult(
-                            title=title_elem.get_text(strip=True),
-                            snippet=snippet_elem.get_text(strip=True),
-                            url=str(title_elem.get("href", "")),
-                        )
-                    )
+            results: list[WebSearchResult] = [
+                WebSearchResult(
+                    title=item.get("title", ""),
+                    snippet=item.get("body", ""),
+                    url=item.get("href", ""),
+                )
+                for item in raw_results
+            ]
 
             self._logger.debug(f"Retrieved {len(results)} fallback search results")
             return results
 
-        except Exception as e:
+        except DDGSException as e:
             self._logger.error(f"Error in fallback search: {e}")
             return []
+        except Exception as e:  # noqa: BLE001
+            self._logger.error(f"Unexpected error in fallback search: {e}")
+            return []
 
-    def _fetch_and_full_content(self, result: WebSearchResult) -> Optional[str]:
+    def _fetch_content(self, result: WebSearchResult) -> str | None:
         """
-        Safely fetch and extract content from a web page given a search result,
-        with robust error handling and fallback to snippet if content retrieval
-        fails.
+        Fetch the raw HTML for a search result, falling back to a minimal
+        HTML wrapper around the title/snippet if the page can't be fetched.
+
+        This always returns real HTML (never plain text), so a downstream
+        HTML-aware converter (e.g. DocumentProcessor.extract) can parse it
+        consistently regardless of which path was taken.
         """
 
         try:
-            url = result.url
-            title = result.title
-            snippet = result.snippet
+            page_html = self._fetch_page_html(result.url)
 
-            content = self._fetch_page_content(url)
+            if (
+                page_html
+                and len(page_html.strip()) >= settings.app.MIN_DOCUMENT_CONTENT_LENGTH
+            ):
+                return page_html
 
-            if content and len(content.strip()) >= settings.app.MIN_DOCUMENT_CONTENT_LENGTH:
-                full_content = (
-                    f"Title: {title}\n\nSummary: {snippet}\n\nContent: {content}"
-                )
-            else:
-                # Fallback to snippet if content fetch fails or is too short
-                full_content = f"Title: {title}\n\nSummary: {snippet}"
-                self._logger.debug(f"Using snippet fallback for {url}")
+            self._logger.debug(f"Using title/snippet HTML fallback for {result.url}")
+            return (
+                "<html><body>"
+                f"<h1>{escape(result.title)}</h1>"
+                f"<p>{escape(result.snippet)}</p>"
+                "</body></html>"
+            )
 
-            return full_content
-
-        except Exception as e:
-            self._logger.error(f"Error creating document from search result: {e}")
+        except Exception as e:  # noqa: BLE001
+            self._logger.error(f"Error fetching content for {result.url}: {e}")
             return None
 
     @staticmethod
@@ -292,18 +380,20 @@ class WebSearcher:
                 or ip.is_reserved
                 or ip.is_multicast
             )
-        except Exception:
+        except Exception:  # noqa: BLE001
             return False
 
-    def _fetch_page_content(self, url: str) -> Optional[str]:
+    def _fetch_page_html(self, url: str) -> str | None:
         """
-        Fetch and extract text content from a web page at the given URL or
-        return None if any error occurs.
+        Fetch the raw HTML for a page at the given URL, or return None if any
+        error occurs.
         """
 
         try:
             if not self._is_safe_url(url):
-                self._logger.warning(f"Blocked fetch to private/reserved address: {url}")
+                self._logger.warning(
+                    f"Blocked fetch to private/reserved address: {url}"
+                )
                 return None
 
             headers = {"User-Agent": settings.web.WEB_USER_AGENT}
@@ -313,46 +403,18 @@ class WebSearcher:
             )
             response.raise_for_status()
 
-            soup = BeautifulSoup(response.content, "html.parser")
-
-            # Remove script and style elements
-            for script in soup(["script", "style", "nav", "footer", "header"]):
-                script.decompose()
-
-            # Extract text from main content areas
-            content_selectors = [
-                "main",
-                "article",
-                ".content",
-                ".post-content",
-                ".entry-content",
-                ".article-content",
-                "p",
-            ]
-
-            content_text = ""
-            for selector in content_selectors:
-                elements = soup.select(selector)
-                if elements:
-                    content_text = " ".join(
-                        [elem.get_text(strip=True) for elem in elements]
-                    )
-                    break
-
-            if not content_text:
-                # Fallback to body text
-                body = soup.find("body")
-                if body:
-                    content_text = body.get_text(strip=True)
-
-            # Clean up the text
-            content_text = " ".join(content_text.split())
+            content_type = response.headers.get("Content-Type", "")
+            if "text/html" not in content_type.lower():
+                self._logger.warning(
+                    f"Skipping non-HTML content ({content_type or 'unknown'}) from {url}"
+                )
+                return None
 
             self._logger.debug(
-                f"Successfully extracted {len(content_text)} characters from {url}"
+                f"Successfully fetched {len(response.text)} characters of HTML from {url}"
             )
-            return content_text
+            return response.text
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self._logger.error(f"Error fetching content from {url}: {e}")
             return None

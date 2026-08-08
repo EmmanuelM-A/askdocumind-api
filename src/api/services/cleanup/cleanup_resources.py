@@ -1,11 +1,13 @@
 """Cleanup orchestration for expired anonymous user sessions, stuck documents, and web chunks."""
 
 import asyncio
-from typing import Optional
 
 from src.api.services.auth.anonymous_user import AnonymousUserSessionService
 from src.api.services.documents.document_cleanup import DocumentCleanupService
-from src.api.services.service_factory import get_anonymous_user_service, get_document_cleanup_service
+from src.api.services.service_factory import (
+    get_anonymous_user_service,
+    get_document_cleanup_service,
+)
 from src.config.configs import settings
 from src.logger.base_logger import BaseLogger
 
@@ -16,7 +18,7 @@ async def _run_scheduler(
     anonymous_user_services: AnonymousUserSessionService,
     stop_event: asyncio.Event,
     interval_minutes: int,
-    document_cleanup_service: Optional[DocumentCleanupService] = None,
+    document_cleanup_service: DocumentCleanupService | None = None,
 ) -> None:
     """Run all cleanup tasks repeatedly until the stop event is set."""
 

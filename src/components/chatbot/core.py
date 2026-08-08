@@ -5,31 +5,28 @@ Handles chatbot interactions using Retrieval-Augmented Generation (RAG).
 import json
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List
 from uuid import UUID
 
 from src.components.chatbot.query_handler import PossibleResponse, QueryHandler
-from src.components.ingestion.document_processor import (
-    UploadedDocumentProcessor,
-)
-from src.components.retrieval.embedder import Embedder
+from src.components.ingestion.document_processor import DocumentProcessor
+from src.components.prompts.prompt_loader import create_prompt_template
+from src.components.retrieval.query_expander import expand_query
 from src.components.retrieval.web_searcher import WebSearcher
 from src.config.configs import settings
-from src.database.repository.interfaces import DBTransactionFactory
-from src.database.repository.interfaces.document_chunk_repository import (
-    DocumentChunkRepositoryInterface,
-)
+from src.config.constants import DocumentSourceType
+from src.database.repository.interfaces.db_transaction import DBTransactionFactory
+from src.errors.api_exceptions import ApiException
 from src.logger.base_logger import BaseLogger
 
 # Per-session web search counter. Resets on server restart, which is acceptable
 # for keeping Brave API usage within the free tier (2,000 req/month).
-_web_search_counts: Dict[str, int] = defaultdict(int)
+_web_search_counts: dict[str, int] = defaultdict(int)
 
 
 @dataclass
 class ChatbotResponse:
     answer: str
-    sources: List[str]
+    sources: list[str]
 
     def to_dict(self) -> dict:
         """Return a JSON-serializable dictionary representation."""
@@ -45,15 +42,12 @@ class ChatbotResponse:
 
 class RAGChatbot:
     """Defines all methods related to RAG Chatbot interactions."""
-
     def __init__(
         self,
-        document_processor: UploadedDocumentProcessor,
-        embedder: Embedder,
         query_handler: QueryHandler,
+        document_processor: DocumentProcessor,
         web_searcher: WebSearcher,
         tx_factory: DBTransactionFactory,
-        document_chunk_repo: DocumentChunkRepositoryInterface,
     ) -> None:
         """
         Initializes the RAGChatbot with its components.
@@ -62,13 +56,17 @@ class RAGChatbot:
         :param embedder: The embedder instance.
         :param query_handler: The query handler instance.
         :param web_searcher: The web searcher instance.
+        :param tx_factory: Used to open a transaction around web-search
+            ingestion so it can be committed or rolled back depending on
+            whether the ingested content actually produces a usable answer.
         """
-        self.document_processor = document_processor
-        self.embedder = embedder
-        self.query_handler = query_handler
-        self.web_searcher = web_searcher
+        self._query_handler = query_handler
+        self._document_processor = document_processor
+        self._web_searcher = web_searcher
         self._tx_factory = tx_factory
-        self.document_chunk_repo = document_chunk_repo
+        self._expansion_prompt_template = create_prompt_template(
+            settings.llm.QUERY_EXPANSION_PROMPT_FILEPATH
+        )
         self._logger = BaseLogger(__name__)
 
     # ========================== QUERY METHODS ==========================
@@ -83,8 +81,19 @@ class RAGChatbot:
 
         is_web_enabled = settings.web.IS_WEB_SEARCH_ENABLED and web_search_enabled
 
-        results, sources = await self.query_handler.search_for_vector(
-            query, chat_session_id
+        try:
+            expanded_query = expand_query(
+                query=query, llm=self._query_handler.llm, prompt_template=self._expansion_prompt_template
+            )
+        except ApiException as e:
+            self._logger.warning(
+                f"Query expansion failed ({e.error.code}); falling back to the "
+                f"original query: '{query}'."
+            )
+            expanded_query = query
+
+        results, sources = await self._query_handler.search_for_vectors(
+            expanded_query, chat_session_id, source_type=DocumentSourceType.UPLOAD
         )
 
         include_web_search = " or through web search" if is_web_enabled else ""
@@ -105,32 +114,31 @@ class RAGChatbot:
             f"the query '{query}'."
         )
 
-        if len(results) > 0:
-            response: PossibleResponse = self.query_handler.generate_responses(
-                query=query, retrieved_chunks=results
-            )
+        # Always ask the LLM to judge the query, even with zero retrieved chunks -
+        # this lets it decide between answering directly, declining in its own
+        # words, or signalling NEED_WEB_SEARCH, instead of blindly falling back
+        # to web search whenever local vector search finds nothing.
+        response: PossibleResponse = self._query_handler.generate_response(
+            query=expanded_query, retrieved_chunks=results
+        )
 
-            if response == "OUT_OF_SCOPE":
-                self._logger.info(f"Query '{query}' is out of scope for the uploaded documents.")
-                return response_data
+        if response is None:
+            self._logger.info(f"No relevant information found for the query: '{query}'.")
+            return response_data
 
-            if response is None:
-                self._logger.info(f"No relevant information found for the query: '{query}'.")
-                return response_data
+        if response != "NEED_WEB_SEARCH":
+            response_data.answer = response
+            response_data.sources = sources
+            self._logger.info(f"Generated response for query: '{query}'.")
+            return response_data
 
-            if response != "NEED_WEB_SEARCH":
-                response_data.answer = response
-                response_data.sources = sources
-                self._logger.info(f"Generated response for query: '{query}'.")
-                return response_data
+        # LLM signalled NEED_WEB_SEARCH — fall through to web search below
+        self._logger.info(f"LLM requested web search for query: '{query}'.")
 
-            # LLM signalled NEED_WEB_SEARCH — fall through to web search if enabled
-            if not is_web_enabled:
-                return response_data
-        else:
-            # No matching chunks at all — go straight to web search if enabled
-            if not is_web_enabled:
-                return response_data
+        # Either no matching chunks at all, or the LLM explicitly asked for a
+        # web search — proceed only if web search is enabled.
+        if not is_web_enabled:
+            return response_data
 
         session_key = str(chat_session_id)
         if _web_search_counts[session_key] >= settings.web.MAX_WEB_SEARCHES_PER_SESSION:
@@ -143,6 +151,7 @@ class RAGChatbot:
                 "Disable its usage! And try rephrasing your question based solely on your uploaded documents. "
             )
             return response_data
+
         _web_search_counts[session_key] += 1
 
         self._logger.info(
@@ -150,24 +159,41 @@ class RAGChatbot:
             f"(search {_web_search_counts[session_key]}/{settings.web.MAX_WEB_SEARCHES_PER_SESSION} for session)."
         )
 
-        await self.web_searcher.search_and_ingest_web_content(
-            query=query, chat_session_id=chat_session_id,
-        )
+        # Web content is only worth persisting if it actually produces a usable answer
+        tx = self._tx_factory.create()
+        try:
+            await tx.__aenter__()
 
-        web_results, web_sources = await self.query_handler.search_for_vector(
-            query, chat_session_id
-        )
+            await self._web_searcher.ingest_web_content(
+                query=expanded_query, chat_session_id=chat_session_id, tx=tx,
+            )
 
-        if len(web_results) == 0:
-            return response_data
+            web_results, web_sources = await self._query_handler.search_for_vectors(
+                expanded_query, chat_session_id, tx=tx
+            )
 
-        web_response: PossibleResponse = self.query_handler.generate_responses(
-            query=query, retrieved_chunks=web_results, from_web_search=True
-        )
+            if len(web_results) == 0:
+                self._logger.debug(
+                    f"No relevant web results found for the query: '{query}'."
+                )
+                await tx.rollback()
+                return response_data
 
-        if not web_response or web_response in ("OUT_OF_SCOPE", "NEED_WEB_SEARCH"):
-            self._logger.info(f"Web search did not produce a usable response for '{query}'.")
-            return response_data
+            web_response: PossibleResponse = self._query_handler.generate_response(
+                query=expanded_query, retrieved_chunks=web_results, from_web_search=True
+            )
+
+            if not web_response or web_response == "NEED_WEB_SEARCH":
+                self._logger.info(
+                    f"Web search did not produce a usable response for '{query}'; "
+                    "discarding the ingested web content."
+                )
+                await tx.rollback()
+                return response_data
+
+            await tx.commit()
+        finally:
+            await tx.close()
 
         self._logger.info(f"Generated response from web search for the query: '{query}'.")
         response_data.answer = web_response

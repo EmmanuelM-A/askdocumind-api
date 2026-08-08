@@ -3,7 +3,6 @@ Repository interface for chat message CRUD operations.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, List
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -16,16 +15,16 @@ from src.database.repository.interfaces.db_transaction import DBTransaction
 class ChatMessageSearchCriteria(BaseModel):
     """Criteria for filtering chat messages in list/search operations."""
 
-    id: Optional[UUID] = None
-    session_id: Optional[UUID] = None
-    role: Optional[ChatMessageRole] = None
+    id: UUID | None = None
+    session_id: UUID | None = None
+    role: ChatMessageRole | None = None
 
 
 class UpdatedChatMessageData(BaseModel):
     """Schema for updating chat message fields."""
 
-    content: Optional[str] = None
-    role: Optional[ChatMessageRole] = None
+    content: str | None = None
+    role: ChatMessageRole | None = None
 
 
 class ChatMessageRepositoryInterface(ABC):
@@ -38,7 +37,7 @@ class ChatMessageRepositoryInterface(ABC):
 
     @abstractmethod
     async def create(
-        self, data: ChatMessage, tx: Optional[DBTransaction] = None
+        self, data: ChatMessage, tx: DBTransaction | None = None
     ) -> UUID:
         """
         Create and persist a new chat message entity.
@@ -52,9 +51,9 @@ class ChatMessageRepositoryInterface(ABC):
     @abstractmethod
     async def list_by(
         self,
-        criteria: Optional[ChatMessageSearchCriteria] = None,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[ChatMessage]:
+        criteria: ChatMessageSearchCriteria | None = None,
+        tx: DBTransaction | None = None,
+    ) -> list[ChatMessage]:
         """
         Retrieve chat messages matching the given criteria.
 
@@ -68,8 +67,8 @@ class ChatMessageRepositoryInterface(ABC):
 
     @abstractmethod
     async def get_by_id(
-        self, message_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> Optional[ChatMessage]:
+        self, message_id: UUID, tx: DBTransaction | None = None
+    ) -> ChatMessage | None:
         """
         Retrieve a single chat message by its unique identifier.
 
@@ -83,8 +82,8 @@ class ChatMessageRepositoryInterface(ABC):
     async def get_by_criteria(
         self,
         criteria: ChatMessageSearchCriteria,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[ChatMessage]:
+        tx: DBTransaction | None = None,
+    ) -> ChatMessage | None:
         """
         Retrieve a single chat message matching the given criteria.
 
@@ -101,8 +100,8 @@ class ChatMessageRepositoryInterface(ABC):
         self,
         entity_id: UUID,
         new_entity_data: UpdatedChatMessageData,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[ChatMessage]:
+        tx: DBTransaction | None = None,
+    ) -> ChatMessage | None:
         """
         Update an existing chat message with new data.
 
@@ -115,7 +114,7 @@ class ChatMessageRepositoryInterface(ABC):
 
     @abstractmethod
     async def delete(
-        self, message_id: UUID, tx: Optional[DBTransaction] = None
+        self, message_id: UUID, tx: DBTransaction | None = None
     ) -> bool:
         """
         Delete a chat message by its unique identifier.
@@ -128,7 +127,7 @@ class ChatMessageRepositoryInterface(ABC):
 
     @abstractmethod
     async def exists(
-        self, entity_id: UUID, tx: Optional[DBTransaction] = None
+        self, entity_id: UUID, tx: DBTransaction | None = None
     ) -> bool:
         """
         Check if a chat message with the given UUID exists.
@@ -142,8 +141,8 @@ class ChatMessageRepositoryInterface(ABC):
     @abstractmethod
     async def count(
         self,
-        filter_id: Optional[UUID] = None,
-        tx: Optional[DBTransaction] = None,
+        filter_id: UUID | None = None,
+        tx: DBTransaction | None = None,
     ) -> int:
         """
         Count chat messages, optionally filtered by chat session ID.
@@ -156,8 +155,8 @@ class ChatMessageRepositoryInterface(ABC):
 
     @abstractmethod
     async def create_many(
-        self, entities: List[ChatMessage], tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, entities: list[ChatMessage], tx: DBTransaction | None = None
+    ) -> list[UUID]:
         """
         Create and persist multiple chat message entities.
 
@@ -169,7 +168,7 @@ class ChatMessageRepositoryInterface(ABC):
 
     @abstractmethod
     async def delete_many(
-        self, message_ids: List[UUID], tx: Optional[DBTransaction] = None
+        self, message_ids: list[UUID], tx: DBTransaction | None = None
     ) -> int:
         """
         Delete multiple chat messages by their identifiers.

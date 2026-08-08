@@ -5,7 +5,7 @@ from src.utils import format_datetime
 
 
 def test_format_datetime_outputs_expected_layout_for_naive_value():
-    value = datetime(2026, 4, 7, 17, 3, 20)
+    value = datetime(2026, 4, 7, 17, 3, 20)  # noqa: DTZ001 (naive value is the point of this test)
 
     assert format_datetime(value) == "07-04-2026 18:03:20"
 

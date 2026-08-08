@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +19,7 @@ class SQLAlchemyDBTransaction(DBTransaction):
 
 	def __init__(self, connection: DatabaseConnection) -> None:
 		self._connection = connection
-		self._session: Optional[AsyncSession] = None
+		self._session: AsyncSession | None = None
 		self._active = False
 
 	@property

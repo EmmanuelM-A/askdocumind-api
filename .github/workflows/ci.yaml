@@ -2,8 +2,6 @@ name: CI Pipeline
 
 on:
   push:
-    branches:
-      - develop
     paths:
       - "src/**"
       - "tests/**"
@@ -46,6 +44,30 @@ jobs:
     uses: ./.github/workflows/unit-tests.yaml
     with:
       python-version: "3.12"
+
+  integration-tests:
+    name: Integration Tests
+    needs: unit-tests
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.base_ref == 'main' &&
+      github.event.pull_request.draft == false
+    uses: ./.github/workflows/integration-tests.yaml
+    with:
+      python-version: "3.12"
+    secrets: inherit
+
+  e2e-tests:
+    name: E2E Tests
+    needs: integration-tests
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.base_ref == 'main' &&
+      github.event.pull_request.draft == false
+    uses: ./.github/workflows/e2e-tests.yaml
+    with:
+      python-version: "3.12"
+    secrets: inherit
 
   docker-build:
     name: Docker Build

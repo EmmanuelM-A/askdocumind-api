@@ -2,28 +2,31 @@
 Responsible for defining all the database models used in the application.
 """
 
-import uuid
 import json
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    UUID,
+    BigInteger,
     Column,
     DateTime,
-    String,
-    UUID,
-    Text,
-    Integer,
-    BigInteger,
     Enum,
     ForeignKey,
+    String,
+    Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import relationship, declarative_base
-from pgvector.sqlalchemy import Vector
+from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.orm import declarative_base, relationship
 
-from src.config.constants import ChatMessageRole, ProcessingStatus
+from src.config.constants import ChatMessageRole, DocumentSourceType, ProcessingStatus
+from src.logger.base_logger import BaseLogger
 from src.utils import format_datetime
+
+_logger = BaseLogger(__name__)
 
 Base = declarative_base()
 metadata = Base.metadata
@@ -41,8 +44,8 @@ def _serialize_value(value: Any) -> Any:
     try:
         # Many enums are instances of Python Enum and expose .name
         return value.name
-    except Exception:
-        pass
+    except Exception as e:  # noqa: BLE001
+        _logger.debug(f"Could not serialize enum-like value {value!r}: {e}")
     return value
 
 
@@ -93,7 +96,6 @@ class ChatSession(Base):
         UUID(as_uuid=True), ForeignKey("user.id", ondelete="CASCADE"), nullable=False
     )
     title = Column(Text, nullable=True)
-    total_messages = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationships
@@ -108,7 +110,7 @@ class ChatSession(Base):
         return str(self.title) if self.title is not None else "Unknown Chat Session"
 
     def __repr__(self):
-        return f"Title: {self.title} | Total messages: {self.total_messages}"
+        return f"Title: {self.title}"
 
     def to_dict(self) -> dict:
         """Return JSON-serializable dict representation of the ChatSession.
@@ -120,7 +122,6 @@ class ChatSession(Base):
         return {
             "id": _serialize_value(self.id),
             "title": self.title,
-            "total_messages": self.total_messages,
             "created_at": _serialize_value(self.created_at),
         }
 
@@ -134,7 +135,7 @@ class Document(Base):
 
     __tablename__ = "document"
     __table_args__ = (
-        UniqueConstraint("session_id", "filename", name="uq_document_session_filename"),
+        UniqueConstraint("session_id", "source", name="uq_document_session_source"),
     )
 
     # Columns
@@ -144,8 +145,11 @@ class Document(Base):
         ForeignKey("chat_session.id", ondelete="CASCADE"),
         nullable=False,
     )
-    filename = Column(String(255), nullable=False)
-    file_size = Column(BigInteger, nullable=False)
+    source = Column(String(255), nullable=False)
+    source_size = Column(BigInteger, nullable=False)
+    source_type = Column(
+        Enum(DocumentSourceType), default=DocumentSourceType.UPLOAD, nullable=False
+    )
     processing_status = Column(
         Enum(ProcessingStatus), default=ProcessingStatus.PROCESSING, nullable=False
     )
@@ -163,18 +167,19 @@ class Document(Base):
     )
 
     def __repr__(self):
-        return f"Document(filename={self.filename}, size={self.file_size})"
+        return f"Document(source={self.source}, size={self.source_size})"
 
     def __str__(self) -> str:
-        return str(self.filename) if self.filename is not None else "Unknown Document"
+        return str(self.source) if self.source is not None else "Unknown Document"
 
     def to_dict(self) -> dict:
         """Return JSON-serializable dict representation of the Document."""
         return {
             "id": _serialize_value(self.id),
             "session_id": _serialize_value(self.session_id),
-            "filename": self.filename,
-            "file_size": self.file_size,
+            "source": self.source,
+            "source_size": self.source_size,
+            "source_type": _serialize_value(self.source_type),
             "processing_status": _serialize_value(self.processing_status),
             "created_at": _serialize_value(self.created_at),
             "updated_at": _serialize_value(self.updated_at),
@@ -194,8 +199,7 @@ class DocumentChunk(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     document_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("document.id", ondelete="CASCADE"),
-        nullable=True,
+        ForeignKey("document.id", ondelete="CASCADE")
     )
     chat_session_id = Column(
         UUID(as_uuid=True),
@@ -230,12 +234,13 @@ class DocumentChunk(Base):
             try:
                 # numpy arrays and similar expose tolist()
                 if hasattr(val, "tolist"):
-                    return val.tolist()
+                    return val.tolist() # type: ignore
+                # fallback for other sequence types, e.g., built-in
                 # sequences (lists/tuples)
                 if isinstance(val, (list, tuple)):
                     return list(val)
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001
+                _logger.debug(f"Could not serialize embedding value: {e}")
             return None
 
         return {
@@ -265,6 +270,7 @@ class ChatMessage(Base):
     )
     role = Column(Enum(ChatMessageRole), nullable=False)
     content = Column(Text, nullable=False)
+    sources = Column(ARRAY(String), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationship
@@ -283,6 +289,7 @@ class ChatMessage(Base):
             "session_id": _serialize_value(self.session_id),
             "role": _serialize_value(self.role),
             "content": self.content,
+            "sources": self.sources,
             "created_at": _serialize_value(self.created_at),
         }
 

@@ -4,11 +4,11 @@ Each configuration class handles a specific domain of settings.
 """
 
 from pathlib import Path
-from typing import List, Literal, Optional
+from typing import Literal
 
+from dotenv import load_dotenv
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from dotenv import load_dotenv
 
 # ------------------------------------------------------------------
 # Environment Setup
@@ -44,7 +44,7 @@ class CoreAppSettings(_BaseSettings):
     HOST: str = Field(default="0.0.0.0")
 
     # Sentry
-    SENTRY_DSN: Optional[str] = Field(default=None)
+    SENTRY_DSN: str | None = Field(default=None)
     SENTRY_ENVIRONMENT: str = Field(default="production")
     SENTRY_TRACES_SAMPLE_RATE: float = Field(default=0.1)
 
@@ -54,9 +54,7 @@ class CoreAppSettings(_BaseSettings):
     # Business-logic thresholds
     MIN_QUERY_LENGTH: int = Field(default=10)
     MAX_QUERY_LENGTH: int = Field(default=2000)
-    IS_QUERY_TRUNCATION_ENABLED: bool = Field(default=False)
-    MIN_DOCUMENT_CONTENT_LENGTH: int = Field(default=10)
-    MAX_DOCUMENT_CONTENT_LENGTH: int = Field(default=1000000)
+    MIN_DOCUMENT_CONTENT_LENGTH: int = Field(default=20)
 
     MAX_CHATS_PER_USER: int = Field(default=1)
 
@@ -102,7 +100,7 @@ class AuthSettings(_BaseSettings):
     COOKIE_SAMESITE: Literal["lax", "strict", "none"] = Field(
         default="none", validation_alias="ANON_SESSION_COOKIE_SAMESITE"
     )
-    COOKIE_DOMAIN: Optional[str] = Field(
+    COOKIE_DOMAIN: str | None = Field(
         default=None, validation_alias="ANON_SESSION_COOKIE_DOMAIN"
     )
 
@@ -138,12 +136,14 @@ class AnonymousUserSessionSettings(_BaseSettings):
 class FileProcessingSettings(_BaseSettings):
     """File processing configuration settings."""
 
-    ALLOWED_FILE_EXTENSIONS: List[str] = Field(default=[".pdf", ".docx", ".txt", ".md"])
     MAX_FILE_SIZE_MB: float = Field(default=0.5)  # Max size per file
     MAX_FILES_PER_CHAT_MB: int = Field(
         default=1
     )  # Max total size of all files per chat
     MAX_DOCUMENTS_PER_CHAT: int = Field(default=10)
+    ALLOED_FILE_EXTENSIONS: list[str] = Field(
+        default=[".pdf", ".docx", ".txt", ".md", ".html", ".csv"]
+    )
 
     LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{_PROJECT_ROOT}/data/local/documents")
 
@@ -174,7 +174,10 @@ class LLMIntegrationSettings(_BaseSettings):
     LLM_MAX_OUTPUT_TOKENS: int = Field(default=1024)
 
     RESPONSE_PROMPT_FILEPATH: str = Field(
-        default=f"{_PROJECT_ROOT}/data/prompts/default_response_prompt.yaml"
+        default=f"{_PROJECT_ROOT}/data/prompts/no_out_of_scope_response_prompt.yaml"
+    )
+    QUERY_EXPANSION_PROMPT_FILEPATH: str = Field(
+        default=f"{_PROJECT_ROOT}/data/prompts/default_expand_query_prompt.yaml"
     )
 
     model_config = _DEFAULT_MODEL_CONFIG
@@ -186,12 +189,13 @@ class LLMIntegrationSettings(_BaseSettings):
 class VectorStoreSettings(_BaseSettings):
     """Vector store configuration settings."""
 
-    CHUNK_SIZE: int = Field(default=1000)
-    CHUNK_OVERLAP: int = Field(default=60)
+    MAX_TOKENS: int = Field(default=512)
     RETRIEVAL_TOP_K: int = Field(default=3)
     SIMILARITY_THRESHOLD: float = Field(default=0.4)
-    MAX_VECTORS_IN_MEMORY: int = Field(default=10000)
     VECTOR_BATCH_SIZE: int = Field(default=100)
+    # Number of candidate chunks fetched from the vector search before the
+    # reranker trims/reorders them down to RETRIEVAL_TOP_K.
+    RERANK_CANDIDATE_POOL_SIZE: int = Field(default=15)  # Add to .env file
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -203,7 +207,7 @@ class WebSearchSettings(_BaseSettings):
     """Web search configuration settings."""
 
     IS_WEB_SEARCH_ENABLED: bool = Field(default=False)
-    BRAVE_SEARCH_API_KEY: Optional[SecretStr] = Field(default=None)
+    BRAVE_SEARCH_API_KEY: SecretStr | None = Field(default=None)
 
     @model_validator(mode="after")
     def _require_api_key_when_enabled(self) -> "WebSearchSettings":
@@ -213,7 +217,7 @@ class WebSearchSettings(_BaseSettings):
             )
         return self
 
-    MAX_WEB_SEARCH_RESULTS: int = Field(default=3)
+    MAX_WEB_SEARCH_RESULTS: int = Field(default=1)
     MAX_WEB_SEARCHES_PER_SESSION: int = Field(default=3)
     WEB_REQUEST_TIMEOUT_SECS: int = Field(default=15)
     WEB_REQUEST_DELAY_SECS: int = Field(default=1)
@@ -252,27 +256,24 @@ class LoggingSettings(_BaseSettings):
 # ------------------------------------------------------------------
 class APIServerSettings(_BaseSettings):
     """API server configuration settings."""
-
-    WORKERS: int = Field(default=1)
-
-    CORS_ORIGINS: List[str] = Field(default=...)
+    CORS_ORIGINS: list[str] = Field(default=...)
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
-    CORS_ALLOW_METHODS: List[str] = Field(
+    CORS_ALLOW_METHODS: list[str] = Field(
         default=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     )
-    CORS_ALLOW_HEADERS: List[str] = Field(
+    CORS_ALLOW_HEADERS: list[str] = Field(
         default=["Content-Type", "Accept-Version", "Authorization", "X-Requested-With"]
     )
 
     MAX_REQUEST_BODY_SIZE_MB: float = Field(default=10.0)
 
-    RATE_LIMIT_REQUESTS: int = Field(default=100)
+    RATE_LIMIT_REQUESTS: int = Field(default=60)
     RATE_LIMIT_WINDOW: int = Field(default=60)
 
     MAX_CHAT_QUERIES_PER_MINUTE: int = Field(default=10)
     MAX_UPLOAD_REQUESTS_PER_MINUTE: int = Field(default=5)
     MAX_SESSION_REQUESTS_PER_MINUTE: int = Field(default=10)
-    MAX_CONCURRENT_REQUESTS: int = Field(default=50)
+    MAX_CONCURRENT_REQUESTS: int = Field(default=20)
 
     model_config = _DEFAULT_MODEL_CONFIG
 

@@ -1,7 +1,8 @@
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
-from src.api.services.validation.helper import validate_and_sanitize_query
+
+from src.api.validation.helper import validate_and_sanitize_query
 from src.config.configs import settings
 from src.logger.base_logger import BaseLogger
 

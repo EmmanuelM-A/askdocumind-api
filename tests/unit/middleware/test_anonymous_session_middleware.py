@@ -5,9 +5,9 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
+import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
-import pytest
 
 from src.api.middleware.anonymous_session import AnonymousSessionMiddleware
 from src.api.middleware.exception_handler import setup_exception_handlers

@@ -5,15 +5,14 @@ Handles both custom ApiException instances and unexpected errors.
 
 import traceback
 
-from fastapi import Request, status, FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, status
 from starlette.responses import JSONResponse
 
-from src.config.configs import settings
-from src.logger.base_logger import BaseLogger
-from src.errors.api_exceptions import ApiException
-from src.api.utils.api_responses import ErrorInfo
-from src.api.utils.api_responses import ErrorResponseModel
+from src.api.utils.api_responses import ErrorInfo, ErrorResponseModel
 from src.api.utils.response_delivery import create_error_response
+from src.config.configs import settings
+from src.errors.api_exceptions import ApiException
+from src.logger.base_logger import BaseLogger
 
 logger = BaseLogger(__name__)
 
@@ -87,7 +86,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
     )
 
     logger.error(
-        f"UnhandledException | path={request.url.path} | error={str(exc)}",
+        f"UnhandledException | path={request.url.path} | error={exc!s}",
     )
 
     return create_error_response(

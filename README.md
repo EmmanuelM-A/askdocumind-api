@@ -1,12 +1,20 @@
 # AskDocuMind API
 
-A Retrieval-Augmented Generation (RAG) chatbot backend that lets users upload documents and ask questions about them. Built with FastAPI, PostgreSQL + pgvector, and OpenAI.
+## Quick Links
 
-**Live demo:** [askdocumind.com](https://askdocumind.com)
+- [Live demo](https://askdocumind.com)
+- [Overview](#overview)
+- [Problem](#problem)
+- [Solution](#solution)
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [How to Setup](#how-to-setup)
+- [Environment Variables Reference](#environment-variables-reference)
+- [Deployment](#deployment)
+- [Project Structure](#project-structure)
+- [API Documentation](#api-documentation)
 
-**Frontend code:** [askdocumind-web](https://github.com/EmmanuelM-A/askdocumind-web)
-
-## Project Overview
+## Overview
 
 AskDocuMind allows users to upload PDF, DOCX, TXT, or Markdown files and immediately start asking natural-language questions about their content. The backend handles document ingestion, vector embedding, semantic search, and LLM-powered response generation.
 
@@ -14,11 +22,24 @@ For the purposes of the demo, no user registration is required, activity is full
 
 When the document context is insufficient, the system can optionally fall back to a live web search (via Brave Search API) to supplement the answer.
 
+**Live demo:** [askdocumind.com](https://askdocumind.com)
+
+## Problem
+
+Long documents bury the one answer you actually need. Finding it usually means re-reading pages you've already seen, guessing the exact phrasing `Ctrl+F` needs to match, or scanning page by page hoping to spot the right paragraph — all before you can even trust that what you found is complete or current.
+
+## Solution
+
+AskDocuMind answers questions directly from a document's content instead of a bare LLM guess. Retrieval-Augmented Generation (RAG) embeds the document, retrieves only the chunks relevant to the question, and generates an answer grounded in — and citing — those chunks. No document match means the system says so rather than fabricating an answer, with an optional live web search fallback when the documents themselves don't have it. No sign-up is required: identity is a short-lived anonymous session, so there's no friction between landing on the page and asking a question.
+
 ## Features
 
-- **Document upload**: PDF, DOCX, TXT, and Markdown files up to 0.5 MB each
-- **RAG pipeline**: Documents are chunked, embedded, and stored as vectors in PostgreSQL via pgvector
+- **Document upload**: PDF, DOCX, TXT, and Markdown, CSV, HTML files up to 0.5 MB each
+- **Context-aware chunking**: Documents are parsed and chunked with Docling's hybrid chunker, which splits on document structure and token limits rather than fixed-size windows
+- **RAG pipeline**: Chunks are embedded and stored as vectors in PostgreSQL via pgvector
 - **Semantic search**: Cosine similarity retrieval finds the most relevant chunks for each query
+- **Reranking**: A cross-encoder model rescoring component for improving retrieved-chunk relevance
+- **Query expansion**: Vague or short queries are rewritten by the LLM into fuller, more searchable questions before retrieval
 - **LLM responses**: GPT-powered answers grounded in document context, with prompt injection protection
 - **Web search fallback**: Optional Brave Search integration supplements answers when documents lack the information
 - **Anonymous sessions**: No sign-up required; sessions are cookie-based and automatically cleaned up after TTL expiry
@@ -26,19 +47,6 @@ When the document context is insufficient, the system can optionally fall back t
 - **File validation**: MIME type checking, magic byte validation, size limits, and duplicate detection
 - **Structured error responses**: Consistent JSON error shape across all endpoints
 - **Health endpoints**: API and database health checks for uptime monitoring
-
-## Architecture
-
-### Request flow (chat query)
-
-1. Client sends query + session cookie to `POST /api/chatbot/query`
-2. `AnonymousSessionMiddleware` validates cookie and attaches `user_id` to request state
-3. `QueryHandler` embeds the query using OpenAI text-embedding-3-small
-4. pgvector cosine similarity search retrieves the top-K relevant document chunks
-5. Chunks + query are passed to GPT via a structured prompt
-6. LLM returns either an answer, `OUT_OF_SCOPE`, or `NEED_WEB_SEARCH`
-7. If `NEED_WEB_SEARCH` and web search is enabled: Brave Search fetches results, content is ingested, and the LLM generates a web-grounded answer
-8. Response (answer + sources) is returned to the client
 
 ## Technology Stack
 
@@ -51,16 +59,16 @@ When the document context is insufficient, the system can optionally fall back t
 | LLM | OpenAI GPT-3.5-turbo / GPT-4o-mini | Response generation |
 | Embeddings | OpenAI text-embedding-3-small | Semantic vector creation |
 | LLM orchestration | LangChain | RAG chain construction |
-| File parsing | PyMuPDF, python-docx | PDF and DOCX text extraction |
+| Document parsing & chunking | Docling | Context-aware text extraction and chunking |
+| Reranking | Cross-encoder (sentence-transformers) | Rescoring retrieved chunks for relevance |
 | Web search | Brave Search API | Optional live search fallback |
-| HTML parsing | BeautifulSoup4 | Web content extraction |
 | Rate limiting | SlowAPI | Per-user request throttling |
-| Session auth | JWT (HS256) in HttpOnly cookies | Anonymous user sessions |
+| Session auth | HMAC-signed rotating token in HttpOnly cookies | Anonymous user sessions |
 | File storage | Local filesystem / AWS S3 | Document file storage |
 | Deployment | Docker + Railway | Container hosting |
 | Error tracking | Sentry | Production error monitoring |
 
-## Installation Guide
+## How to Setup
 
 ### Prerequisites
 
@@ -118,7 +126,7 @@ alembic upgrade head
 ### 7. Start the API
 
 ```bash
-uvicorn src.main:app --host localhost --port 5000 --reload
+uvicorn src.api.server:app --host localhost --port 5000 --reload
 
 # OR Run this
 python -m src.api.server
@@ -149,6 +157,16 @@ The API is now available at `http://localhost:5000`. Interactive docs are at `ht
 | `LOG_LEVEL` | No | `DEBUG` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `LOG_TO` | No | `FILE` | `CONSOLE`, `FILE`, or `BOTH` |
 | `SENTRY_DSN` | No | — | Sentry DSN for error tracking |
+| `RATE_LIMIT_REQUESTS` | No | `100` | Global request cap per `RATE_LIMIT_WINDOW`, keyed by IP |
+| `RATE_LIMIT_WINDOW` | No | `60` | Window (seconds) for `RATE_LIMIT_REQUESTS` |
+| `MAX_CHAT_QUERIES_PER_MINUTE` | No | `10` | Chat query cap per anonymous session |
+| `MAX_UPLOAD_REQUESTS_PER_MINUTE` | No | `5` | Document upload cap per anonymous session |
+| `MAX_SESSION_REQUESTS_PER_MINUTE` | No | `10` | Chat-session mutation cap per anonymous session |
+| `MAX_CONCURRENT_REQUESTS` | No | `50` | Max in-flight requests before returning `503` |
+| `HF_TOKEN` | No | — | Hugging Face token (model downloads for reranking) |
+| `DB_POOL_SIZE` | No | — | SQLAlchemy connection pool size |
+| `DB_MAX_OVERFLOW` | No | — | SQLAlchemy pool overflow allowance |
+| `DB_POOL_TIMEOUT_SECS` | No | — | Seconds to wait for a pooled connection before erroring |
 
 ## Deployment
 

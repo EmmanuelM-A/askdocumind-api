@@ -4,9 +4,9 @@ This module defines custom responses for handling API responses.
 
 import json
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict, field_serializer
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 from src.utils import format_datetime
 
@@ -39,7 +39,7 @@ class SuccessResponseModel(ResponseModel):
         default=True, description="Indicates if the request was successful."
     )
 
-    data: Optional[Any] = Field(
+    data: Any | None = Field(
         default=None, description="Optional data to be included in the response."
     )
 
@@ -49,9 +49,9 @@ class ErrorInfo(BaseModel):
 
     code: str = Field(description="Error code representing the type of error.")
 
-    details: Optional[str] = Field(default=None, description="Detailed error message.")
+    details: str | None = Field(default=None, description="Detailed error message.")
 
-    stack_trace: Optional[str] = Field(
+    stack_trace: str | None = Field(
         default=None, description="Optional stack trace for debugging purposes."
     )
 

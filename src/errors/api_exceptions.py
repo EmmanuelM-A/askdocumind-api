@@ -5,7 +5,6 @@ This class is used throughout the API to raise structured, JSON-based
 errors that integrate seamlessly with FastAPI’s exception handling.
 """
 
-from typing import Optional
 
 from fastapi import HTTPException
 from starlette import status
@@ -24,11 +23,11 @@ class ApiException(HTTPException):
     def __init__(
         self,
         error_code: str,
-        error_details: Optional[str] = None,
-        stack_trace: Optional[str] = None,
+        error_details: str | None = None,
+        stack_trace: str | None = None,
         message: str = "An unexpected error occurred.",
         status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
-        headers: Optional[dict] = None,
+        headers: dict | None = None,
     ) -> None:
         self.error = ErrorInfo(
             code=error_code, details=error_details, stack_trace=stack_trace

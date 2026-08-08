@@ -1,10 +1,11 @@
-from typing import List, Optional
-from uuid import UUID
 from pathlib import Path
+from uuid import UUID
 
 from fastapi import UploadFile
 from pydantic import BaseModel, Field, field_validator
+
 from src.config.configs import settings
+from src.errors.custom_exceptions import unprocessable_entity_error
 
 
 class UploadDocumentsRequest(BaseModel):
@@ -12,7 +13,7 @@ class UploadDocumentsRequest(BaseModel):
     Request model for document uploads.
     """
 
-    documents: List[UploadFile] = Field(
+    documents: list[UploadFile] = Field(
         ...,
         description="List of file documents to be uploaded",
         min_length=1,
@@ -22,28 +23,31 @@ class UploadDocumentsRequest(BaseModel):
 
     @field_validator("documents", mode="before")
     @classmethod
-    def validate_file_extensions(cls, files: List[UploadFile]) -> List[UploadFile]:
+    def validate_file_extensions(cls, files: list[UploadFile]) -> list[UploadFile]:
         double_ext = [
-            f.filename
-            for f in files
-            if len(Path(f.filename or "").suffixes) > 1
+            f.filename for f in files if len(Path(f.filename or "").suffixes) > 1
         ]
         if double_ext:
-            raise ValueError(
-                f"Files with multiple extensions are not allowed: {', '.join(double_ext)}"  # type: ignore
+            raise unprocessable_entity_error(
+                message="Files with multiple extensions are not allowed",
+                error_code="INVALID_FILE_EXTENSION",
             )
 
-        allowed = {ext.lstrip(".") for ext in settings.files.ALLOWED_FILE_EXTENSIONS}
-        invalid = [
+        unsupported = [
             f.filename
             for f in files
-            if Path(f.filename or "").suffix.lower().lstrip(".") not in allowed
+            if Path(f.filename or "").suffix.lower() not in settings.files.ALLOED_FILE_EXTENSIONS
         ]
-        if invalid:
-            raise ValueError(
-                f"Unsupported file type(s): {', '.join(invalid)}. " # type: ignore
-                f"Allowed: {', '.join(sorted(allowed))}"
+        if unsupported:
+            allowed = ", ".join(sorted(settings.files.ALLOED_FILE_EXTENSIONS))
+            raise unprocessable_entity_error(
+                message=(
+                    f"Unsupported file type(s): {', '.join(unsupported)}. "
+                    f"Allowed extensions are: {allowed}."
+                ),
+                error_code="UNSUPPORTED_FILE_TYPE",
             )
+
         return files
 
 
@@ -52,7 +56,7 @@ class FetchUploadedDocumentsRequest(BaseModel):
     Request model for fetching uploaded documents by ID.
     """
 
-    document_ids: Optional[List[UUID]] = Field(
+    document_ids: list[UUID] | None = Field(
         None,
         description="Optional list of document IDs to retrieve. "
         "If not provided, all documents will be fetched.",

@@ -5,10 +5,10 @@ Revises: f1b73492f806
 Create Date: 2026-05-08 00:00:00.000000
 """
 
-import alembic.op as op
 import sqlalchemy as sa
 from pgvector.sqlalchemy import Vector
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "b72f4ddf7d1a"

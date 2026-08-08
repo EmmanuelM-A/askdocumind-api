@@ -5,16 +5,17 @@ Tests the ChatMessageRepository implementation against the
 ChatMessageRepositoryInterface.
 """
 
-import pytest
 from uuid import uuid4
 
+import pytest
+
+from src.config.constants import ChatMessageRole
 from src.database.models import ChatMessage
-from src.database.repository.sqlalchemy import ChatMessageRepository
 from src.database.repository.interfaces.chat_message_repository import (
     ChatMessageSearchCriteria,
     UpdatedChatMessageData,
 )
-from src.config.constants import ChatMessageRole
+from src.database.repository.sqlalchemy import ChatMessageRepository
 
 
 @pytest.fixture

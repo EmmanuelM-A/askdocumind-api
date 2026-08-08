@@ -4,11 +4,13 @@ Routes for the document upload endpoints.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Request, UploadFile, File, Form
+from fastapi import APIRouter, File, Form, Request, UploadFile
+from pydantic import ValidationError
 
 from src.api.controllers.document_uploads_controller import DocumentUploadController
 from src.api.middleware.rate_limiter import limiter, upload_limit, user_key_func
-from src.api.services.validation.document import UploadDocumentsRequest
+from src.api.validation.document import UploadDocumentsRequest
+from src.errors.custom_exceptions import unprocessable_entity_error
 
 documents_router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -35,7 +37,6 @@ async def list_uploaded_documents(request: Request, chat_id: UUID):
                             "documents": {
                                 "type": "array",
                                 "items": {"type": "string", "format": "binary"},
-                                "description": "Multiple document files to upload (1-10 files, max 10MB each)",
                             },
                             "chat_id": {
                                 "type": "string",
@@ -53,25 +54,22 @@ async def list_uploaded_documents(request: Request, chat_id: UUID):
 @limiter.limit(upload_limit, key_func=user_key_func)
 async def upload_documents(
     request: Request,
-    documents: list[UploadFile] = File(
+    documents: list[UploadFile] = File(  # noqa: B008
         ..., description="List of document files to upload (PDF, DOCX, TXT, MD)"
     ),
-    chat_id: UUID = Form(..., description="The target chat session ID"),
+    chat_id: UUID = Form(..., description="The target chat session ID"),  # noqa: B008
 ):
     """
     Upload multiple documents to a chat session.
-
-    **Document Status Flow:**
-    - **PROCESSING**: Initial status when documents are uploaded and ingestion begins
-    - **COMPLETED**: Documents successfully indexed and vectors stored
-    - **FAILED**: Error occurred during processing or vector storage
-
-    **Parameters:**
-    - **documents**: List of files to upload (1-10 files, max 10MB each)
-    - **chat_id**: UUID of the target chat session
-    - **Allowed formats**: .pdf, .docx, .txt, .md
     """
-    upload_request = UploadDocumentsRequest(documents=documents, chat_id=chat_id)
+    try:
+        upload_request = UploadDocumentsRequest(documents=documents, chat_id=chat_id)
+    except ValidationError as e:
+        raise unprocessable_entity_error(
+            message="Invalid document upload request.",
+            error_code="INVALID_UPLOAD_REQUEST",
+            error_details=str(e),
+        )
     return await _controller.upload_documents_endpoint(request, upload_request)
 
 

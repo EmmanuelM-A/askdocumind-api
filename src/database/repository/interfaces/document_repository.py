@@ -4,32 +4,31 @@ Repository interface for document CRUD operations.
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Optional, List
 from uuid import UUID
-
 
 from pydantic import BaseModel
 
+from src.config.constants import DocumentSourceType, ProcessingStatus
 from src.database.models import Document
-from src.config.constants import ProcessingStatus
 from src.database.repository.interfaces.db_transaction import DBTransaction
 
 
 class DocumentSearchCriteria(BaseModel):
     """Criteria for filtering documents in list/search operations."""
 
-    id: Optional[UUID] = None
-    session_id: Optional[UUID] = None
-    filename: Optional[str] = None
-    vector_id: Optional[UUID] = None
-    processing_status: Optional[ProcessingStatus] = None
+    id: UUID | None = None
+    session_id: UUID | None = None
+    source: str | None = None
+    vector_id: UUID | None = None
+    processing_status: ProcessingStatus | None = None
+    source_type: DocumentSourceType | None = None
 
 
 class UpdatedDocumentData(BaseModel):
     """Schema for updating document fields."""
 
-    filename: Optional[str] = None
-    processing_status: Optional[ProcessingStatus] = None
+    source: str | None = None
+    processing_status: ProcessingStatus | None = None
 
 class DocumentRepositoryInterface(ABC):
     """
@@ -40,7 +39,7 @@ class DocumentRepositoryInterface(ABC):
     """
 
     @abstractmethod
-    async def create(self, data: Document, tx: Optional[DBTransaction] = None) -> UUID:
+    async def create(self, data: Document, tx: DBTransaction | None = None) -> UUID:
         """
         Create and persist a new document entity.
 
@@ -53,9 +52,9 @@ class DocumentRepositoryInterface(ABC):
     @abstractmethod
     async def list_by(
         self,
-        criteria: Optional[DocumentSearchCriteria] = None,
-        tx: Optional[DBTransaction] = None,
-    ) -> List[Document]:
+        criteria: DocumentSearchCriteria | None = None,
+        tx: DBTransaction | None = None,
+    ) -> list[Document]:
         """
         Retrieve documents matching the given criteria.
 
@@ -70,8 +69,8 @@ class DocumentRepositoryInterface(ABC):
 
     @abstractmethod
     async def get_by_id(
-        self, document_id: UUID, tx: Optional[DBTransaction] = None
-    ) -> Optional[Document]:
+        self, document_id: UUID, tx: DBTransaction | None = None
+    ) -> Document | None:
         """
         Retrieve a single document by its unique identifier.
 
@@ -85,8 +84,8 @@ class DocumentRepositoryInterface(ABC):
     async def get_by_criteria(
         self,
         criteria: DocumentSearchCriteria,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[Document]:
+        tx: DBTransaction | None = None,
+    ) -> Document | None:
         """
         Retrieve a single document matching the given criteria.
 
@@ -104,8 +103,8 @@ class DocumentRepositoryInterface(ABC):
         self,
         entity_id: UUID,
         new_entity_data: UpdatedDocumentData,
-        tx: Optional[DBTransaction] = None,
-    ) -> Optional[Document]:
+        tx: DBTransaction | None = None,
+    ) -> Document | None:
         """
         Update an existing document with new data.
 
@@ -118,7 +117,7 @@ class DocumentRepositoryInterface(ABC):
 
     @abstractmethod
     async def delete(
-        self, document_id: UUID, tx: Optional[DBTransaction] = None
+        self, document_id: UUID, tx: DBTransaction | None = None
     ) -> bool:
         """
         Delete a document by its unique identifier.
@@ -131,7 +130,7 @@ class DocumentRepositoryInterface(ABC):
 
     @abstractmethod
     async def exists(
-        self, entity_id: UUID, tx: Optional[DBTransaction] = None
+        self, entity_id: UUID, tx: DBTransaction | None = None
     ) -> bool:
         """
         Check if a document with the given UUID exists.
@@ -145,8 +144,8 @@ class DocumentRepositoryInterface(ABC):
     @abstractmethod
     async def count(
         self,
-        filter_id: Optional[UUID] = None,
-        tx: Optional[DBTransaction] = None,
+        filter_id: UUID | None = None,
+        tx: DBTransaction | None = None,
     ) -> int:
         """
         Count documents, optionally filtered by session ID.
@@ -162,7 +161,7 @@ class DocumentRepositoryInterface(ABC):
     async def get_total_size_mb(
         self,
         chat_session_id: UUID,
-        tx: Optional[DBTransaction] = None,
+        tx: DBTransaction | None = None,
     ) -> float:
         """
         Sum the stored document sizes and return the total in megabytes.
@@ -174,8 +173,8 @@ class DocumentRepositoryInterface(ABC):
         raise NotImplementedError
 
     async def create_many(
-        self, entities: List[Document], tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, entities: list[Document], tx: DBTransaction | None = None
+    ) -> list[UUID]:
         """
         Create and persist multiple document entities in a single transactional
         operation.
@@ -190,7 +189,7 @@ class DocumentRepositoryInterface(ABC):
         raise NotImplementedError
 
     async def delete_many(
-        self, document_ids: list[UUID], tx: Optional[DBTransaction] = None
+        self, document_ids: list[UUID], tx: DBTransaction | None = None
     ) -> int:
         """
         Delete multiple documents by their identifiers.
@@ -203,9 +202,9 @@ class DocumentRepositoryInterface(ABC):
 
     async def bulk_update_processing_status(
         self,
-        document_ids: List[UUID],
+        document_ids: list[UUID],
         status: ProcessingStatus,
-        tx: Optional[DBTransaction] = None,
+        tx: DBTransaction | None = None,
     ) -> int:
         """
         Update the processing status for multiple documents.
@@ -219,8 +218,8 @@ class DocumentRepositoryInterface(ABC):
 
     @abstractmethod
     async def get_stuck_processing_ids(
-        self, cutoff: datetime, tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, cutoff: datetime, tx: DBTransaction | None = None
+    ) -> list[UUID]:
         """
         Return IDs of documents stuck in PROCESSING status since before the cutoff.
 
@@ -232,8 +231,8 @@ class DocumentRepositoryInterface(ABC):
 
     @abstractmethod
     async def get_all_failed_ids(
-        self, cutoff: datetime, tx: Optional[DBTransaction] = None
-    ) -> List[UUID]:
+        self, cutoff: datetime, tx: DBTransaction | None = None
+    ) -> list[UUID]:
         """
         Return IDs of FAILED documents whose updated_at is at or before the cutoff.
 
