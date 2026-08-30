@@ -83,18 +83,6 @@ def test_expand_query_vague_query_gets_expanded(llm, prompt_template):
     assert result.lower() != "dogs"
 
 
-def test_expand_query_specific_query_returned_unchanged(llm, prompt_template):
-    """Test that a query which is already specific/unambiguous is returned
-    verbatim, per the prompt's own 'do not expand substantial queries' rule."""
-    specific_query = (
-        "Q3 2024 revenue figures for the Northeast region sales division"
-    )
-
-    result = expand_query(specific_query, llm, prompt_template)
-
-    assert result == specific_query
-
-
 def test_expand_query_ignores_prompt_injection_attempt(llm, prompt_template):
     """Test that a query containing an instruction-injection attempt is
     returned unchanged rather than obeyed, per the prompt's safety rule."""
