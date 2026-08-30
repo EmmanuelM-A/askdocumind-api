@@ -174,7 +174,7 @@ class LLMIntegrationSettings(_BaseSettings):
     LLM_MAX_OUTPUT_TOKENS: int = Field(default=1024)
 
     RESPONSE_PROMPT_FILEPATH: str = Field(
-        default=f"{_PROJECT_ROOT}/data/prompts/no_out_of_scope_response_prompt.yaml"
+        default=f"{_PROJECT_ROOT}/data/prompts/default_response_prompt.yaml"
     )
     QUERY_EXPANSION_PROMPT_FILEPATH: str = Field(
         default=f"{_PROJECT_ROOT}/data/prompts/default_expand_query_prompt.yaml"
