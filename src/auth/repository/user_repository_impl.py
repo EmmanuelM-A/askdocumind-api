@@ -4,7 +4,7 @@ using SQLAlchemy for database interactions.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -87,10 +87,13 @@ class UserRepositoryImpl(UserRepository):
             ) from e
 
     async def update_last_seen(
-        self, user_id: UUID, tx: DBTransaction | None = None
+        self, user_id: UUID, freq_mins: int, tx: DBTransaction | None = None
     ) -> None:
         statement = (
-            update(User).where(User.id == user_id).values(last_seen_at=func.now())
+            update(User)
+            .where(User.id == user_id)
+            .where(User.last_seen_at < func.now() - timedelta(minutes=freq_mins))
+            .values(last_seen_at=func.now())
         )
         try:
             await self._execute_statement(statement, tx=tx)

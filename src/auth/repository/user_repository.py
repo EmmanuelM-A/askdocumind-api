@@ -48,10 +48,12 @@ class UserRepository(ABC):
 
     @abstractmethod
     async def update_last_seen(
-        self, user_id: UUID, tx: DBTransaction | None = None
+        self, user_id: UUID, freq_mins: int, tx: DBTransaction | None = None
     ) -> None:
         """
-        Update the last seen timestamp of a user to the current time.
+        Update the last seen timestamp of a user to the current time, if and
+        only if the last seen timestamp is older than the specified
+        update frequency.
         """
         raise NotImplementedError(
             "Method 'update_last_seen' not implemented in subclass"
