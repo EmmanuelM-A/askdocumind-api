@@ -16,7 +16,7 @@ def create_anonymous_token(user_id: UUID) -> str:
     now = datetime.now(timezone.utc)
 
     payload = AnonymousTokenPayload(
-        sub=user_id,
+        user_id=user_id,
         iat=now.timestamp(),
         exp=(now + timedelta(days=settings.auth.ANONYMOUS_TOKEN_TTL_DAYS)).timestamp(),
     )

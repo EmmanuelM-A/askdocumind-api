@@ -98,6 +98,7 @@ class AuthSettings(_BaseSettings):
 
     ANONYMOUS_TOKEN_SECRET: SecretStr = Field(default=...)
     ANONYMOUS_TOKEN_TTL_DAYS: int = Field(default=7, ge=1, le=30)
+    UPDATE_LAST_SEEN_FREQ_MINS: int = Field(default=5, ge=1, le=60)
 
 
 # ------------------------------------------------------------------

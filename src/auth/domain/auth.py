@@ -8,6 +8,6 @@ class AnonymousTokenPayload(BaseModel):
     Represents the payload of an anonymous JWT token.
     """
 
-    sub: UUID
+    user_id: UUID
     iat: float
     exp: float
