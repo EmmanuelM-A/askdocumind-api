@@ -63,7 +63,9 @@ class LoggingSettings(_BaseSettings):
 
 
 class DatabaseSettings(_BaseSettings):
-    """Database configuration settings."""
+    """
+    Database configuration settings for the AskDocuMind API application.
+    """
 
     model_config = _DEFAULT_MODEL_CONFIG
 
@@ -87,6 +89,17 @@ class DatabaseSettings(_BaseSettings):
         return value
 
 
+class AuthSettings(_BaseSettings):
+    """
+    Authentication configuration settings for the AskDocuMind API application.
+    """
+
+    model_config = _DEFAULT_MODEL_CONFIG
+
+    ANONYMOUS_TOKEN_SECRET: SecretStr = Field(default=...)
+    ANONYMOUS_TOKEN_TTL_DAYS: int = Field(default=7, ge=1, le=30)
+
+
 # ------------------------------------------------------------------
 # Main Settings Container
 # ------------------------------------------------------------------
@@ -100,6 +113,7 @@ class Settings(BaseSettings):
     server: ServerSettings = ServerSettings()
     logging: LoggingSettings = LoggingSettings()
     database: DatabaseSettings = DatabaseSettings()
+    auth: AuthSettings = AuthSettings()
 
 
 # Global settings instance
