@@ -74,6 +74,10 @@ class _SQLAlchemyDBTransaction(DBTransaction):
         session = await self._ensure_session()
         session.add_all(entities)
 
+    async def delete(self, entity: Any) -> None:
+        session = await self._ensure_session()
+        await session.delete(entity)
+
     async def execute(
         self, statement: Any, parameters: Any = None, **kwargs: Any
     ) -> Any:

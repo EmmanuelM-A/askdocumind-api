@@ -30,6 +30,11 @@ class DBTransaction(ABC):
         raise NotImplementedError("Method 'add_all' not implemented in subclass")
 
     @abstractmethod
+    async def delete(self, entity: Any) -> None:
+        """Stage an entity for deletion within the transaction."""
+        raise NotImplementedError("Method 'delete' not implemented in subclass")
+
+    @abstractmethod
     async def execute(self, statement: Any, *args: Any, **kwargs: Any) -> Any:
         """Execute a backend query/statement within the transaction."""
         raise NotImplementedError("Method 'execute' not implemented in subclass")
