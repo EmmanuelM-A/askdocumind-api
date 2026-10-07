@@ -1,92 +1,113 @@
 """
-Middleware that ensures each API request has a signed anonymous session.
+Middleware which ensures each API request has a valid anonymous session.
 """
 
 import logging
 
-from fastapi import Request, Response, status
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.types import ASGIApp
+from fastapi import status
+from fastapi.responses import JSONResponse
+from starlette.requests import Request
+from starlette.types import ASGIApp, Receive, Scope, Send
 
-from src.auth.services.cookie_service import CookieConfig
-from src.auth.services.token_service import decode_anonymous_token
-from src.config.configs import settings
 from src.auth.repository.user_repository import UserRepository
+from src.auth.services.token_service import InvalidTokenError, decode_anonymous_token
+from src.config.configs import settings
+from src.exceptions.base import ApiException
 from src.response.delivery import send_error_response
 
 _logger = logging.getLogger(__name__)
 
-
-_EXCLUDED_PATHS = {
-    "/docs",
-    "/openapi.json",
-    "/redoc",
-    "/api/health",
-}
-
-_METHOD_SPECIFIC_EXCLUSIONS = {
-    ("/auth/anonymous/init", "POST"),
-}
+_INIT_PATH_SUFFIX = "/auth/anonymous/init"
 
 
-def _is_excluded(request: Request) -> bool:
-    path = request.url.path
-
-    for method_specific_path, method in _METHOD_SPECIFIC_EXCLUSIONS:
-        if path.endswith(method_specific_path) and request.method == method:
-            return True
-
-    return any(
-        path == excluded or path.endswith(f"{excluded}/")
-        for excluded in _EXCLUDED_PATHS
+def _unauthorized(error_code: str, message: str) -> JSONResponse:
+    return send_error_response(
+        message=message,
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        error_code=error_code,
     )
 
 
-class AnonymousSessionMiddleware(BaseHTTPMiddleware):
+class AnonymousSessionMiddleware:
     """
-    Check if the cookie value for the session is valid and corresponds to an
-    existing anonymous user.
+    Requires a valid anonymous session cookie on every request except
+    public paths, preflight requests, and the session init endpoint.
     """
 
-    def __init__(self, app: ASGIApp, user_repository: UserRepository) -> None:
-        super().__init__(app)
+    def __init__(
+        self,
+        app: ASGIApp,
+        user_repository: UserRepository,
+        exclude_paths: frozenset[str] = frozenset(),
+    ) -> None:
+        self.app = app
         self._user_repository = user_repository
+        self._exclude_paths = exclude_paths
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    def _is_excluded(self, scope: Scope) -> bool:
+        path = scope["path"].rstrip("/") or "/"
+        method = scope["method"]
+        return (
+            method == "OPTIONS"
+            or path in self._exclude_paths
+            or (method == "POST" and path.endswith(_INIT_PATH_SUFFIX))
+        )
 
-        if _is_excluded(request):
-            return await call_next(request)
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or self._is_excluded(scope):
+            await self.app(scope, receive, send)
+            return
 
-        cookie_value = request.cookies.get(settings.auth.COOKIE_NAME)
+        rejection = await self._authenticate(scope)
+
+        if rejection is not None:
+            await rejection(scope, receive, send)
+            return
+
+        await self.app(scope, receive, send)
+
+    async def _authenticate(self, scope: Scope) -> JSONResponse | None:
+        """
+        Return an error response, or None after storing the user ID.
+        """
+        cookie_value = Request(scope).cookies.get(settings.auth.COOKIE_NAME)
 
         if not cookie_value:
-            return send_error_response(
-                message="No anonymous session cookie found in the request.",
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                error_code="ANONYMOUS_COOKIE_REQUIRED",
+            return _unauthorized(
+                "ANONYMOUS_COOKIE_REQUIRED",
+                "No anonymous session cookie found in the request.",
             )
 
-        payload = decode_anonymous_token(token=cookie_value)
+        try:
+            payload = decode_anonymous_token(token=cookie_value)
 
-        existing_user = await self._user_repository.get_by_id(user_id=payload.user_id)
+            user = await self._user_repository.get_by_id(user_id=payload.user_id)
 
-        if not existing_user:
+            if user is None:
+                return _unauthorized(
+                    "ANONYMOUS_USER_NOT_FOUND",
+                    "Anonymous user not found for the provided session cookie.",
+                )
+
+            await self._user_repository.update_last_seen(
+                user_id=payload.user_id,
+                freq_mins=settings.auth.UPDATE_LAST_SEEN_FREQ_MINS,
+            )
+        except InvalidTokenError:
+            return _unauthorized(
+                "ANONYMOUS_TOKEN_INVALID",
+                "The anonymous session cookie is invalid or expired.",
+            )
+        except ApiException as exc:
             return send_error_response(
-                message="Anonymous user not found for the provided session cookie.",
-                status_code=status.HTTP_404_NOT_FOUND,
-                error_code="ANONYMOUS_USER_NOT_FOUND",
+                message=str(exc.detail),
+                status_code=exc.status_code,
+                error_code=exc.error_code,
+                details=exc.error_details,
             )
 
-        await self._user_repository.update_last_seen(
-            user_id=payload.user_id, freq_mins=settings.auth.UPDATE_LAST_SEEN_FREQ_MINS
-        )
+        scope.setdefault("state", {})["anonymous_user_id"] = payload.user_id
 
-        _logger.debug(
-            "Anonymous session validated for the user ID: '%s'}", payload.user_id
-        )
+        _logger.debug("Anonymous session validated for user '%s'", payload.user_id)
 
-        request.state.anonymous_user_id = payload.user_id
-
-        return await call_next(request)
+        return None
