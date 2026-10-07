@@ -4,7 +4,7 @@ successful and failed requests.
 """
 
 from datetime import datetime, timezone
-from typing import Dict, TypeVar, Generic
+from typing import Dict, TypeVar, Generic, Mapping
 
 from fastapi.responses import JSONResponse
 from pydantic import Field
@@ -70,13 +70,16 @@ def send_error_response(
     error_code: str,
     details: Dict[str, str] | None = None,
     stack_trace: str | None = None,
+    headers: Mapping[str, str] | None = None,
 ) -> JSONResponse:
     """Creates and sends a standardized error response."""
 
     error_info = ErrorInfo(code=error_code, details=details, stack_trace=stack_trace)
+
     error_response_model = _ErrorResponse(message=message, error=error_info)
 
     return JSONResponse(
         status_code=status_code,
         content=error_response_model.model_dump(by_alias=True, mode="json"),
+        headers=headers,
     )
