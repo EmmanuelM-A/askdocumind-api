@@ -7,12 +7,9 @@ from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# ------------------------------------------------------------------
-# Environment Setup
-# ------------------------------------------------------------------
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _ENV_FILE = _PROJECT_ROOT / ".env"
 
@@ -25,7 +22,9 @@ _DEFAULT_MODEL_CONFIG = SettingsConfigDict(
 
 
 class _BaseSettings(BaseSettings):
-    """Shared base: treats empty-string env vars as unset, falling back to field defaults."""
+    """
+    Shared base settings class for all settings classes in the application.
+    """
 
     @model_validator(mode="before")
     @classmethod
@@ -33,269 +32,44 @@ class _BaseSettings(BaseSettings):
         return {k: v for k, v in values.items() if v != ""}
 
 
-# ------------------------------------------------------------------
-# Core Settings
-# ------------------------------------------------------------------
-class CoreAppSettings(_BaseSettings):
-    """Core application configuration settings."""
-
-    ENV: str = Field(default=...)
-    PORT: int = Field(default=...)
-    HOST: str = Field(default="0.0.0.0")
-
-    # Sentry
-    SENTRY_DSN: str | None = Field(default=None)
-    SENTRY_ENVIRONMENT: str = Field(default="production")
-    SENTRY_TRACES_SAMPLE_RATE: float = Field(default=0.1)
-
-    # Internal API routing constants
-    DEFAULT_VERSION: str = Field(default="1")
-
-    # Business-logic thresholds
-    MIN_QUERY_LENGTH: int = Field(default=10)
-    MAX_QUERY_LENGTH: int = Field(default=2000)
-    MIN_DOCUMENT_CONTENT_LENGTH: int = Field(default=20)
-
-    MAX_CHATS_PER_USER: int = Field(default=1)
+class ServerSettings(_BaseSettings):
+    """
+    Server configuration settings for the AskDocuMind API application.
+    """
 
     model_config = _DEFAULT_MODEL_CONFIG
 
-
-# ------------------------------------------------------------------
-# Database Settings
-# ------------------------------------------------------------------
-class DatabaseSettings(_BaseSettings):
-    """Database configuration settings."""
-
-    DATABASE_URL: SecretStr = Field(default=...)
-
-    @field_validator("DATABASE_URL", mode="before")
-    @classmethod
-    def _ensure_asyncpg_driver(cls, v: str) -> str:
-        url = v if isinstance(v, str) else str(v)
-        for sync_prefix in ("postgresql+psycopg2://", "postgresql://", "postgres://"):
-            if url.startswith(sync_prefix):
-                return "postgresql+asyncpg://" + url[len(sync_prefix) :]
-        return url
-
-    # Pool tuning
-    DB_POOL_SIZE: int = Field(default=10)
-    DB_MAX_OVERFLOW: int = Field(default=20)
-    DB_POOL_TIMEOUT_SECS: int = Field(default=30)
-    DB_ECHO: bool = Field(default=False)
-    DB_IS_POOL_PRE_PING_ENABLED: bool = Field(default=True)
-    DB_SAFETY_ENABLED: bool = Field(default=True)
-
-    model_config = _DEFAULT_MODEL_CONFIG
+    ENV: Literal["development", "staging", "production", "test"] = Field(default="development")
+    PORT: int = Field(default=8001, ge=1, le=65535)
 
 
-# ------------------------------------------------------------------
-# Authentication Settings
-# ------------------------------------------------------------------
-class AuthSettings(_BaseSettings):
-    """Authentication and authorization configuration settings."""
 
-    USER_SESSION_SECRET: SecretStr = Field(default=...)
-    COOKIE_NAME: str = Field(default="askdocumind_user_cookie")
-    COOKIE_SAMESITE: Literal["lax", "strict", "none"] = Field(
-        default="none", validation_alias="ANON_SESSION_COOKIE_SAMESITE"
-    )
-    COOKIE_DOMAIN: str | None = Field(
-        default=None, validation_alias="ANON_SESSION_COOKIE_DOMAIN"
-    )
-
-    @field_validator("COOKIE_DOMAIN", mode="before")
-    @classmethod
-    def _coerce_none_string(cls, v: object) -> object:
-        if isinstance(v, str) and v.strip().lower() == "none":
-            return None
-        return v
-
-    model_config = _DEFAULT_MODEL_CONFIG
-
-
-# ------------------------------------------------------------------
-# Anonymous User Session Settings
-# ------------------------------------------------------------------
-class AnonymousUserSessionSettings(_BaseSettings):
-    """Settings related to anonymous user session management."""
-
-    CLEANUP_ENABLED: bool = Field(default=..., validation_alias="USER_CLEANUP_ENABLED")
-    BATCH_SIZE: int = Field(default=100, validation_alias="USER_CLEANUP_BATCH_SIZE")
-    CLEANUP_INTERVAL_H: int = Field(
-        default=1, validation_alias="USER_CLEANUP_INTERVAL_HOURS"
-    )
-    TTL_HOURS: int = Field(default=60, validation_alias="USER_TTL_HOURS")
-
-    model_config = _DEFAULT_MODEL_CONFIG
-
-
-# ------------------------------------------------------------------
-# File Processing Settings
-# ------------------------------------------------------------------
-class FileProcessingSettings(_BaseSettings):
-    """File processing configuration settings."""
-
-    MAX_FILE_SIZE_MB: float = Field(default=0.5)  # Max size per file
-    MAX_FILES_PER_CHAT_MB: int = Field(
-        default=1
-    )  # Max total size of all files per chat
-    MAX_DOCUMENTS_PER_CHAT: int = Field(default=10)
-    ALLOED_FILE_EXTENSIONS: list[str] = Field(
-        default=[".pdf", ".docx", ".txt", ".md", ".html", ".csv"]
-    )
-
-    LOCAL_FILE_STORAGE_DIR: str = Field(default=f"{_PROJECT_ROOT}/data/local/documents")
-
-    # Document & web-chunk cleanup
-    DOC_CLEANUP_BATCH_SIZE: int = Field(default=100)
-    STUCK_PROCESSING_TIMEOUT_MINS: int = Field(
-        default=30, validation_alias="DOC_STUCK_PROCESSING_TIMEOUT_MINS"
-    )
-    FAILED_DOC_TTL_H: int = Field(default=24, validation_alias="DOC_FAILED_TTL_HOURS")
-    WEB_CHUNK_TTL_H: int = Field(default=24, validation_alias="DOC_WEB_CHUNK_TTL_HOURS")
-
-    model_config = _DEFAULT_MODEL_CONFIG
-
-
-# ------------------------------------------------------------------
-# LLM Integration
-# ------------------------------------------------------------------
-class LLMIntegrationSettings(_BaseSettings):
-    """LLM integration configuration settings."""
-
-    LLM_MODEL_NAME: str = Field(default=..., validation_alias="OPENAI_LLM_MODEL_NAME")
-    EMBEDDING_MODEL_NAME: str = Field(
-        default=..., validation_alias="OPENAI_EMBEDDING_MODEL_NAME"
-    )
-    LLM_TEMPERATURE: float = Field(default=0.7)
-    LLM_REQUEST_TIMEOUT_SECS: int = Field(default=30)
-    LLM_MAX_RETRIES: int = Field(default=2)
-    LLM_MAX_OUTPUT_TOKENS: int = Field(default=1024)
-
-    RESPONSE_PROMPT_FILEPATH: str = Field(
-        default=f"{_PROJECT_ROOT}/data/prompts/no_out_of_scope_response_prompt.yaml"
-    )
-    QUERY_EXPANSION_PROMPT_FILEPATH: str = Field(
-        default=f"{_PROJECT_ROOT}/data/prompts/default_expand_query_prompt.yaml"
-    )
-
-    model_config = _DEFAULT_MODEL_CONFIG
-
-
-# ------------------------------------------------------------------
-# Vector Store
-# ------------------------------------------------------------------
-class VectorStoreSettings(_BaseSettings):
-    """Vector store configuration settings."""
-
-    MAX_TOKENS: int = Field(default=512)
-    RETRIEVAL_TOP_K: int = Field(default=3)
-    SIMILARITY_THRESHOLD: float = Field(default=0.4)
-    VECTOR_BATCH_SIZE: int = Field(default=100)
-    # Number of candidate chunks fetched from the vector search before the
-    # reranker trims/reorders them down to RETRIEVAL_TOP_K.
-    RERANK_CANDIDATE_POOL_SIZE: int = Field(default=15)  # Add to .env file
-
-    model_config = _DEFAULT_MODEL_CONFIG
-
-
-# ------------------------------------------------------------------
-# Web Search
-# ------------------------------------------------------------------
-class WebSearchSettings(_BaseSettings):
-    """Web search configuration settings."""
-
-    IS_WEB_SEARCH_ENABLED: bool = Field(default=False)
-    BRAVE_SEARCH_API_KEY: SecretStr | None = Field(default=None)
-
-    @model_validator(mode="after")
-    def _require_api_key_when_enabled(self) -> "WebSearchSettings":
-        if self.IS_WEB_SEARCH_ENABLED and not self.BRAVE_SEARCH_API_KEY:
-            raise ValueError(
-                "BRAVE_SEARCH_API_KEY is required when IS_WEB_SEARCH_ENABLED is true"
-            )
-        return self
-
-    MAX_WEB_SEARCH_RESULTS: int = Field(default=1)
-    MAX_WEB_SEARCHES_PER_SESSION: int = Field(default=3)
-    WEB_REQUEST_TIMEOUT_SECS: int = Field(default=15)
-    WEB_REQUEST_DELAY_SECS: int = Field(default=1)
-    WEB_SEARCH_FALLBACK_ENABLED: bool = Field(default=True)
-
-    WEB_USER_AGENT: str = Field(
-        default="Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/91.0.4472.124 Safari/537.36"
-    )
-
-    model_config = _DEFAULT_MODEL_CONFIG
-
-
-# ------------------------------------------------------------------
-# Logging
-# ------------------------------------------------------------------
 class LoggingSettings(_BaseSettings):
-    """Logging configuration settings."""
+    """
+    Logging configuration settings for the AskDocuMind API application.
+    """
 
-    LOG_LEVEL: str = Field(default="DEBUG")
-    LOG_TO: Literal["CONSOLE", "FILE", "BOTH"] = Field(default="FILE")
+    model_config = _DEFAULT_MODEL_CONFIG
+
     LOG_DIRECTORY: str = Field(default=f"{_PROJECT_ROOT}/logs")
+    LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(default="DEBUG")
     LOG_FORMAT: str = Field(
-        default="%(asctime)s [%(levelname)s] [%(name)s]: %(message)s"
+        default="%(asctime)s [%(levelname)s] [%(name)s:%(lineno)d]: %(message)s"
     )
-    LOG_AS_JSON: bool = Field(default=False)
     DATE_FORMAT: str = Field(default="%Y-%m-%d %H:%M:%S")
-    LOG_MAX_MB: int = Field(default=10)
-
-    model_config = _DEFAULT_MODEL_CONFIG
-
-
-# ------------------------------------------------------------------
-# API Server
-# ------------------------------------------------------------------
-class APIServerSettings(_BaseSettings):
-    """API server configuration settings."""
-    CORS_ORIGINS: list[str] = Field(default=...)
-    CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
-    CORS_ALLOW_METHODS: list[str] = Field(
-        default=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-    )
-    CORS_ALLOW_HEADERS: list[str] = Field(
-        default=["Content-Type", "Accept-Version", "Authorization", "X-Requested-With"]
-    )
-
-    MAX_REQUEST_BODY_SIZE_MB: float = Field(default=10.0)
-
-    RATE_LIMIT_REQUESTS: int = Field(default=60)
-    RATE_LIMIT_WINDOW: int = Field(default=60)
-
-    MAX_CHAT_QUERIES_PER_MINUTE: int = Field(default=10)
-    MAX_UPLOAD_REQUESTS_PER_MINUTE: int = Field(default=5)
-    MAX_SESSION_REQUESTS_PER_MINUTE: int = Field(default=10)
-    MAX_CONCURRENT_REQUESTS: int = Field(default=20)
-
-    model_config = _DEFAULT_MODEL_CONFIG
-
 
 # ------------------------------------------------------------------
 # Main Settings Container
 # ------------------------------------------------------------------
 class Settings(BaseSettings):
-    """Main settings container aggregating all configuration domains."""
-
-    app: CoreAppSettings = CoreAppSettings()
-    database: DatabaseSettings = DatabaseSettings()
-    auth: AuthSettings = AuthSettings()
-    anon: AnonymousUserSessionSettings = AnonymousUserSessionSettings()
-    files: FileProcessingSettings = FileProcessingSettings()
-    llm: LLMIntegrationSettings = LLMIntegrationSettings()
-    vector: VectorStoreSettings = VectorStoreSettings()
-    web: WebSearchSettings = WebSearchSettings()
-    logging: LoggingSettings = LoggingSettings()
-    server: APIServerSettings = APIServerSettings()
+    """
+    Main settings container aggregating all configuration domains.
+    """
 
     model_config = _DEFAULT_MODEL_CONFIG
+
+    server: ServerSettings = ServerSettings()
+    logging: LoggingSettings = LoggingSettings()
 
 
 # Global settings instance
