@@ -44,6 +44,8 @@ class ServerSettings(_BaseSettings):
     )
     PORT: int = Field(default=8001, ge=1, le=65535)
 
+    MAX_REQUEST_BODY_SIZE_MB: float = Field(default=10.0, gt=0, le=500)
+
 
 class LoggingSettings(_BaseSettings):
     """
