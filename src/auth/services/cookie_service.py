@@ -11,8 +11,7 @@ class CookieConfig(BaseModel):
 
     http_only: bool
     secure: bool
-    max_age: int
-    same_site: Literal["none", "strict", "strict"]
+    same_site: Literal["none", "strict", "lax"]
     domain: str
 
 

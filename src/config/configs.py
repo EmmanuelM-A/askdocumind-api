@@ -43,6 +43,7 @@ class ServerSettings(_BaseSettings):
         default="development"
     )
     PORT: int = Field(default=8001, ge=1, le=65535)
+    CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000"])
 
     MAX_REQUEST_BODY_SIZE_MB: float = Field(default=10.0, gt=0, le=500)
 
@@ -98,8 +99,13 @@ class AuthSettings(_BaseSettings):
 
     model_config = _DEFAULT_MODEL_CONFIG
 
+    COOKIE_DOMAIN: str = Field(default="localhost")
+    COOKIE_TTL_HOURS: int = Field(default=12, ge=1, le=168)
+
+    # Anonymous user session settings
     ANONYMOUS_TOKEN_SECRET: SecretStr = Field(default=...)
     ANONYMOUS_TOKEN_TTL_DAYS: int = Field(default=7, ge=1, le=30)
+    ANONYMOUS_COOKIE_NAME: str = Field(default="anonymous_session")
     UPDATE_LAST_SEEN_FREQ_MINS: int = Field(default=5, ge=1, le=60)
 
 
