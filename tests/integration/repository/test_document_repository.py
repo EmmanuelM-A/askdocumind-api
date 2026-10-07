@@ -12,7 +12,7 @@ import pytest_asyncio
 
 from src.config.constants import DocumentSourceType, ProcessingStatus
 from src.auth.models import ChatSession, Document
-from src.uploads.repository.interfaces.document_repository import (
+from src.uploads.repository.document_repository import (
     DocumentSearchCriteria,
     UpdatedDocumentData,
 )
