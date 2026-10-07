@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from sentence_transformers import CrossEncoder
 
 from src.config.configs import settings
-from src.database.models import DocumentChunk
+from src.auth.models import DocumentChunk
 from src.logger.base_logger import BaseLogger
 
 _logger = BaseLogger(__name__)

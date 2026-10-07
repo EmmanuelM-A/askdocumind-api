@@ -29,19 +29,19 @@ from src.api.utils.session_manager import TokenManager, get_token_manager
 from src.components.retrieval.embedder import Embedder
 from src.config.configs import settings
 from src.config.constants import DocumentSourceType
-from src.database.connection import DatabaseConnection
-from src.database.models import ChatSession, Document, DocumentChunk, User
-from src.database.repository.sqlalchemy.chat_message_repository import (
+from src.database.session import DatabaseSessionManager
+from src.auth.models import ChatSession, Document, DocumentChunk, User
+from src.uploads.repository.sqlalchemy import (
     ChatMessageRepository,
 )
-from src.database.repository.sqlalchemy.chat_session_repository import (
+from src.uploads.repository.sqlalchemy import (
     ChatSessionRepository,
 )
-from src.database.repository.sqlalchemy.document_chunk_repository import (
+from src.uploads.repository.sqlalchemy import (
     DocumentChunkRepository,
 )
-from src.database.repository.sqlalchemy.document_repository import DocumentRepository
-from src.database.repository.sqlalchemy.user_repository import UserRepository
+from src.uploads.repository.sqlalchemy.document_repository import DocumentRepository
+from src.uploads.repository.sqlalchemy import UserRepository
 
 
 @pytest.fixture(scope="module")
@@ -60,34 +60,36 @@ def app_client():
 async def db_connection():
     """Independent DB connection for test-side seeding/verification,
     bound to this test's own event loop."""
-    conn = DatabaseConnection()
+    conn = DatabaseSessionManager()
     await conn.connect()
     yield conn
     await conn.disconnect()
 
 
 @pytest.fixture
-def user_repo(db_connection: DatabaseConnection) -> UserRepository:
+def user_repo(db_connection: DatabaseSessionManager) -> UserRepository:
     return UserRepository(connection=db_connection)
 
 
 @pytest.fixture
-def chat_session_repo(db_connection: DatabaseConnection) -> ChatSessionRepository:
+def chat_session_repo(db_connection: DatabaseSessionManager) -> ChatSessionRepository:
     return ChatSessionRepository(connection=db_connection)
 
 
 @pytest.fixture
-def chat_message_repo(db_connection: DatabaseConnection) -> ChatMessageRepository:
+def chat_message_repo(db_connection: DatabaseSessionManager) -> ChatMessageRepository:
     return ChatMessageRepository(connection=db_connection)
 
 
 @pytest.fixture
-def document_repo(db_connection: DatabaseConnection) -> DocumentRepository:
+def document_repo(db_connection: DatabaseSessionManager) -> DocumentRepository:
     return DocumentRepository(connection=db_connection)
 
 
 @pytest.fixture
-def document_chunk_repo(db_connection: DatabaseConnection) -> DocumentChunkRepository:
+def document_chunk_repo(
+    db_connection: DatabaseSessionManager,
+) -> DocumentChunkRepository:
     return DocumentChunkRepository(connection=db_connection)
 
 
@@ -108,7 +110,9 @@ def created_user_ids() -> list[UUID]:
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def cleanup_users(db_connection: DatabaseConnection, created_user_ids: list[UUID]):
+async def cleanup_users(
+    db_connection: DatabaseSessionManager, created_user_ids: list[UUID]
+):
     """Deletes every user a test registered; owned chats/messages/documents/chunks cascade."""
     yield
 

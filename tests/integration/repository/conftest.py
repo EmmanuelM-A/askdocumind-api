@@ -4,8 +4,8 @@ Global test fixtures and configurations for the repository tests
 
 import pytest_asyncio
 
-from src.database.connection import DatabaseConnection
-from src.database.models import ChatSession, User
+from src.database.session import DatabaseSessionManager
+from src.auth.models import ChatSession, User
 
 # ========================= COMMON DATABASE FIXTURES =========================
 
@@ -13,7 +13,7 @@ from src.database.models import ChatSession, User
 @pytest_asyncio.fixture
 async def db_connection():
     """Provide a database connection for tests."""
-    conn = DatabaseConnection()
+    conn = DatabaseSessionManager()
     await conn.connect()
     yield conn
     await conn.disconnect()

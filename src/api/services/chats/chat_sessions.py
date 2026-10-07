@@ -9,8 +9,8 @@ from uuid import UUID
 from src.api.validation.chat_session import CreateChatSessionData
 from src.api.validation.helper import check_if_chat_exists
 from src.config.configs import settings
-from src.database.models import ChatSession
-from src.database.repository.interfaces import (
+from src.auth.models import ChatSession
+from src.uploads.repository.interfaces import (
     ChatMessageRepositoryInterface,
     ChatMessageSearchCriteria,
     ChatSessionRepositoryInterface,
@@ -30,7 +30,9 @@ class ChatSessionService:
         self._chat_message_repo = chat_message_repo
         self._logger = BaseLogger(__name__)
 
-    async def create_new_chat(self, owner_id: UUID, data: CreateChatSessionData) -> UUID:
+    async def create_new_chat(
+        self, owner_id: UUID, data: CreateChatSessionData
+    ) -> UUID:
         """Create a new chat session after verifying the user hasn't hit their limit."""
         existing_chats = await self._chat_session_repo.list_by(
             ChatSessionSearchCriteria(user_id=owner_id)
@@ -48,7 +50,9 @@ class ChatSessionService:
         self._logger.info(f"Created new chat session {created_id} for user {owner_id}")
         return created_id
 
-    async def init_chat_session(self, user_id: UUID, data: CreateChatSessionData) -> UUID:
+    async def init_chat_session(
+        self, user_id: UUID, data: CreateChatSessionData
+    ) -> UUID:
         """
         Return the user's most recent chat session, or create a new one if none exists.
         """

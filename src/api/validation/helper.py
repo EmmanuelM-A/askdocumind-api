@@ -7,8 +7,8 @@ import re
 from uuid import UUID
 
 from src.config.configs import settings
-from src.database.models import ChatSession
-from src.database.repository.interfaces import (
+from src.auth.models import ChatSession
+from src.uploads.repository.interfaces import (
     ChatSessionRepositoryInterface,
     ChatSessionSearchCriteria,
 )

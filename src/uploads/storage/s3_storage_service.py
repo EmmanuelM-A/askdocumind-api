@@ -1,9 +1,8 @@
-
 import boto3
 from botocore.exceptions import ClientError
 
 from src.config.configs import settings
-from src.database.storage.storage_service import StorageService
+from src.uploads.storage.storage_service import StorageService
 
 
 class S3StorageService(StorageService):

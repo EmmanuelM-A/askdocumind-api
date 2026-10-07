@@ -18,7 +18,7 @@ from uuid import uuid4
 import pytest
 
 from src.components.retrieval.reranker import CrossEncoderReranker, Reranker
-from src.database.models import DocumentChunk
+from src.auth.models import DocumentChunk
 
 # ==================== HELPERS ====================
 
@@ -181,7 +181,9 @@ async def test_rerank_many_chunks_all_scored_and_sorted(reranker):
     target = _chunk("The mitochondria is the powerhouse of the cell.")
     chunks.append(target)
 
-    result = await reranker.rerank("What is the powerhouse of the cell?", chunks, top_k=3)
+    result = await reranker.rerank(
+        "What is the powerhouse of the cell?", chunks, top_k=3
+    )
 
     assert len(result) == 3
     assert result[0] is target
@@ -227,4 +229,4 @@ async def test_reranker_reuses_loaded_model_across_calls():
 def test_reranker_abstract_base_class_cannot_be_instantiated():
     """Test that the Reranker ABC cannot be instantiated directly."""
     with pytest.raises(TypeError):
-        Reranker() # type: ignore
+        Reranker()  # type: ignore

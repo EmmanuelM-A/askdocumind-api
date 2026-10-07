@@ -6,7 +6,7 @@ import boto3
 import pytest
 from botocore.exceptions import ClientError, NoCredentialsError
 
-from src.database.storage.s3_storage_service import S3StorageService
+from src.uploads.storage import S3StorageService
 
 
 def _require_s3_env_or_skip() -> tuple[str, str]:

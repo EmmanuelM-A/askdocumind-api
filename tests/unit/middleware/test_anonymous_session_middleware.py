@@ -13,7 +13,7 @@ from src.api.middleware.anonymous_session import AnonymousSessionMiddleware
 from src.api.middleware.exception_handler import setup_exception_handlers
 from src.api.utils.session_manager import AnonymousSessionPayload
 from src.config.configs import settings
-from src.database.models import User
+from src.auth.models import User
 
 
 @pytest.fixture

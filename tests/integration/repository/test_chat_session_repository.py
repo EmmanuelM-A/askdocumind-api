@@ -8,12 +8,12 @@ from uuid import uuid4
 
 import pytest
 
-from src.database.models import ChatSession
-from src.database.repository.interfaces.chat_session_repository import (
+from src.auth.models import ChatSession
+from src.uploads.repository.interfaces import (
     ChatSessionSearchCriteria,
     UpdatedChatSessionData,
 )
-from src.database.repository.sqlalchemy import ChatSessionRepository
+from src.uploads.repository.sqlalchemy import ChatSessionRepository
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ async def cleanup_sessions(db_connection):
     yield
     from sqlalchemy import delete
 
-    from src.database.models import ChatMessage, Document
+    from src.auth.models import ChatMessage, Document
 
     async with db_connection.get_session() as session:
         await session.execute(delete(ChatMessage))
@@ -188,7 +188,9 @@ class TestChatSessionRepositoryCore:
         assert count == 5
 
     @pytest.mark.asyncio
-    async def test_count_by_filter_id(self, chat_session_repo, test_user, cleanup_sessions):
+    async def test_count_by_filter_id(
+        self, chat_session_repo, test_user, cleanup_sessions
+    ):
         """Test counting sessions by session ID filter."""
         for i in range(3):
             session = ChatSession(id=uuid4(), user_id=test_user.id)

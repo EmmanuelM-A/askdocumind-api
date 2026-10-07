@@ -31,7 +31,7 @@ from src.api.routes.health_check_routes import health_check_router
 from src.api.routes.rag_chatbot_routes import rag_chatbot_router
 from src.api.services.cleanup.cleanup_resources import init_anon_user_sessions_cleanup
 from src.config.configs import settings
-from src.database.connection import get_database_connection
+from src.database.session import get_database_connection
 
 
 async def rate_limit_exception_handler(request: Request, exc: RateLimitExceeded):

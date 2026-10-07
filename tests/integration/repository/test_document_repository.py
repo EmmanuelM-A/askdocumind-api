@@ -11,12 +11,12 @@ import pytest
 import pytest_asyncio
 
 from src.config.constants import DocumentSourceType, ProcessingStatus
-from src.database.models import ChatSession, Document
-from src.database.repository.interfaces.document_repository import (
+from src.auth.models import ChatSession, Document
+from src.uploads.repository.interfaces.document_repository import (
     DocumentSearchCriteria,
     UpdatedDocumentData,
 )
-from src.database.repository.sqlalchemy import DocumentRepository
+from src.uploads.repository.sqlalchemy import DocumentRepository
 from src.errors.api_exceptions import ApiException
 
 

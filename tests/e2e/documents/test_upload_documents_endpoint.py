@@ -133,7 +133,7 @@ async def test_upload_persists_document_with_correct_metadata(
         headers=auth_cookie(user_id),
     )
 
-    from src.database.repository.interfaces import DocumentSearchCriteria
+    from src.uploads.repository.interfaces import DocumentSearchCriteria
 
     stored = await document_repo.list_by(
         criteria=DocumentSearchCriteria(session_id=chat_id)
@@ -166,7 +166,7 @@ async def test_upload_creates_real_document_chunks(
         headers=auth_cookie(user_id),
     )
 
-    from src.database.repository.interfaces import DocumentSearchCriteria
+    from src.uploads.repository.interfaces import DocumentSearchCriteria
 
     [document] = await document_repo.list_by(
         criteria=DocumentSearchCriteria(session_id=chat_id)
@@ -209,7 +209,7 @@ async def test_upload_pdf_document_succeeds_and_creates_chunks(
     assert response.status_code == 201
     assert response.json()["message"] == "Successfully uploaded 1 document(s)."
 
-    from src.database.repository.interfaces import DocumentSearchCriteria
+    from src.uploads.repository.interfaces import DocumentSearchCriteria
 
     [document] = await document_repo.list_by(
         criteria=DocumentSearchCriteria(session_id=chat_id)
@@ -241,7 +241,7 @@ async def test_upload_docx_document_succeeds_and_creates_chunks(
     assert response.status_code == 201
     assert response.json()["message"] == "Successfully uploaded 1 document(s)."
 
-    from src.database.repository.interfaces import DocumentSearchCriteria
+    from src.uploads.repository.interfaces import DocumentSearchCriteria
 
     [document] = await document_repo.list_by(
         criteria=DocumentSearchCriteria(session_id=chat_id)
@@ -270,7 +270,7 @@ async def test_upload_md_document_succeeds_and_creates_chunks(
 
     assert response.status_code == 201
 
-    from src.database.repository.interfaces import DocumentSearchCriteria
+    from src.uploads.repository.interfaces import DocumentSearchCriteria
 
     [document] = await document_repo.list_by(
         criteria=DocumentSearchCriteria(session_id=chat_id)
@@ -302,7 +302,7 @@ async def test_upload_html_document_succeeds_and_creates_chunks(
     assert response.status_code == 201
     assert response.json()["message"] == "Successfully uploaded 1 document(s)."
 
-    from src.database.repository.interfaces import DocumentSearchCriteria
+    from src.uploads.repository.interfaces import DocumentSearchCriteria
 
     [document] = await document_repo.list_by(
         criteria=DocumentSearchCriteria(session_id=chat_id)
@@ -332,7 +332,7 @@ async def test_upload_csv_document_succeeds_and_creates_chunks(
     assert response.status_code == 201
     assert response.json()["message"] == "Successfully uploaded 1 document(s)."
 
-    from src.database.repository.interfaces import DocumentSearchCriteria
+    from src.uploads.repository.interfaces import DocumentSearchCriteria
 
     [document] = await document_repo.list_by(
         criteria=DocumentSearchCriteria(session_id=chat_id)

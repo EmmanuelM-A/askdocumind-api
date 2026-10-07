@@ -8,7 +8,7 @@ paths relative to the root; path traversal outside the root is rejected.
 from pathlib import Path
 
 from src.config.configs import settings
-from src.database.storage.storage_service import StorageService
+from src.uploads.storage.storage_service import StorageService
 
 
 class LocalFileStorageService(StorageService):

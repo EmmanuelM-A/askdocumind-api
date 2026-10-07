@@ -13,3 +13,5 @@ python-dotenv==1.2.4
 # Testing
 
 # Bussiness Logic
+
+sqlalchemy

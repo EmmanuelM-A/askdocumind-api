@@ -12,7 +12,7 @@ from starlette.responses import Response
 from src.api.middleware.rate_limiter import health_api_limit, health_db_limit, limiter
 from src.api.utils.api_responses import SuccessResponseModel
 from src.api.utils.response_delivery import create_success_response
-from src.database.connection import get_database_connection
+from src.database.session import get_database_connection
 
 health_check_router = APIRouter(prefix="/health", tags=["Health Checks"])
 

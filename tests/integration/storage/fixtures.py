@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.database.storage.local_file_storage_service import LocalFileStorageService
+from src.uploads.storage.local_file_storage_service import LocalFileStorageService
 
 
 @pytest.fixture
@@ -23,4 +23,3 @@ def local_storage(
         str(storage_root),
     )
     return LocalFileStorageService()
-

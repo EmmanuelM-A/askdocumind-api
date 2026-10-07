@@ -7,8 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from src.database.models import ChatSession
-from src.database.repository.interfaces.db_transaction import DBTransaction
+from src.auth.models import ChatSession
+from src.uploads.repository.interfaces import DBTransaction
 
 
 class ChatSessionSearchCriteria(BaseModel):
@@ -17,6 +17,7 @@ class ChatSessionSearchCriteria(BaseModel):
     id: UUID | None = None
     user_id: UUID | None = None
     title: str | None = None
+
 
 class UpdatedChatSessionData(BaseModel):
     """Data structure for updating a chat session."""
@@ -33,9 +34,7 @@ class ChatSessionRepositoryInterface(ABC):
     """
 
     @abstractmethod
-    async def create(
-        self, data: ChatSession, tx: DBTransaction | None = None
-    ) -> UUID:
+    async def create(self, data: ChatSession, tx: DBTransaction | None = None) -> UUID:
         """
         Create and persist a new chat session entity.
 
@@ -74,7 +73,7 @@ class ChatSessionRepositoryInterface(ABC):
         :return: The ChatSession entity if found, None otherwise.
         """
         raise NotImplementedError
-    
+
     @abstractmethod
     async def get_by_user_id(
         self, user_id: UUID, tx: DBTransaction | None = None

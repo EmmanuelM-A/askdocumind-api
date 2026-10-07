@@ -4,9 +4,8 @@ This allows for easy swapping of storage implementations in the future without
 changing the service layer code.
 """
 
-
-from src.database.storage.s3_storage_service import S3StorageService
-from src.database.storage.storage_service import StorageService
+from src.uploads.storage.s3_storage_service import S3StorageService
+from src.uploads.storage.storage_service import StorageService
 
 _storage_service: StorageService | None = None
 

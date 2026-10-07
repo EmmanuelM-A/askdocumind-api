@@ -19,9 +19,9 @@ from ddgs.exceptions import DDGSException
 from src.components.ingestion.document_processor import DocumentProcessor
 from src.config.configs import settings
 from src.config.constants import DocumentSourceType, ProcessingStatus
-from src.database.models import Document
-from src.database.repository.interfaces.db_transaction import DBTransaction
-from src.database.repository.interfaces.document_repository import (
+from src.auth.models import Document
+from src.uploads.repository.interfaces import DBTransaction
+from src.uploads.repository.interfaces.document_repository import (
     DocumentRepositoryInterface,
 )
 from src.logger.base_logger import BaseLogger

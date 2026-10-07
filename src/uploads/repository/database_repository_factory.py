@@ -4,29 +4,29 @@ Factory method to get the appropriate database repository for a given model.
 
 from typing import Literal, TypeAlias, overload
 
-from src.database.connection import get_database_connection
-from src.database.repository.interfaces import DBTransactionFactory
-from src.database.repository.interfaces.chat_message_repository import (
+from src.database.session import get_database_connection
+from src.uploads.repository.interfaces import DBTransactionFactory
+from src.uploads.repository.interfaces import (
     ChatMessageRepositoryInterface,
 )
-from src.database.repository.interfaces.chat_session_repository import (
+from src.uploads.repository.interfaces import (
     ChatSessionRepositoryInterface,
 )
-from src.database.repository.interfaces.document_chunk_repository import (
+from src.uploads.repository.interfaces import (
     DocumentChunkRepositoryInterface,
 )
-from src.database.repository.interfaces.document_repository import (
+from src.uploads.repository.interfaces.document_repository import (
     DocumentRepositoryInterface,
 )
-from src.database.repository.interfaces.user_repository import UserRepositoryInterface
-from src.database.repository.sqlalchemy import (
+from src.uploads.repository.interfaces import UserRepositoryInterface
+from src.uploads.repository.sqlalchemy import (
     ChatMessageRepository,
     ChatSessionRepository,
     DocumentRepository,
     SQLAlchemyDBTransactionFactory,
     UserRepository,
 )
-from src.database.repository.sqlalchemy.document_chunk_repository import (
+from src.uploads.repository.sqlalchemy import (
     DocumentChunkRepository,
 )
 
@@ -46,15 +46,23 @@ RepositoryModelKey: TypeAlias = Literal[
 
 
 @overload
-def get_database_repository(model: Literal["DOCUMENT"]) -> DocumentRepositoryInterface: ...
+def get_database_repository(
+    model: Literal["DOCUMENT"],
+) -> DocumentRepositoryInterface: ...
 @overload
-def get_database_repository(model: Literal["CHAT_SESSION"]) -> ChatSessionRepositoryInterface: ...
+def get_database_repository(
+    model: Literal["CHAT_SESSION"],
+) -> ChatSessionRepositoryInterface: ...
 @overload
-def get_database_repository(model: Literal["CHAT_MESSAGE"]) -> ChatMessageRepositoryInterface: ...
+def get_database_repository(
+    model: Literal["CHAT_MESSAGE"],
+) -> ChatMessageRepositoryInterface: ...
 @overload
 def get_database_repository(model: Literal["USER"]) -> UserRepositoryInterface: ...
 @overload
-def get_database_repository(model: Literal["DOCUMENT_CHUNK"]) -> DocumentChunkRepositoryInterface: ...
+def get_database_repository(
+    model: Literal["DOCUMENT_CHUNK"],
+) -> DocumentChunkRepositoryInterface: ...
 def get_database_repository(
     model: RepositoryModelKey,
 ) -> (

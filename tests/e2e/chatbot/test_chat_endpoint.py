@@ -42,7 +42,10 @@ async def test_chat_no_relevant_chunks_returns_default_message(
 
     response = app_client.post(
         ENDPOINT,
-        json={"user_query": "What does the document say about pricing?", "chat_id": str(chat_id)},
+        json={
+            "user_query": "What does the document say about pricing?",
+            "chat_id": str(chat_id),
+        },
         headers=auth_cookie(user_id),
     )
 
@@ -105,7 +108,7 @@ async def test_chat_persists_user_and_assistant_messages(
     )
     answer = response.json()["data"]["answer"]
 
-    from src.database.repository.interfaces import ChatMessageSearchCriteria
+    from src.uploads.repository.interfaces import ChatMessageSearchCriteria
 
     messages = await chat_message_repo.list_by(
         criteria=ChatMessageSearchCriteria(session_id=chat_id)
@@ -180,13 +183,18 @@ async def test_chat_ignores_old_web_search_chunks_from_previous_turn(
     assert "old-web-result.html" not in body["answer"]
 
 
-async def test_chat_response_shape(app_client, seed_user, seed_chat_session, auth_cookie):
+async def test_chat_response_shape(
+    app_client, seed_user, seed_chat_session, auth_cookie
+):
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
 
     response = app_client.post(
         ENDPOINT,
-        json={"user_query": "A question with no matching documents at all.", "chat_id": str(chat_id)},
+        json={
+            "user_query": "A question with no matching documents at all.",
+            "chat_id": str(chat_id),
+        },
         headers=auth_cookie(user_id),
     )
 
@@ -198,7 +206,9 @@ async def test_chat_response_shape(app_client, seed_user, seed_chat_session, aut
 # ==================== Validation ====================
 
 
-async def test_chat_missing_user_query_returns_422(app_client, seed_user, seed_chat_session, auth_cookie):
+async def test_chat_missing_user_query_returns_422(
+    app_client, seed_user, seed_chat_session, auth_cookie
+):
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
 
@@ -209,7 +219,9 @@ async def test_chat_missing_user_query_returns_422(app_client, seed_user, seed_c
     assert response.status_code == 422
 
 
-async def test_chat_query_too_short_returns_422(app_client, seed_user, seed_chat_session, auth_cookie):
+async def test_chat_query_too_short_returns_422(
+    app_client, seed_user, seed_chat_session, auth_cookie
+):
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
 
@@ -244,7 +256,9 @@ async def test_chat_overlong_query_is_silently_truncated_not_rejected(
     assert response.status_code == 200
 
 
-async def test_chat_whitespace_only_query_returns_422(app_client, seed_user, seed_chat_session, auth_cookie):
+async def test_chat_whitespace_only_query_returns_422(
+    app_client, seed_user, seed_chat_session, auth_cookie
+):
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
 
@@ -269,19 +283,26 @@ async def test_chat_missing_chat_id_returns_422(app_client, seed_user, auth_cook
     assert response.status_code == 422
 
 
-async def test_chat_invalid_chat_id_format_returns_422(app_client, seed_user, auth_cookie):
+async def test_chat_invalid_chat_id_format_returns_422(
+    app_client, seed_user, auth_cookie
+):
     user_id = await seed_user()
 
     response = app_client.post(
         ENDPOINT,
-        json={"user_query": "A perfectly valid question here.", "chat_id": "not-a-uuid"},
+        json={
+            "user_query": "A perfectly valid question here.",
+            "chat_id": "not-a-uuid",
+        },
         headers=auth_cookie(user_id),
     )
 
     assert response.status_code == 422
 
 
-async def test_chat_non_bool_web_search_enabled_returns_422(app_client, seed_user, seed_chat_session, auth_cookie):
+async def test_chat_non_bool_web_search_enabled_returns_422(
+    app_client, seed_user, seed_chat_session, auth_cookie
+):
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
 
@@ -306,7 +327,10 @@ async def test_chat_nonexistent_chat_returns_404(app_client, seed_user, auth_coo
 
     response = app_client.post(
         ENDPOINT,
-        json={"user_query": "A perfectly valid question here.", "chat_id": str(uuid4())},
+        json={
+            "user_query": "A perfectly valid question here.",
+            "chat_id": str(uuid4()),
+        },
         headers=auth_cookie(user_id),
     )
 
@@ -323,7 +347,10 @@ async def test_chat_chat_owned_by_another_user_returns_404(
 
     response = app_client.post(
         ENDPOINT,
-        json={"user_query": "A perfectly valid question here.", "chat_id": str(chat_id)},
+        json={
+            "user_query": "A perfectly valid question here.",
+            "chat_id": str(chat_id),
+        },
         headers=auth_cookie(other_user_id),
     )
 
@@ -339,20 +366,29 @@ async def test_chat_no_cookie_returns_422(app_client, seed_user, seed_chat_sessi
     chat_id = await seed_chat_session(user_id)
 
     response = app_client.post(
-        ENDPOINT, json={"user_query": "A perfectly valid question here.", "chat_id": str(chat_id)}
+        ENDPOINT,
+        json={
+            "user_query": "A perfectly valid question here.",
+            "chat_id": str(chat_id),
+        },
     )
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "NO_COOKIE_VALUE"
 
 
-async def test_chat_garbage_cookie_returns_422(app_client, seed_user, seed_chat_session):
+async def test_chat_garbage_cookie_returns_422(
+    app_client, seed_user, seed_chat_session
+):
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
 
     response = app_client.post(
         ENDPOINT,
-        json={"user_query": "A perfectly valid question here.", "chat_id": str(chat_id)},
+        json={
+            "user_query": "A perfectly valid question here.",
+            "chat_id": str(chat_id),
+        },
         headers={"Cookie": f"{COOKIE_NAME}=garbage"},
     )
 
@@ -369,7 +405,10 @@ async def test_chat_valid_signature_nonexistent_user_returns_404(
 
     response = app_client.post(
         ENDPOINT,
-        json={"user_query": "A perfectly valid question here.", "chat_id": str(chat_id)},
+        json={
+            "user_query": "A perfectly valid question here.",
+            "chat_id": str(chat_id),
+        },
         headers={"Cookie": f"{COOKIE_NAME}={cookie_token}"},
     )
 
@@ -380,7 +419,9 @@ async def test_chat_valid_signature_nonexistent_user_returns_404(
 # ==================== Rate limiting ====================
 
 
-async def test_chat_rate_limit_exceeded_returns_429(app_client, seed_user, seed_chat_session, auth_cookie):
+async def test_chat_rate_limit_exceeded_returns_429(
+    app_client, seed_user, seed_chat_session, auth_cookie
+):
     """MAX_CHAT_QUERIES_PER_MINUTE=10, keyed per anonymous user. Uses a
     fresh user (own rate-limit bucket) and the cheap no-chunks-found path
     (no LLM generation call) to stay fast while still exercising a real
@@ -388,9 +429,14 @@ async def test_chat_rate_limit_exceeded_returns_429(app_client, seed_user, seed_
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
     headers = auth_cookie(user_id)
-    payload = {"user_query": "A question with no matching documents at all.", "chat_id": str(chat_id)}
+    payload = {
+        "user_query": "A question with no matching documents at all.",
+        "chat_id": str(chat_id),
+    }
 
-    responses = [app_client.post(ENDPOINT, json=payload, headers=headers) for _ in range(11)]
+    responses = [
+        app_client.post(ENDPOINT, json=payload, headers=headers) for _ in range(11)
+    ]
 
     assert responses[-1].status_code == 429
     assert all(r.status_code == 200 for r in responses[:10])
@@ -407,13 +453,18 @@ async def test_chat_get_method_not_allowed(app_client, seed_user, auth_cookie):
     assert response.status_code == 405
 
 
-async def test_chat_trailing_slash_returns_404(app_client, seed_user, seed_chat_session, auth_cookie):
+async def test_chat_trailing_slash_returns_404(
+    app_client, seed_user, seed_chat_session, auth_cookie
+):
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
 
     response = app_client.post(
         f"{ENDPOINT}/",
-        json={"user_query": "A perfectly valid question here.", "chat_id": str(chat_id)},
+        json={
+            "user_query": "A perfectly valid question here.",
+            "chat_id": str(chat_id),
+        },
         headers=auth_cookie(user_id),
         follow_redirects=False,
     )

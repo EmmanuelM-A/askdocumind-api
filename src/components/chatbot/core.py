@@ -14,7 +14,7 @@ from src.components.retrieval.query_expander import expand_query
 from src.components.retrieval.web_searcher import WebSearcher
 from src.config.configs import settings
 from src.config.constants import DocumentSourceType
-from src.database.repository.interfaces.db_transaction import DBTransactionFactory
+from src.uploads.repository.interfaces import DBTransactionFactory
 from src.errors.api_exceptions import ApiException
 from src.logger.base_logger import BaseLogger
 
@@ -42,6 +42,7 @@ class ChatbotResponse:
 
 class RAGChatbot:
     """Defines all methods related to RAG Chatbot interactions."""
+
     def __init__(
         self,
         query_handler: QueryHandler,
@@ -83,7 +84,9 @@ class RAGChatbot:
 
         try:
             expanded_query = expand_query(
-                query=query, llm=self._query_handler.llm, prompt_template=self._expansion_prompt_template
+                query=query,
+                llm=self._query_handler.llm,
+                prompt_template=self._expansion_prompt_template,
             )
         except ApiException as e:
             self._logger.warning(
@@ -123,7 +126,9 @@ class RAGChatbot:
         )
 
         if response is None:
-            self._logger.info(f"No relevant information found for the query: '{query}'.")
+            self._logger.info(
+                f"No relevant information found for the query: '{query}'."
+            )
             return response_data
 
         if response != "NEED_WEB_SEARCH":
@@ -165,7 +170,9 @@ class RAGChatbot:
             await tx.__aenter__()
 
             await self._web_searcher.ingest_web_content(
-                query=expanded_query, chat_session_id=chat_session_id, tx=tx,
+                query=expanded_query,
+                chat_session_id=chat_session_id,
+                tx=tx,
             )
 
             web_results, web_sources = await self._query_handler.search_for_vectors(
@@ -195,7 +202,9 @@ class RAGChatbot:
         finally:
             await tx.close()
 
-        self._logger.info(f"Generated response from web search for the query: '{query}'.")
+        self._logger.info(
+            f"Generated response from web search for the query: '{query}'."
+        )
         response_data.answer = web_response
         response_data.sources = web_sources
         return response_data

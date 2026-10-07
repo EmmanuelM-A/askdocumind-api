@@ -12,7 +12,7 @@ from src.api.utils.response_delivery import create_error_response
 from src.api.utils.session_manager import get_token_manager
 from src.config.configs import settings
 from src.database.repository import get_database_repository
-from src.database.repository.sqlalchemy.user_repository import UserRepository
+from src.uploads.repository.sqlalchemy import UserRepository
 from src.errors.api_exceptions import ApiException
 from src.errors.custom_exceptions import not_found_error, unprocessable_entity_error
 from src.logger.base_logger import BaseLogger
@@ -33,7 +33,7 @@ class AnonymousSessionMiddleware(BaseHTTPMiddleware):
 
         if request.method == "OPTIONS" or not current_path.startswith("/api/"):
             return await call_next(request)
-        
+
         if current_path.startswith("/api/docs"):
             return await call_next(request)
 

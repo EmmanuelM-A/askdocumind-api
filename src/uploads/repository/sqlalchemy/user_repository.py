@@ -10,10 +10,10 @@ from uuid import UUID
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from src.database.connection import DatabaseConnection
-from src.database.models import User
-from src.database.repository.interfaces.db_transaction import DBTransaction
-from src.database.repository.interfaces.user_repository import (
+from src.database.session import DatabaseSessionManager
+from src.auth.models import User
+from src.uploads.repository.interfaces import DBTransaction
+from src.uploads.repository.interfaces import (
     UpdatedUserData,
     UserRepositoryInterface,
     UserSearchCriteria,
@@ -27,7 +27,7 @@ class UserRepository(UserRepositoryInterface):
     Concrete implementation of the user repository interface.
     """
 
-    def __init__(self, connection: DatabaseConnection) -> None:
+    def __init__(self, connection: DatabaseSessionManager) -> None:
         self._db = connection
         self._logger = BaseLogger(__name__)
 
@@ -141,9 +141,7 @@ class UserRepository(UserRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def delete(
-        self, user_id: UUID, tx: DBTransaction | None = None
-    ) -> bool:
+    async def delete(self, user_id: UUID, tx: DBTransaction | None = None) -> bool:
         try:
             stmt = delete(User).where(User.id == user_id)
 
@@ -196,9 +194,7 @@ class UserRepository(UserRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def exists(
-        self, user_id: UUID, tx: DBTransaction | None = None
-    ) -> bool:
+    async def exists(self, user_id: UUID, tx: DBTransaction | None = None) -> bool:
         try:
             stmt = select(func.count()).select_from(User).where(User.id == user_id)
 
@@ -257,9 +253,10 @@ class UserRepository(UserRepositoryInterface):
                 error_code="USER_DELETE_BY_CRITERIA_ERROR",
                 stack_trace=str(e),
             )
-    
 
-    async def update_last_seen(self, user_id: UUID, tx: DBTransaction | None = None) -> None:
+    async def update_last_seen(
+        self, user_id: UUID, tx: DBTransaction | None = None
+    ) -> None:
         """Update the last_seen_at timestamp of a user to the current UTC time."""
         try:
             stmt = select(User).where(User.id == user_id)
@@ -268,7 +265,9 @@ class UserRepository(UserRepositoryInterface):
                 result = await tx.execute(stmt)
                 existing = result.scalar_one_or_none()
                 if not existing:
-                    self._logger.warning(f"User {user_id} not found for last seen update.")
+                    self._logger.warning(
+                        f"User {user_id} not found for last seen update."
+                    )
                     return
                 existing.last_seen_at = datetime.now(timezone.utc)
                 await tx.flush()
@@ -279,7 +278,9 @@ class UserRepository(UserRepositoryInterface):
                 result = await session.execute(stmt)
                 existing = result.scalar_one_or_none()
                 if not existing:
-                    self._logger.warning(f"User {user_id} not found for last seen update.")
+                    self._logger.warning(
+                        f"User {user_id} not found for last seen update."
+                    )
                     return
                 existing.last_seen_at = datetime.now(timezone.utc)
                 await session.flush()
@@ -315,4 +316,3 @@ class UserRepository(UserRepositoryInterface):
                 error_code="USER_GET_EXPIRED_IDS_ERROR",
                 stack_trace=str(e),
             )
-

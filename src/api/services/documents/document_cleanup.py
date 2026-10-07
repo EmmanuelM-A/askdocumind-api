@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from src.config.configs import settings
 from src.config.constants import ProcessingStatus
-from src.database.repository.interfaces import (
+from src.uploads.repository.interfaces import (
     DocumentChunkRepositoryInterface,
     DocumentRepositoryInterface,
 )
@@ -45,7 +45,9 @@ class DocumentCleanupService:
             self._logger.info("No stuck processing documents found.")
             return 0
 
-        self._logger.debug(f"Found {len(stuck_ids)} stuck document(s) to mark as FAILED.")
+        self._logger.debug(
+            f"Found {len(stuck_ids)} stuck document(s) to mark as FAILED."
+        )
 
         total_updated = 0
         failed_batches = 0
@@ -53,9 +55,11 @@ class DocumentCleanupService:
         for i in range(0, len(stuck_ids), batch_size):
             batch = stuck_ids[i : i + batch_size]
             try:
-                total_updated += await self._document_repo.bulk_update_processing_status(
-                    document_ids=batch,
-                    status=ProcessingStatus.FAILED,
+                total_updated += (
+                    await self._document_repo.bulk_update_processing_status(
+                        document_ids=batch,
+                        status=ProcessingStatus.FAILED,
+                    )
                 )
             except Exception as exc:  # noqa: BLE001
                 failed_batches += len(batch)
@@ -86,7 +90,9 @@ class DocumentCleanupService:
             self._logger.info("No expired failed documents found.")
             return 0
 
-        self._logger.debug(f"Found {len(failed_ids)} expired FAILED document(s) to delete.")
+        self._logger.debug(
+            f"Found {len(failed_ids)} expired FAILED document(s) to delete."
+        )
 
         total_deleted = 0
         failed_batches = 0

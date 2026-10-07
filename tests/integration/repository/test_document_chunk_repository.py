@@ -11,11 +11,11 @@ import pytest
 from sqlalchemy import delete
 
 from src.config.constants import DocumentSourceType, ProcessingStatus
-from src.database.models import ChatSession, Document, DocumentChunk, User
-from src.database.repository.interfaces.document_chunk_repository import (
+from src.auth.models import ChatSession, Document, DocumentChunk, User
+from src.uploads.repository.interfaces import (
     DocumentChunkSearchCriteria,
 )
-from src.database.repository.sqlalchemy.document_chunk_repository import (
+from src.uploads.repository.sqlalchemy import (
     DocumentChunkRepository,
 )
 
@@ -349,7 +349,7 @@ class TestDocumentChunkRepositoryCore:
         chunks = [
             chunk_factory(
                 test_document.id,
-                    chat_session_id=test_document.session_id,
+                chat_session_id=test_document.session_id,
                 chunk_text=f"Chunk {i}",
                 head=(1.0, 0.0, 0.0),
             )

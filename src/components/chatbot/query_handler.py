@@ -15,9 +15,9 @@ from src.components.retrieval.embedder import Embedder
 from src.components.retrieval.reranker import Reranker
 from src.config.configs import settings
 from src.config.constants import DocumentSourceType
-from src.database.models import DocumentChunk
-from src.database.repository.interfaces.db_transaction import DBTransaction
-from src.database.repository.interfaces.document_chunk_repository import (
+from src.auth.models import DocumentChunk
+from src.uploads.repository.interfaces import DBTransaction
+from src.uploads.repository.interfaces import (
     DocumentChunkRepositoryInterface,
 )
 from src.errors.custom_exceptions import server_error
@@ -146,9 +146,7 @@ class QueryHandler:
         rag_chain = self._prompt_template | self.llm | StrOutputParser()
 
         try:
-            response = rag_chain.invoke(
-                {"context": context_text, "query": query}
-            )
+            response = rag_chain.invoke({"context": context_text, "query": query})
         except Exception as e:  # noqa: BLE001
             raise server_error(
                 message="The AI service is temporarily unavailable. Please try again shortly.",

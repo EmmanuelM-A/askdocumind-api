@@ -6,7 +6,7 @@ No dependency is mocked anywhere in this file.
 from uuid import uuid4
 
 from src.config.configs import settings
-from src.database.models import Document
+from src.auth.models import Document
 
 ENDPOINT = "/api/documents"
 COOKIE_NAME = settings.auth.COOKIE_NAME
@@ -47,7 +47,7 @@ async def test_delete_actually_removes_row_from_db(
 
     app_client.delete(_url(doc_id, chat_id), headers=auth_cookie(user_id))
 
-    from src.database.repository.interfaces import DocumentSearchCriteria
+    from src.uploads.repository.interfaces import DocumentSearchCriteria
 
     remaining = await document_repo.list_by(
         criteria=DocumentSearchCriteria(session_id=chat_id)
@@ -69,7 +69,7 @@ async def test_delete_does_not_affect_other_documents(
 
     app_client.delete(_url(doc_a, chat_id), headers=auth_cookie(user_id))
 
-    from src.database.repository.interfaces import DocumentSearchCriteria
+    from src.uploads.repository.interfaces import DocumentSearchCriteria
 
     remaining = await document_repo.list_by(
         criteria=DocumentSearchCriteria(session_id=chat_id)
@@ -190,7 +190,9 @@ async def test_delete_invalid_document_id_path_returns_422(
     assert response.status_code == 422
 
 
-async def test_delete_invalid_chat_id_query_returns_422(app_client, seed_user, auth_cookie):
+async def test_delete_invalid_chat_id_query_returns_422(
+    app_client, seed_user, auth_cookie
+):
     user_id = await seed_user()
 
     response = app_client.delete(
@@ -227,7 +229,9 @@ async def test_delete_garbage_cookie_returns_422(
         Document(session_id=chat_id, source="a.txt", source_size=10)
     )
 
-    response = app_client.delete(_url(doc_id, chat_id), headers={"Cookie": f"{COOKIE_NAME}=garbage"})
+    response = app_client.delete(
+        _url(doc_id, chat_id), headers={"Cookie": f"{COOKIE_NAME}=garbage"}
+    )
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "INVALID_USER_SIGNATURE"

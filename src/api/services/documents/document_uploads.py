@@ -13,8 +13,8 @@ from src.api.validation.helper import check_if_chat_exists
 from src.components.ingestion.document_processor import DocumentProcessor
 from src.config.configs import settings
 from src.config.constants import DocumentSourceType, ProcessingStatus
-from src.database.models import Document
-from src.database.repository.interfaces import (
+from src.auth.models import Document
+from src.uploads.repository.interfaces import (
     ChatSessionRepositoryInterface,
     DBTransactionFactory,
     DocumentRepositoryInterface,
@@ -117,8 +117,8 @@ class UploadDocumentService:
                 docs_saved += 1
 
         self._logger.debug(
-            f"Successfully uploaded {docs_saved}/{len(request.documents)} " +
-            f"documents for chat {request.chat_id}"
+            f"Successfully uploaded {docs_saved}/{len(request.documents)} "
+            + f"documents for chat {request.chat_id}"
         )
 
         return docs_saved

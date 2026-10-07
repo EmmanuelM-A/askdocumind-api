@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from src.config.configs import settings
 from src.config.constants import ChatMessageRole
-from src.database.models import ChatMessage
+from src.auth.models import ChatMessage
 
 ENDPOINT = "/api/sessions"
 COOKIE_NAME = settings.auth.COOKIE_NAME
@@ -87,7 +87,9 @@ async def test_get_messages_only_returns_messages_for_requested_session(
 # ==================== Not found / ownership ====================
 
 
-async def test_get_messages_nonexistent_session_returns_404(app_client, seed_user, auth_cookie):
+async def test_get_messages_nonexistent_session_returns_404(
+    app_client, seed_user, auth_cookie
+):
     user_id = await seed_user()
 
     response = app_client.get(_url(uuid4()), cookies=auth_cookie(user_id))
@@ -112,7 +114,9 @@ async def test_get_messages_session_owned_by_another_user_returns_404(
 # ==================== Invalid path parameter ====================
 
 
-async def test_get_messages_invalid_uuid_path_returns_422(app_client, seed_user, auth_cookie):
+async def test_get_messages_invalid_uuid_path_returns_422(
+    app_client, seed_user, auth_cookie
+):
     user_id = await seed_user()
 
     response = app_client.get(_url("not-a-uuid"), cookies=auth_cookie(user_id))
@@ -124,7 +128,9 @@ async def test_get_messages_invalid_uuid_path_returns_422(app_client, seed_user,
 # ==================== Auth failure matrix ====================
 
 
-async def test_get_messages_no_cookie_returns_422(app_client, seed_user, seed_chat_session):
+async def test_get_messages_no_cookie_returns_422(
+    app_client, seed_user, seed_chat_session
+):
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
 

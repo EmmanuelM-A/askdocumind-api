@@ -14,8 +14,8 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from src.config.constants import DocumentSourceType
-from src.database.models import DocumentChunk
-from src.database.repository.interfaces.db_transaction import DBTransaction
+from src.auth.models import DocumentChunk
+from src.uploads.repository.interfaces import DBTransaction
 
 
 class DocumentChunkSearchCriteria(BaseModel):
@@ -233,4 +233,3 @@ class DocumentChunkRepositoryInterface(ABC):
         :return: Number of chunks deleted.
         """
         raise NotImplementedError
-

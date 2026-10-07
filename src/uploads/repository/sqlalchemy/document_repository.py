@@ -10,10 +10,10 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.config.constants import ProcessingStatus
-from src.database.connection import DatabaseConnection
-from src.database.models import Document
-from src.database.repository.interfaces.db_transaction import DBTransaction
-from src.database.repository.interfaces.document_repository import (
+from src.database.session import DatabaseSessionManager
+from src.auth.models import Document
+from src.uploads.repository.interfaces import DBTransaction
+from src.uploads.repository.interfaces.document_repository import (
     DocumentRepositoryInterface,
     DocumentSearchCriteria,
     UpdatedDocumentData,
@@ -27,7 +27,7 @@ class DocumentRepository(DocumentRepositoryInterface):
     Concrete implementation of the document repository interface.
     """
 
-    def __init__(self, connection: DatabaseConnection) -> None:
+    def __init__(self, connection: DatabaseSessionManager) -> None:
         self._db = connection
         self._logger = BaseLogger(__name__)
 
@@ -230,9 +230,7 @@ class DocumentRepository(DocumentRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def delete(
-        self, document_id: UUID, tx: DBTransaction | None = None
-    ) -> bool:
+    async def delete(self, document_id: UUID, tx: DBTransaction | None = None) -> bool:
         try:
             stmt = delete(Document).where(Document.id == document_id)
 
@@ -305,11 +303,11 @@ class DocumentRepository(DocumentRepositoryInterface):
         tx: DBTransaction | None = None,
     ) -> float:
         try:
-            stmt = select(
-                func.coalesce(func.sum(Document.source_size), 0)
-            ).select_from(
-                Document
-            ).where(Document.session_id == chat_session_id)
+            stmt = (
+                select(func.coalesce(func.sum(Document.source_size), 0))
+                .select_from(Document)
+                .where(Document.session_id == chat_session_id)
+            )
 
             if tx is not None:
                 result = await tx.execute(stmt)

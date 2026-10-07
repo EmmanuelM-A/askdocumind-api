@@ -10,12 +10,12 @@ from uuid import uuid4
 import pytest
 
 from src.config.constants import ChatMessageRole
-from src.database.models import ChatMessage
-from src.database.repository.interfaces.chat_message_repository import (
+from src.auth.models import ChatMessage
+from src.uploads.repository.interfaces import (
     ChatMessageSearchCriteria,
     UpdatedChatMessageData,
 )
-from src.database.repository.sqlalchemy import ChatMessageRepository
+from src.uploads.repository.sqlalchemy import ChatMessageRepository
 
 
 @pytest.fixture

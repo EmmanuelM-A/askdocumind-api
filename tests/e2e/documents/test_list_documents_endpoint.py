@@ -6,7 +6,7 @@ documents). No dependency is mocked anywhere in this file.
 from uuid import uuid4
 
 from src.config.configs import settings
-from src.database.models import Document
+from src.auth.models import Document
 
 ENDPOINT = "/api/documents"
 COOKIE_NAME = settings.auth.COOKIE_NAME
@@ -139,7 +139,9 @@ async def test_list_missing_chat_id_returns_422(app_client, seed_user, auth_cook
     assert response.status_code == 422
 
 
-async def test_list_invalid_chat_id_format_returns_422(app_client, seed_user, auth_cookie):
+async def test_list_invalid_chat_id_format_returns_422(
+    app_client, seed_user, auth_cookie
+):
     user_id = await seed_user()
 
     response = app_client.get(
@@ -162,11 +164,15 @@ async def test_list_no_cookie_returns_422(app_client, seed_user, seed_chat_sessi
     assert response.json()["error"]["code"] == "NO_COOKIE_VALUE"
 
 
-async def test_list_garbage_cookie_returns_422(app_client, seed_user, seed_chat_session):
+async def test_list_garbage_cookie_returns_422(
+    app_client, seed_user, seed_chat_session
+):
     user_id = await seed_user()
     chat_id = await seed_chat_session(user_id)
 
-    response = app_client.get(_url(chat_id), headers={"Cookie": f"{COOKIE_NAME}=garbage"})
+    response = app_client.get(
+        _url(chat_id), headers={"Cookie": f"{COOKIE_NAME}=garbage"}
+    )
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "INVALID_USER_SIGNATURE"
@@ -179,7 +185,9 @@ async def test_list_valid_signature_nonexistent_user_returns_404(
     chat_id = await seed_chat_session(owner_id)
     cookie_token = token_manager.create_token(uuid4())
 
-    response = app_client.get(_url(chat_id), headers={"Cookie": f"{COOKIE_NAME}={cookie_token}"})
+    response = app_client.get(
+        _url(chat_id), headers={"Cookie": f"{COOKIE_NAME}={cookie_token}"}
+    )
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "ANONYMOUS_USER_NOT_FOUND"

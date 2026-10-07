@@ -6,8 +6,8 @@ from alembic.environment import Optional
 
 from src.api.utils.session_manager import TokenManager
 from src.config.configs import settings
-from src.database.models import User
-from src.database.repository.interfaces import UserRepositoryInterface
+from src.auth.models import User
+from src.uploads.repository.interfaces import UserRepositoryInterface
 from src.logger.base_logger import BaseLogger
 
 
@@ -58,7 +58,7 @@ class AnonymousUserSessionService:
         except Exception:  # noqa: BLE001
             self._logger.debug("Anonymous session cookie could not be reused.")
             return await self._create_anonymous_user_session()
-        
+
         existing_user = await self._user_repo.get_by_id(payload.user_id)
 
         if existing_user is None:
@@ -83,9 +83,7 @@ class AnonymousUserSessionService:
         :return: Total number of deleted sessions.
         """
 
-        cutoff = datetime.now(timezone.utc) - timedelta(
-            hours=settings.anon.TTL_HOURS
-        )
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=settings.anon.TTL_HOURS)
 
         expired_ids: list[UUID] = await self._user_repo.get_all_expired_user_ids(
             cutoff=cutoff

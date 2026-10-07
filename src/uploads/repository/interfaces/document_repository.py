@@ -9,8 +9,8 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from src.config.constants import DocumentSourceType, ProcessingStatus
-from src.database.models import Document
-from src.database.repository.interfaces.db_transaction import DBTransaction
+from src.auth.models import Document
+from src.uploads.repository.interfaces import DBTransaction
 
 
 class DocumentSearchCriteria(BaseModel):
@@ -29,6 +29,7 @@ class UpdatedDocumentData(BaseModel):
 
     source: str | None = None
     processing_status: ProcessingStatus | None = None
+
 
 class DocumentRepositoryInterface(ABC):
     """
@@ -116,9 +117,7 @@ class DocumentRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def delete(
-        self, document_id: UUID, tx: DBTransaction | None = None
-    ) -> bool:
+    async def delete(self, document_id: UUID, tx: DBTransaction | None = None) -> bool:
         """
         Delete a document by its unique identifier.
 
@@ -129,9 +128,7 @@ class DocumentRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def exists(
-        self, entity_id: UUID, tx: DBTransaction | None = None
-    ) -> bool:
+    async def exists(self, entity_id: UUID, tx: DBTransaction | None = None) -> bool:
         """
         Check if a document with the given UUID exists.
 

@@ -11,9 +11,9 @@ from docling_core.types.doc.labels import DocItemLabel
 
 from src.components.retrieval.embedder import Embedder
 from src.config.configs import settings
-from src.database.models import DocumentChunk
-from src.database.repository.interfaces import DBTransaction
-from src.database.repository.interfaces.document_chunk_repository import (
+from src.auth.models import DocumentChunk
+from src.uploads.repository.interfaces import DBTransaction
+from src.uploads.repository.interfaces import (
     DocumentChunkRepositoryInterface,
 )
 from src.logger.base_logger import BaseLogger

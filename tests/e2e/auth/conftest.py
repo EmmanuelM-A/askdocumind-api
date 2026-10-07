@@ -24,9 +24,9 @@ from sqlalchemy import delete
 
 from src.api.app import create_app
 from src.api.utils.session_manager import TokenManager, get_token_manager
-from src.database.connection import DatabaseConnection
-from src.database.models import User
-from src.database.repository.sqlalchemy.user_repository import UserRepository
+from src.database.session import DatabaseSessionManager
+from src.auth.models import User
+from src.uploads.repository.sqlalchemy import UserRepository
 
 
 @pytest.fixture(scope="module")
@@ -40,14 +40,14 @@ def app_client():
 async def db_connection():
     """Independent DB connection for test-side seeding/verification,
     bound to this test's own event loop."""
-    conn = DatabaseConnection()
+    conn = DatabaseSessionManager()
     await conn.connect()
     yield conn
     await conn.disconnect()
 
 
 @pytest.fixture
-def user_repo(db_connection: DatabaseConnection) -> UserRepository:
+def user_repo(db_connection: DatabaseSessionManager) -> UserRepository:
     return UserRepository(connection=db_connection)
 
 
@@ -62,7 +62,9 @@ def created_user_ids() -> list[UUID]:
 
 
 @pytest_asyncio.fixture(autouse=True)
-async def cleanup_users(db_connection: DatabaseConnection, created_user_ids: list[UUID]):
+async def cleanup_users(
+    db_connection: DatabaseSessionManager, created_user_ids: list[UUID]
+):
     """Deletes every user row a test registered as created, after the test runs.
     Autouse so every test in this package gets cleanup without needing to
     explicitly request the fixture."""

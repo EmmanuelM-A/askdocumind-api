@@ -8,14 +8,14 @@ from uuid import UUID
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from src.database.connection import DatabaseConnection
-from src.database.models import ChatSession
-from src.database.repository.interfaces.chat_session_repository import (
+from src.database.session import DatabaseSessionManager
+from src.auth.models import ChatSession
+from src.uploads.repository.interfaces import (
     ChatSessionRepositoryInterface,
     ChatSessionSearchCriteria,
     UpdatedChatSessionData,
 )
-from src.database.repository.interfaces.db_transaction import DBTransaction
+from src.uploads.repository.interfaces import DBTransaction
 from src.errors.custom_exceptions import database_error
 from src.logger.base_logger import BaseLogger
 
@@ -25,7 +25,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
     Concrete implementation of the chat session repository interface.
     """
 
-    def __init__(self, connection: DatabaseConnection) -> None:
+    def __init__(self, connection: DatabaseSessionManager) -> None:
         self._db = connection
         self._logger = BaseLogger(__name__)
 
@@ -36,9 +36,7 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
             filters.append(getattr(ChatSession, field) == value)
         return filters
 
-    async def create(
-        self, data: ChatSession, tx: DBTransaction | None = None
-    ) -> UUID:
+    async def create(self, data: ChatSession, tx: DBTransaction | None = None) -> UUID:
         try:
             if tx is not None:
                 await tx.add(data)
@@ -139,14 +137,18 @@ class ChatSessionRepository(ChatSessionRepositoryInterface):
                 result = await tx.execute(stmt)
                 chat_session = result.scalar_one_or_none()
                 if chat_session:
-                    self._logger.debug(f"Found most recent chat session for user: {user_id}")
+                    self._logger.debug(
+                        f"Found most recent chat session for user: {user_id}"
+                    )
                 return chat_session
 
             async with self._db.get_session() as session:
                 result = await session.execute(stmt)
                 chat_session = result.scalar_one_or_none()
                 if chat_session:
-                    self._logger.debug(f"Found most recent chat session for user: {user_id}")
+                    self._logger.debug(
+                        f"Found most recent chat session for user: {user_id}"
+                    )
                 return chat_session
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001

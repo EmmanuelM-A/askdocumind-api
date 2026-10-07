@@ -8,8 +8,8 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from src.config.constants import ChatMessageRole
-from src.database.models import ChatMessage
-from src.database.repository.interfaces.db_transaction import DBTransaction
+from src.auth.models import ChatMessage
+from src.uploads.repository.interfaces import DBTransaction
 
 
 class ChatMessageSearchCriteria(BaseModel):
@@ -36,9 +36,7 @@ class ChatMessageRepositoryInterface(ABC):
     """
 
     @abstractmethod
-    async def create(
-        self, data: ChatMessage, tx: DBTransaction | None = None
-    ) -> UUID:
+    async def create(self, data: ChatMessage, tx: DBTransaction | None = None) -> UUID:
         """
         Create and persist a new chat message entity.
 
@@ -113,9 +111,7 @@ class ChatMessageRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def delete(
-        self, message_id: UUID, tx: DBTransaction | None = None
-    ) -> bool:
+    async def delete(self, message_id: UUID, tx: DBTransaction | None = None) -> bool:
         """
         Delete a chat message by its unique identifier.
 
@@ -126,9 +122,7 @@ class ChatMessageRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def exists(
-        self, entity_id: UUID, tx: DBTransaction | None = None
-    ) -> bool:
+    async def exists(self, entity_id: UUID, tx: DBTransaction | None = None) -> bool:
         """
         Check if a chat message with the given UUID exists.
 

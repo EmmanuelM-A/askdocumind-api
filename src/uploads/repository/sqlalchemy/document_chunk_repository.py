@@ -14,10 +14,10 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from src.config.constants import DocumentSourceType
-from src.database.connection import DatabaseConnection
-from src.database.models import Document, DocumentChunk
-from src.database.repository.interfaces.db_transaction import DBTransaction
-from src.database.repository.interfaces.document_chunk_repository import (
+from src.database.session import DatabaseSessionManager
+from src.auth.models import Document, DocumentChunk
+from src.uploads.repository.interfaces import DBTransaction
+from src.uploads.repository.interfaces import (
     DocumentChunkRepositoryInterface,
     DocumentChunkSearchCriteria,
 )
@@ -28,7 +28,7 @@ from src.logger.base_logger import BaseLogger
 class DocumentChunkRepository(DocumentChunkRepositoryInterface):
     """Concrete SQLAlchemy repository for document chunks."""
 
-    def __init__(self, connection: DatabaseConnection) -> None:
+    def __init__(self, connection: DatabaseSessionManager) -> None:
         self._db = connection
         self._logger = BaseLogger(__name__)
 
@@ -319,7 +319,9 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 else:
                     continue
             except Exception as e:  # noqa: BLE001
-                self._logger.debug(f"Skipping chunk {c.id} with unusable embedding: {e}")
+                self._logger.debug(
+                    f"Skipping chunk {c.id} with unusable embedding: {e}"
+                )
                 continue
 
             emb_norm = math.sqrt(sum(x * x for x in emb_list))
@@ -361,19 +363,24 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
 
             # Query documents where id IN (extracted IDs) AND session_id matches
             stmt = select(Document.source).where(
-                (Document.id.in_(document_ids)) & (Document.session_id == chat_session_id)
+                (Document.id.in_(document_ids))
+                & (Document.session_id == chat_session_id)
             )
 
             if tx is not None:
                 result = await tx.execute(stmt)
                 filenames = result.scalars().unique().all()
-                self._logger.debug(f"Retrieved {len(filenames)} unique filenames for chunks")
+                self._logger.debug(
+                    f"Retrieved {len(filenames)} unique filenames for chunks"
+                )
                 return filenames
 
             async with self._db.get_session() as session:
                 result = await session.execute(stmt)
                 filenames = result.scalars().unique().all()
-                self._logger.debug(f"Retrieved {len(filenames)} unique filenames for chunks")
+                self._logger.debug(
+                    f"Retrieved {len(filenames)} unique filenames for chunks"
+                )
                 return filenames
 
         except (IntegrityError, SQLAlchemyError, Exception) as e:  # noqa: BLE001
@@ -406,5 +413,3 @@ class DocumentChunkRepository(DocumentChunkRepositoryInterface):
                 error_code="DOCUMENT_CHUNK_DELETE_ORPHANED_ERROR",
                 stack_trace=str(e),
             )
-
-

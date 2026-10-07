@@ -8,8 +8,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from src.database.models import User
-from src.database.repository.interfaces.db_transaction import DBTransaction
+from src.auth.models import User
+from src.uploads.repository.interfaces import DBTransaction
 
 
 class UserSearchCriteria(BaseModel):
@@ -86,7 +86,9 @@ class UserRepositoryInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def delete_many(self, user_ids: list[UUID], tx: DBTransaction | None = None) -> int:
+    async def delete_many(
+        self, user_ids: list[UUID], tx: DBTransaction | None = None
+    ) -> int:
         """
         Delete multiple users by their unique identifiers.
 
@@ -95,7 +97,6 @@ class UserRepositoryInterface(ABC):
         :return: Number of users deleted.
         """
         raise NotImplementedError
-
 
     @abstractmethod
     async def exists(self, user_id: UUID, tx: DBTransaction | None = None) -> bool:
@@ -142,7 +143,7 @@ class UserRepositoryInterface(ABC):
     ) -> list[UUID]:
         """
         Retrieve all user IDs that have a last_seen_at timestamp older than the cutoff.
-        
+
         :param cutoff: The datetime threshold for determining expiration.
         :param tx: Optional db transaction to wrap a db operation in.
         :return: List of UUIDs for expired users.

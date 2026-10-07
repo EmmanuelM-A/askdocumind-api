@@ -7,14 +7,14 @@ from uuid import UUID
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from src.database.connection import DatabaseConnection
-from src.database.models import ChatMessage
-from src.database.repository.interfaces.chat_message_repository import (
+from src.database.session import DatabaseSessionManager
+from src.auth.models import ChatMessage
+from src.uploads.repository.interfaces import (
     ChatMessageRepositoryInterface,
     ChatMessageSearchCriteria,
     UpdatedChatMessageData,
 )
-from src.database.repository.interfaces.db_transaction import DBTransaction
+from src.uploads.repository.interfaces import DBTransaction
 from src.errors.custom_exceptions import database_error
 from src.logger.base_logger import BaseLogger
 
@@ -24,7 +24,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
     Concrete implementation of the chat message repository interface.
     """
 
-    def __init__(self, connection: DatabaseConnection) -> None:
+    def __init__(self, connection: DatabaseSessionManager) -> None:
         self._db = connection
         self._logger = BaseLogger(__name__)
 
@@ -35,9 +35,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
             filters.append(getattr(ChatMessage, field) == value)
         return filters
 
-    async def create(
-        self, data: ChatMessage, tx: DBTransaction | None = None
-    ) -> UUID:
+    async def create(self, data: ChatMessage, tx: DBTransaction | None = None) -> UUID:
         try:
             if tx is not None:
                 await tx.add(data)
@@ -216,9 +214,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def delete(
-        self, message_id: UUID, tx: DBTransaction | None = None
-    ) -> bool:
+    async def delete(self, message_id: UUID, tx: DBTransaction | None = None) -> bool:
         try:
             stmt = delete(ChatMessage).where(ChatMessage.id == message_id)
 
@@ -237,9 +233,7 @@ class ChatMessageRepository(ChatMessageRepositoryInterface):
                 stack_trace=str(e),
             )
 
-    async def exists(
-        self, entity_id: UUID, tx: DBTransaction | None = None
-    ) -> bool:
+    async def exists(self, entity_id: UUID, tx: DBTransaction | None = None) -> bool:
         try:
             stmt = (
                 select(func.count())

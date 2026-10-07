@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.database.storage.local_file_storage_service import LocalFileStorageService
+from src.uploads.storage.local_file_storage_service import LocalFileStorageService
 
 pytest_plugins = ("tests.integration.storage.fixtures",)
 
