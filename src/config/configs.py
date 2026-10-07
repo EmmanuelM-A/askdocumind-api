@@ -46,6 +46,8 @@ class ServerSettings(_BaseSettings):
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000"])
 
     MAX_REQUEST_BODY_SIZE_MB: float = Field(default=10.0, gt=0, le=500)
+    RATE_LIMIT_REQUESTS: int = Field(default=100, ge=1, le=10000)
+    RATE_LIMIT_WINDOW_SECS: int = Field(default=60, ge=1, le=3600)
 
 
 class LoggingSettings(_BaseSettings):
@@ -109,6 +111,39 @@ class AuthSettings(_BaseSettings):
     UPDATE_LAST_SEEN_FREQ_MINS: int = Field(default=5, ge=1, le=60)
 
 
+class ChatSessionSettings(_BaseSettings):
+    """
+    Chat session configuration settings for the AskDocuMind API application.
+    """
+
+    model_config = _DEFAULT_MODEL_CONFIG
+
+    MAX_QUERIES_PER_MINUTE: int = Field(default=60, ge=1, le=1000)
+
+
+class UploadSettings(_BaseSettings):
+    """
+    Upload configuration settings for the AskDocuMind API application.
+    """
+
+    model_config = _DEFAULT_MODEL_CONFIG
+
+    MAX_UPLOAD_SIZE_MB: float = Field(default=50.0, gt=0, le=500)
+    ALLOWED_FILE_TYPES: list[str] = Field(
+        default=[
+            ".pdf",
+            ".docx",
+            ".txt",
+            ".md",
+            ".csv",
+            ".json",
+            ".xml",
+            ".html",
+            ".pptx",
+        ]
+    )
+
+
 # ------------------------------------------------------------------
 # Main Settings Container
 # ------------------------------------------------------------------
@@ -123,6 +158,8 @@ class Settings(BaseSettings):
     logging: LoggingSettings = LoggingSettings()
     database: DatabaseSettings = DatabaseSettings()
     auth: AuthSettings = AuthSettings()
+    chat: ChatSessionSettings = ChatSessionSettings()
+    upload: UploadSettings = UploadSettings()
 
 
 # Global settings instance
