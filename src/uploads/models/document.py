@@ -1,31 +1,47 @@
+import uuid
 from datetime import datetime
 
-from sqlalchemy import func, DateTime
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    Enum,
+    ForeignKey,
+    String,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from src.chat_session import ChatSession
+from src.database import Base
+from src.uploads.domain.document import ProcessingStatus
+from src.uploads.models.mapper import ViewableDocument
 
 
 class Document(Base):
     """Model representing an uploaded document's metadata."""
 
-    __tablename__ = "document"
+    __tablename__ = "documents"
     __table_args__ = (
-        UniqueConstraint("session_id", "source", name="uq_document_session_source"),
+        UniqueConstraint(
+            "chat_session_id", "filename", name="uq_document_chat_session_filename"
+        ),
     )
+    __mapper_args__ = {"eager_defaults": True}
 
     # Columns
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    session_id = Column(
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    chat_session_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("chat_session.id", ondelete="CASCADE"),
-        nullable=False,
+        ForeignKey("chat_sessions.id", ondelete="CASCADE"),
     )
-    source = Column(String(255), nullable=False)
-    source_size = Column(BigInteger, nullable=False)
-    source_type = Column(
-        Enum(DocumentSourceType), default=DocumentSourceType.UPLOAD, nullable=False
-    )
-    processing_status = Column(
-        Enum(ProcessingStatus), default=ProcessingStatus.PROCESSING, nullable=False
+    filename: Mapped[str] = mapped_column(String(255))
+    file_size: Mapped[int] = mapped_column(BigInteger)
+    processing_status: Mapped[ProcessingStatus] = mapped_column(
+        Enum(ProcessingStatus), default=ProcessingStatus.PROCESSING
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -34,31 +50,17 @@ class Document(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    # Relationship
-    session = relationship("ChatSession", back_populates="documents")
-    chunks = relationship(
-        "DocumentChunk", back_populates="document", cascade="all, delete-orphan"
-    )
+    # Relationships
+    session: Mapped["ChatSession"] = relationship(back_populates="documents")
 
-    def __repr__(self):
-        return f"Document(source={self.source}, size={self.source_size})"
+    def to_dict(self) -> ViewableDocument:
 
-    def __str__(self) -> str:
-        return str(self.source) if self.source is not None else "Unknown Document"
-
-    def to_dict(self) -> dict:
-        """Return JSON-serializable dict representation of the Document."""
-        return {
-            "id": _serialize_value(self.id),
-            "session_id": _serialize_value(self.session_id),
-            "source": self.source,
-            "source_size": self.source_size,
-            "source_type": _serialize_value(self.source_type),
-            "processing_status": _serialize_value(self.processing_status),
-            "created_at": _serialize_value(self.created_at),
-            "updated_at": _serialize_value(self.updated_at),
-        }
-
-    def to_json(self) -> str:
-        """Return a JSON string representation of the Document."""
-        return json.dumps(self.to_dict(), indent=4)
+        return ViewableDocument(
+            id=self.id,
+            chat_session_id=self.chat_session_id,
+            filename=self.filename,
+            file_size=self.file_size,
+            processing_status=self.processing_status,
+            created_at=self.created_at.isoformat(),
+            updated_at=self.updated_at.isoformat(),
+        )
