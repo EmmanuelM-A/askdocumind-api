@@ -39,7 +39,7 @@ def setup_logging() -> None:
     """
     Configure logging for the whole application. Call once at startup.
     """
-    log_dir = Path(settings.logging.LOG_DIRECTORY)
+    log_dir = Path(__file__).resolve().parent.parent.parent / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
     config = {
