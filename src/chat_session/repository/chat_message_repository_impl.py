@@ -44,11 +44,11 @@ class ChatMessageRepositoryImpl(ChatMessageRepository, BaseRepository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
-    async def create(self, data: ChatMessage) -> UUID:
+    async def create(self, data: ChatMessage) -> ChatMessage:
         try:
             self._session.add(data)
             await self._session.flush()
-            return data.id
+            return data
         except Exception as e:
             raise database_error(
                 message="An error occurred while creating a chat message.",

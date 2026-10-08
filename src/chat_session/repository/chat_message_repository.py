@@ -29,7 +29,7 @@ class ChatMessageRepository(ABC):
     """
 
     @abstractmethod
-    async def create(self, data: ChatMessage) -> UUID:
+    async def create(self, data: ChatMessage) -> ChatMessage:
         """
         Create and persist a new chat message entity.
         """

@@ -20,7 +20,7 @@ class ChatSessionRepository(ABC):
     """
 
     @abstractmethod
-    async def create(self, data: ChatSession) -> UUID:
+    async def create(self, data: ChatSession) -> ChatSession:
         """
         Create and persist a new chat session entity.
         """
