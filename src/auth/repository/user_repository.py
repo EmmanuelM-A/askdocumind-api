@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from uuid import UUID
 
 from src.auth.models.user import User
-from src.database import DBTransaction
 
 
 class UserRepository(ABC):
@@ -15,41 +14,35 @@ class UserRepository(ABC):
     """
 
     @abstractmethod
-    async def create(self, data: User, tx: DBTransaction | None = None) -> User:
+    async def create(self, data: User) -> User:
         """
         Create and persist a new user entity.
         """
         raise NotImplementedError("Method 'create' not implemented in subclass")
 
     @abstractmethod
-    async def get_by_id(
-        self, user_id: UUID, tx: DBTransaction | None = None
-    ) -> User | None:
+    async def get_by_id(self, user_id: UUID) -> User | None:
         """
         Retrieve a single user by its unique identifier.
         """
         raise NotImplementedError("Method 'get_by_id' not implemented in subclass")
 
     @abstractmethod
-    async def delete(self, user_id: UUID, tx: DBTransaction | None = None) -> bool:
+    async def delete(self, user_id: UUID) -> bool:
         """
         Delete a user by its unique identifier.
         """
         raise NotImplementedError("Method 'delete' not implemented in subclass")
 
     @abstractmethod
-    async def delete_many(
-        self, user_ids: list[UUID], tx: DBTransaction | None = None
-    ) -> int:
+    async def delete_many(self, user_ids: list[UUID]) -> int:
         """
         Delete multiple users by their unique identifiers.
         """
         raise NotImplementedError("Method 'delete_many' not implemented in subclass")
 
     @abstractmethod
-    async def update_last_seen(
-        self, user_id: UUID, freq_mins: int, tx: DBTransaction | None = None
-    ) -> None:
+    async def update_last_seen(self, user_id: UUID, freq_mins: int) -> None:
         """
         Update the last seen timestamp of a user to the current time, if and
         only if the last seen timestamp is older than the specified
@@ -60,9 +53,7 @@ class UserRepository(ABC):
         )
 
     @abstractmethod
-    async def get_expired_users(
-        self, cutoff: datetime, tx: DBTransaction | None = None
-    ) -> list[UUID]:
+    async def get_expired_users(self, cutoff: datetime) -> list[UUID]:
         """
         Retrieve all user IDs that have a last_seen_at timestamp older than
         the cutoff.
