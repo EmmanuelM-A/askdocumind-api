@@ -64,6 +64,18 @@ class ChatSessionRepositoryImpl(ChatSessionRepository, BaseRepository):
                 cause=e,
             ) from e
 
+    async def get_by_id(self, chat_session_id: UUID) -> ChatSession | None:
+        statement = select(ChatSession).where(ChatSession.id == chat_session_id)
+        try:
+            result = await self._session.execute(statement)
+            return result.scalars().first()
+        except Exception as e:
+            raise database_error(
+                message="An error occurred while retrieving the chat session.",
+                error_code="CHAT_SESSION_RETRIEVAL_ERROR",
+                cause=e,
+            ) from e
+
     async def get_by_user_id(self, user_id: UUID) -> ChatSession | None:
         statement = (
             select(ChatSession)

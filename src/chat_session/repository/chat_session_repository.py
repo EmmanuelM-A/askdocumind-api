@@ -51,6 +51,15 @@ class ChatSessionRepository(ABC):
         )
 
     @abstractmethod
+    async def get_by_id(self, chat_session_id: UUID) -> ChatSession | None:
+        """
+        Retrieve a chat session by its unique identifier.
+        """
+        raise NotImplementedError(
+            "The method 'get_by_id' must be implemented in its subclass."
+        )
+
+    @abstractmethod
     async def get_by_user_id(self, user_id: UUID) -> ChatSession | None:
         """
         Retrieve the most recently created chat session for a given user.
