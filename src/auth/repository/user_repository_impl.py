@@ -22,7 +22,6 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
 
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
-        self._session = session
 
     async def create(self, data: User) -> User:
         try:
@@ -48,9 +47,7 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
 
     async def delete(self, user_id: UUID) -> bool:
         try:
-            result = await self._execute_statement(
-                delete(User).where(User.id == user_id)
-            )
+            result = await self._session.execute(delete(User).where(User.id == user_id))
             return result.rowcount > 0
         except Exception as e:
             raise database_error(
@@ -64,7 +61,7 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
             return 0
 
         try:
-            result = await self._execute_statement(
+            result = await self._session.execute(
                 delete(User).where(User.id.in_(user_ids))
             )
             return result.rowcount
@@ -83,7 +80,7 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
             .values(last_seen_at=func.now())
         )
         try:
-            await self._execute_statement(statement)
+            await self._session.execute(statement)
         except Exception as e:
             raise database_error(
                 message="An error occurred while updating the user's last seen timestamp.",
@@ -94,7 +91,7 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
     async def get_expired_users(self, cutoff: datetime) -> list[UUID]:
         statement = select(User.id).where(User.last_seen_at < cutoff)
         try:
-            result = await self._execute_statement(statement)
+            result = await self._session.execute(statement)
             return list(result.scalars().all())
         except Exception as e:
             raise database_error(
@@ -107,5 +104,5 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
         """
         Fetch a single record from the database based on the provided statement.
         """
-        result = await self._execute_statement(statement)
+        result = await self._session.execute(statement)
         return result.scalar_one_or_none()
