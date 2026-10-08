@@ -36,7 +36,7 @@ class ChatMessage(Base):
     # Relationships
     session: Mapped["ChatSession"] = relationship(back_populates="messages")
 
-    def to_dict(self) -> ViewableChatMessage:
+    def viewable(self) -> ViewableChatMessage:
         """
         Return a viewable representation of the ChatMessage.
         """

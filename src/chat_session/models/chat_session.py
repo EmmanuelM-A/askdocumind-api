@@ -43,7 +43,7 @@ class ChatSession(Base):
         passive_deletes=True,
     )
 
-    def to_dict(self) -> ViewableChatSession:
+    def viewable(self) -> ViewableChatSession:
         """
         Return a viewable representation of the ChatSession.
         """
