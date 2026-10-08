@@ -8,7 +8,7 @@ from typing import Literal
 
 from dotenv import load_dotenv
 from pydantic import Field, model_validator, SecretStr, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict, EnvSettingsSource
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _ENV_FILE = _PROJECT_ROOT / ".env"
@@ -19,6 +19,14 @@ if _ENV_FILE.exists():
 _DEFAULT_MODEL_CONFIG = SettingsConfigDict(
     env_file=_ENV_FILE, env_file_encoding="utf-8", extra="ignore"
 )
+
+
+class _IgnoreEmptyEnvSource(EnvSettingsSource):
+    """Treat empty environment variables as missing values."""
+
+    def __call__(self) -> dict:
+        values = super().__call__()
+        return {k: v for k, v in values.items() if v != ""}
 
 
 class _BaseSettings(BaseSettings):
@@ -43,7 +51,7 @@ class ServerSettings(_BaseSettings):
         default="development"
     )
     PORT: int = Field(default=5001, ge=1, le=65535)
-    CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000"])
+    CORS_ORIGINS: list[str] = Field(default=...)
 
     MAX_REQUEST_BODY_SIZE_MB: float = Field(default=10.0, gt=0, le=500)
     RATE_LIMIT_REQUESTS: int = Field(default=100, ge=1, le=10000)
@@ -128,19 +136,7 @@ class UploadSettings(_BaseSettings):
     model_config = _DEFAULT_MODEL_CONFIG
 
     MAX_UPLOAD_SIZE_MB: float = Field(default=50.0, gt=0, le=500)
-    ALLOWED_FILE_TYPES: list[str] = Field(
-        default=[
-            ".pdf",
-            ".docx",
-            ".txt",
-            ".md",
-            ".csv",
-            ".json",
-            ".xml",
-            ".html",
-            ".pptx",
-        ]
-    )
+    ALLOWED_FILE_TYPES: list[str] = Field(default=...)
 
 
 # ------------------------------------------------------------------

@@ -80,7 +80,7 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestLoggerMiddleware, exclude_paths=PUBLIC_PATHS)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.server.CORS_ORIGIN,
+        allow_origins=settings.server.CORS_ORIGINS,
         allow_methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization"],
         allow_credentials=True,
