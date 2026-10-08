@@ -1,7 +1,9 @@
 """
-This module defines the FastAPI application instance for the RAG Microservice.
-It sets up the application with middleware, routers, exception handlers,
-and a lifespan context manager for database connection management.
+This module defines the FastAPI application instance and its configuration,
+including middleware, routers, and exception handlers.
+
+It also manages the database connection lifecycle using a lifespan
+context manager.
 """
 
 from contextlib import asynccontextmanager
@@ -10,11 +12,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.middleware import SlowAPIMiddleware
 
-from src.auth.repository.user_repository_impl import UserRepositoryImpl
 from src.auth.routes.auth_router import auth_router
 from src.config.configs import settings
 from src.config.paths import PUBLIC_PATHS
-from src.database import get_session_manager, get_tx_factory, DatabaseSessionManager
+from src.database import DatabaseSessionManager
 from src.exceptions import setup_exception_handlers
 from src.health.router import health_check_router
 from src.middleware.anonymous_sessions import AnonymousSessionMiddleware
@@ -61,9 +62,6 @@ def create_app() -> FastAPI:
     app.add_middleware(SlowAPIMiddleware)
     app.add_middleware(
         AnonymousSessionMiddleware,
-        user_repository=UserRepositoryImpl(
-            session_manager=get_session_manager(), tx_factory=get_tx_factory()
-        ),
         exclude_paths=PUBLIC_PATHS,
     )
     app.add_middleware(
