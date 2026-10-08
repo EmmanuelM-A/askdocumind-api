@@ -15,7 +15,7 @@ from src.database import Base
 class User(Base):
     """Model representing a minimalistic user."""
 
-    __tablename__ = "user"
+    __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
