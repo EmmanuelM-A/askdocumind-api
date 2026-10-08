@@ -14,7 +14,7 @@ from src.auth.repository.user_repository_impl import UserRepositoryImpl
 from src.auth.routes.auth_router import auth_router
 from src.config.configs import settings
 from src.config.paths import PUBLIC_PATHS
-from src.database import get_session_manager, get_tx_factory
+from src.database import get_session_manager, get_tx_factory, DatabaseSessionManager
 from src.exceptions import setup_exception_handlers
 from src.health.router import health_check_router
 from src.middleware.anonymous_sessions import AnonymousSessionMiddleware
@@ -26,17 +26,24 @@ from src.middleware.request_size_limit import RequestSizeLimitMiddleware
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Lifespan context manager for FastAPI application responsible for
-    connecting to the database on startup and disconnecting on shutdown.
+    Lifespan context manager for the FastAPI application. It manages the
+    database connection lifecycle, ensuring that the database session manager
+    is connected on startup and disconnected on shutdown.
     """
+    session_manager = DatabaseSessionManager(
+        database_url=settings.database.DATABASE_URL.get_secret_value()
+    )
 
     # On startup
-    await get_session_manager().connect()
+    await session_manager.connect()
+
+    # Makes the session manager available to other parts of the application
+    app.state["session_manager"] = session_manager
 
     yield
 
     # On shutdown
-    await get_session_manager().disconnect()
+    await session_manager.disconnect()
 
 
 def create_app() -> FastAPI:
