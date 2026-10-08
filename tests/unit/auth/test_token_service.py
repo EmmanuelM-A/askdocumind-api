@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 
 import jwt
 import pytest
-from pydantic import SecretStr, ValidationError
+from pydantic import SecretStr
 
 from src.auth.domain.auth import AnonymousTokenPayload
 from src.auth.services import token_service
@@ -201,12 +201,16 @@ def test_decode_error_message_does_not_leak_details(make_token):
 def test_decode_signed_token_missing_user_id_raises_401(make_token):
     token = make_token(drop=("user_id",))
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ApiException) as exc_info:
         decode_anonymous_token(token)
+
+    assert exc_info.value.status_code == 401
 
 
 def test_decode_signed_token_with_non_uuid_user_id_raises_401(make_token):
     token = make_token(user_id="not-a-uuid")
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ApiException) as exc_info:
         decode_anonymous_token(token)
+
+    assert exc_info.value.status_code == 401

@@ -3,6 +3,7 @@ from uuid import UUID
 
 import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
+from pydantic import ValidationError
 
 from src.auth.domain.auth import AnonymousTokenPayload
 from src.config.configs import settings
@@ -39,11 +40,15 @@ def decode_anonymous_token(token: str) -> AnonymousTokenPayload:
             algorithms=["HS256"],
         )
         return AnonymousTokenPayload(**payload)
-    except ExpiredSignatureError:
+    except ValidationError as e:
         raise unauthorized_error(
-            message="Invalid token provided", error_code="TOKEN_EXPIRED"
+            message="Invalid token provided", error_code="TOKEN_INVALID", cause=e
         )
-    except InvalidTokenError:
+    except ExpiredSignatureError as e:
         raise unauthorized_error(
-            message="Invalid token provided", error_code="TOKEN_INVALID"
+            message="Invalid token provided", error_code="TOKEN_EXPIRED", cause=e
+        )
+    except InvalidTokenError as e:
+        raise unauthorized_error(
+            message="Invalid token provided", error_code="TOKEN_INVALID", cause=e
         )
