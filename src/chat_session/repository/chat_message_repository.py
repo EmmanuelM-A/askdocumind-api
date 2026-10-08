@@ -5,29 +5,22 @@ Repository interface for chat message CRUD operations.
 from abc import ABC, abstractmethod
 from uuid import UUID
 
+from fastapi_pagination import Page
 from pydantic import BaseModel
 
-from src.config.constants import ChatMessageRole
-from src.auth.models import ChatMessage
-from src.uploads.repository.interfaces import DBTransaction
+from src.chat_session.domain.chat import ChatMessageRole
+from src.chat_session.models.chat_message import ChatMessage
+from src.database import Pagination
 
 
-class ChatMessageSearchCriteria(BaseModel):
-    """Criteria for filtering chat messages in list/search operations."""
+class ChatMessageSearchFilter(BaseModel):
+    """Optional criteria for narrowing a user's chat messages."""
 
-    id: UUID | None = None
-    session_id: UUID | None = None
+    chat_session_id: UUID | None = None
     role: ChatMessageRole | None = None
 
 
-class UpdatedChatMessageData(BaseModel):
-    """Schema for updating chat message fields."""
-
-    content: str | None = None
-    role: ChatMessageRole | None = None
-
-
-class ChatMessageRepositoryInterface(ABC):
+class ChatMessageRepository(ABC):
     """
     Abstract interface for chat message repository operations.
 
@@ -36,139 +29,62 @@ class ChatMessageRepositoryInterface(ABC):
     """
 
     @abstractmethod
-    async def create(self, data: ChatMessage, tx: DBTransaction | None = None) -> UUID:
+    async def create(self, data: ChatMessage) -> UUID:
         """
         Create and persist a new chat message entity.
-
-        :param data: The ChatMessage entity to persist.
-        :param tx: Optional transaction object.
-        :return: The UUID of the newly created chat message.
         """
-        raise NotImplementedError
+        raise NotImplementedError(
+            "The method 'create' must be implemented in its subclass."
+        )
 
     @abstractmethod
-    async def list_by(
-        self,
-        criteria: ChatMessageSearchCriteria | None = None,
-        tx: DBTransaction | None = None,
+    async def list_by_criteria(
+        self, user_id: UUID, criteria: ChatMessageSearchFilter | None
     ) -> list[ChatMessage]:
         """
         Retrieve chat messages matching the given criteria.
-
-        Returns all chat messages if no criteria is provided.
-
-        :param criteria: Optional search criteria to filter chat messages.
-        :param tx: Optional db transaction to wrap a db operation in.
-        :return: List of ChatMessage entities matching the criteria.
         """
-        raise NotImplementedError
+        raise NotImplementedError(
+            "The method 'list_by_criteria' must be implemented in its subclass."
+        )
+
+    async def list_by_criteria_paginated(
+        self,
+        user_id: UUID,
+        criteria: ChatMessageSearchFilter | None,
+        paginate: Pagination,
+    ) -> Page[ChatMessage]:
+        """
+        Retrieve chat messages matching the given criteria, paginated,
+        sorted by creation date in descending order (most recent first).
+        """
+        raise NotImplementedError(
+            "The method 'list_by_criteria_paginated' must be implemented in its subclass."
+        )
 
     @abstractmethod
-    async def get_by_id(
-        self, message_id: UUID, tx: DBTransaction | None = None
-    ) -> ChatMessage | None:
+    async def get_by_id(self, chat_message_id: UUID) -> ChatMessage | None:
         """
         Retrieve a single chat message by its unique identifier.
-
-        :param message_id: The UUID of the chat message to retrieve.
-        :param tx: Optional db transaction to wrap a db operation in.
-        :return: The ChatMessage entity if found, None otherwise.
         """
-        raise NotImplementedError
+        raise NotImplementedError(
+            "The method 'get_by_id' must be implemented in its subclass."
+        )
 
     @abstractmethod
-    async def get_by_criteria(
-        self,
-        criteria: ChatMessageSearchCriteria,
-        tx: DBTransaction | None = None,
-    ) -> ChatMessage | None:
+    async def count(self, chat_session_id: UUID) -> int:
         """
-        Retrieve a single chat message matching the given criteria.
-
-        Returns the first match if multiple messages satisfy the criteria.
-
-        :param criteria: The search criteria to filter by.
-        :param tx: Optional db transaction to wrap a db operation in.
-        :return: The first ChatMessage entity matching criteria, or None.
+        Count chat messages belonging to a specific chat session.
         """
-        raise NotImplementedError
+        raise NotImplementedError(
+            "The method 'count' must be implemented in its subclass."
+        )
 
     @abstractmethod
-    async def update(
-        self,
-        entity_id: UUID,
-        new_entity_data: UpdatedChatMessageData,
-        tx: DBTransaction | None = None,
-    ) -> ChatMessage | None:
-        """
-        Update an existing chat message with new data.
-
-        :param entity_id: The UUID of the chat message to update.
-        :param new_entity_data: The update payload containing new field values.
-        :param tx: Optional db transaction to wrap a db operation in.
-        :return: The updated ChatMessage entity if found, None otherwise.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    async def delete(self, message_id: UUID, tx: DBTransaction | None = None) -> bool:
-        """
-        Delete a chat message by its unique identifier.
-
-        :param message_id: The UUID of the chat message to delete.
-        :param tx: Optional db transaction to wrap a db operation in.
-        :return: True if chat message was deleted, False if not found.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    async def exists(self, entity_id: UUID, tx: DBTransaction | None = None) -> bool:
-        """
-        Check if a chat message with the given UUID exists.
-
-        :param entity_id: The UUID to check for existence.
-        :param tx: Optional db transaction to wrap a db operation in.
-        :return: True if the chat message exists, False otherwise.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    async def count(
-        self,
-        filter_id: UUID | None = None,
-        tx: DBTransaction | None = None,
-    ) -> int:
-        """
-        Count chat messages, optionally filtered by chat session ID.
-
-        :param filter_id: Optional chat session UUID to filter by.
-        :param tx: Optional db transaction to wrap a db operation in.
-        :return: The count of chat messages matching the filter.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    async def create_many(
-        self, entities: list[ChatMessage], tx: DBTransaction | None = None
-    ) -> list[UUID]:
-        """
-        Create and persist multiple chat message entities.
-
-        :param entities: List of ChatMessage entities to persist.
-        :param tx: Optional db transaction to wrap a db operation in.
-        :return: List of UUIDs for the newly created chat messages.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    async def delete_many(
-        self, message_ids: list[UUID], tx: DBTransaction | None = None
-    ) -> int:
+    async def delete_many(self, chat_message_ids: list[UUID]) -> int:
         """
         Delete multiple chat messages by their identifiers.
-
-        :param message_ids: List of chat message UUIDs to delete.
-        :param tx: Optional db transaction to wrap a db operation in.
-        :return: The number of chat messages successfully deleted.
         """
-        raise NotImplementedError
+        raise NotImplementedError(
+            "The method 'delete_many' must be implemented in its subclass."
+        )
