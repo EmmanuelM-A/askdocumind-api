@@ -10,8 +10,6 @@ from typing import ClassVar
 
 from src.config.configs import settings
 
-# TODO: Call setup_logging() at the start of the application to configure logging globally.
-
 
 class ColorFormatter(logging.Formatter):
     """

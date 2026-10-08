@@ -15,6 +15,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from src.auth.routes.auth_router import auth_router
 from src.chat_session.routes.chat_session_router import chat_session_router
 from src.config.configs import settings
+from src.config.logger import setup_logging
 from src.config.paths import PUBLIC_PATHS
 from src.database import DatabaseSessionManager
 from src.exceptions import setup_exception_handlers
@@ -52,6 +53,8 @@ def create_app() -> FastAPI:
     """
     Create and configure the FastAPI application instance.
     """
+    setup_logging()
+
     app = FastAPI(
         title="RAG Microservice",
         lifespan=lifespan,
@@ -77,7 +80,7 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestLoggerMiddleware, exclude_paths=PUBLIC_PATHS)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.server.CORS_ORIGINS,
+        allow_origins=settings.server.CORS_ORIGIN,
         allow_methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization"],
         allow_credentials=True,
