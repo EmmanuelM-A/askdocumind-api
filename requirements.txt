@@ -16,3 +16,4 @@ python-dotenv==1.2.4
 
 sqlalchemy
 pyjwt
+fastapi-pagination
