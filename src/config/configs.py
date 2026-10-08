@@ -42,7 +42,7 @@ class ServerSettings(_BaseSettings):
     ENV: Literal["development", "staging", "production", "test"] = Field(
         default="development"
     )
-    PORT: int = Field(default=8001, ge=1, le=65535)
+    PORT: int = Field(default=5001, ge=1, le=65535)
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000"])
 
     MAX_REQUEST_BODY_SIZE_MB: float = Field(default=10.0, gt=0, le=500)
@@ -57,7 +57,6 @@ class LoggingSettings(_BaseSettings):
 
     model_config = _DEFAULT_MODEL_CONFIG
 
-    LOG_DIRECTORY: str = Field(default=f"{_PROJECT_ROOT}/logs")
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
         default="DEBUG"
     )
