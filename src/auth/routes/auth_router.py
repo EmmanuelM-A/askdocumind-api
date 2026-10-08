@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Request, Depends, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Request, Depends, status
 from starlette.responses import JSONResponse
 
-from src.auth.dependency import get_anonymous_user_service, get_cookie_config
+from src.auth.dependencies import get_anonymous_user_service, get_cookie_config
 from src.auth.services.anonymous_user_service import AnonymousUserService
 from src.auth.services.cookie_service import set_cookie, CookieConfig
 from src.config.configs import settings
@@ -15,24 +17,30 @@ auth_router = APIRouter(
 
 @auth_router.post(
     path="/anonymous/init",
-    summary="Initialize an anonymous session",
+    summary="Initialize an anonymous user session",
 )
 async def init_anonymous_session(
     request: Request,
-    response: Response,
-    anonymous_user_service: AnonymousUserService = Depends(get_anonymous_user_service),
-    cookie_config: CookieConfig = Depends(get_cookie_config),
+    anonymous_user_service: Annotated[
+        AnonymousUserService, Depends(get_anonymous_user_service)
+    ],
+    cookie_config: Annotated[CookieConfig, Depends(get_cookie_config)],
 ) -> JSONResponse:
     """
-    Initialize an anonymous session for the user. If a valid anonymous token
-    is provided in the request cookies, it will return the existing user;
-    otherwise, it will create a new anonymous user and return their details
-    along with a new anonymous token set in the response cookies.
+    Initialize an anonymous user session. A valid token in the request cookies
+    returns the existing user. Otherwise, a new anonymous user is created and
+    a new token is set in the response cookies.
     """
-    cookie_value: str | None = request.cookies.get(settings.auth.COOKIE_NAME)
+    cookie_value = request.cookies.get(settings.auth.COOKIE_NAME)
 
     user, token = await anonymous_user_service.init_anonymous_user(
         anonymous_token=cookie_value
+    )
+
+    response = send_success_response(
+        message="Successfully initialized anonymous session",
+        status_code=status.HTTP_200_OK,
+        data=user,
     )
 
     set_cookie(
@@ -40,12 +48,8 @@ async def init_anonymous_session(
         cookie_name=settings.auth.ANONYMOUS_COOKIE_NAME,
         cookie_value=token,
         max_age_seconds=settings.auth.COOKIE_TTL_HOURS * 3600,
-        path="/anonymous/init",
+        path="/",
         config=cookie_config,
     )
 
-    return send_success_response(
-        message="Successfully initialized anonymous session",
-        status_code=status.HTTP_200_OK,
-        data=user,
-    )
+    return response
