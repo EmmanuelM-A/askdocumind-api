@@ -12,7 +12,7 @@ class CookieConfig(BaseModel):
     http_only: bool
     secure: bool
     same_site: Literal["none", "strict", "lax"]
-    domain: str
+    domain: str | None = None
 
 
 def set_cookie(
