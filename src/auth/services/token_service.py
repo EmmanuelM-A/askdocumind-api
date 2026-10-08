@@ -22,7 +22,7 @@ def create_anonymous_token(user_id: UUID) -> str:
     )
 
     return jwt.encode(
-        payload,
+        payload.to_dict(),
         key=settings.auth.ANONYMOUS_TOKEN_SECRET.get_secret_value(),
         algorithm="HS256",
     )
