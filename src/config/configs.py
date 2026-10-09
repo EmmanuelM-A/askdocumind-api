@@ -8,7 +8,7 @@ from typing import Literal
 
 from dotenv import load_dotenv
 from pydantic import Field, model_validator, SecretStr, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict, EnvSettingsSource
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _ENV_FILE = _PROJECT_ROOT / ".env"
@@ -19,14 +19,6 @@ if _ENV_FILE.exists():
 _DEFAULT_MODEL_CONFIG = SettingsConfigDict(
     env_file=_ENV_FILE, env_file_encoding="utf-8", extra="ignore"
 )
-
-
-class _IgnoreEmptyEnvSource(EnvSettingsSource):
-    """Treat empty environment variables as missing values."""
-
-    def __call__(self) -> dict:
-        values = super().__call__()
-        return {k: v for k, v in values.items() if v != ""}
 
 
 class _BaseSettings(BaseSettings):
@@ -138,6 +130,27 @@ class UploadSettings(_BaseSettings):
     MAX_UPLOAD_SIZE_MB: float = Field(default=50.0, gt=0, le=500)
     ALLOWED_FILE_TYPES: list[str] = Field(default=...)
 
+    # Object storage settings
+    DEV_OBJECT_STORAGE: str = Field(default=str(_PROJECT_ROOT / "uploads"))
+
+
+class AWSSettings(_BaseSettings):
+    """
+    AWS configuration settings for the AskDocuMind API application.
+    """
+
+    model_config = _DEFAULT_MODEL_CONFIG
+
+    S3_BUCKET_NAME: str = Field(default="")
+    REGION: str = Field(default="")
+
+    @field_validator("S3_BUCKET_NAME", "REGION")
+    @classmethod
+    def validate_aws_settings(cls, value: str, field) -> str:
+        if not value or value.strip() == "":
+            raise ValueError(f"{field.name} cannot be empty.")
+        return value
+
 
 # ------------------------------------------------------------------
 # Main Settings Container
@@ -154,7 +167,8 @@ class Settings(BaseSettings):
     database: DatabaseSettings = DatabaseSettings()
     auth: AuthSettings = AuthSettings()
     chat: ChatSessionSettings = ChatSessionSettings()
-    upload: UploadSettings = UploadSettings()
+    uploads: UploadSettings = UploadSettings()
+    aws: AWSSettings = AWSSettings()
 
 
 # Global settings instance

@@ -155,6 +155,25 @@ def server_error(
     )
 
 
+def object_storage_error(
+    message: str,
+    error_code: str = "OBJECT_STORAGE_ERROR",
+    error_details: Dict[str, str] | None = None,
+    cause: BaseException | None = None,
+    headers: dict | None = None,
+) -> ApiException:
+    """Raises a 500 Internal Server Error exception specifically for object
+    storage issues."""
+    return ApiException(
+        error_code=error_code,
+        error_details=error_details,
+        message=message,
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        headers=headers,
+        cause=cause,
+    )
+
+
 def service_unavailable_error(
     message: str,
     error_code: str = "SERVICE_UNAVAILABLE",
