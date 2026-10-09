@@ -5,13 +5,13 @@ from unittest.mock import patch
 
 import pytest
 
-from src.uploads.storage.local_file_storage_service import LocalFileStorageService
+from src.uploads.storage.local_object_storage import LocalFileObjectStorage
 
 pytest_plugins = ("tests.integration.storage.fixtures",)
 
 
 def test_initializes_storage_root_directory(
-    local_storage: LocalFileStorageService,
+    local_storage: LocalFileObjectStorage,
     storage_root: Path,
 ):
     assert local_storage.root == storage_root
@@ -19,7 +19,7 @@ def test_initializes_storage_root_directory(
     assert storage_root.is_dir()
 
 
-def test_save_and_load_round_trip(local_storage: LocalFileStorageService):
+def test_save_and_load_round_trip(local_storage: LocalFileObjectStorage):
     key = "chat-1/Battle_of_Endor.pdf"
     payload = b"battle data"
 
@@ -28,22 +28,22 @@ def test_save_and_load_round_trip(local_storage: LocalFileStorageService):
     assert local_storage.load(key) == payload
 
 
-def test_exists_true_for_saved_file(local_storage: LocalFileStorageService):
+def test_exists_true_for_saved_file(local_storage: LocalFileObjectStorage):
     key = "chat-1/Battle_of_Hoth.md"
     local_storage.save(key, b"hoth")
 
     assert local_storage.exists(key) is True
 
 
-def test_exists_false_for_missing_file(local_storage: LocalFileStorageService):
+def test_exists_false_for_missing_file(local_storage: LocalFileObjectStorage):
     assert local_storage.exists("chat-1/missing.txt") is False
 
 
-def test_load_missing_file_returns_none(local_storage: LocalFileStorageService):
+def test_load_missing_file_returns_none(local_storage: LocalFileObjectStorage):
     assert local_storage.load("chat-1/missing.txt") is None
 
 
-def test_delete_existing_file_returns_path(local_storage: LocalFileStorageService):
+def test_delete_existing_file_returns_path(local_storage: LocalFileObjectStorage):
     key = "chat-1/delete-me.txt"
     local_storage.save(key, b"x")
 
@@ -53,12 +53,12 @@ def test_delete_existing_file_returns_path(local_storage: LocalFileStorageServic
     assert local_storage.exists(key) is False
 
 
-def test_delete_missing_file_returns_none(local_storage: LocalFileStorageService):
+def test_delete_missing_file_returns_none(local_storage: LocalFileObjectStorage):
     assert local_storage.delete("chat-1/missing.txt") is None
 
 
 def test_update_existing_file_overwrites_content(
-    local_storage: LocalFileStorageService,
+    local_storage: LocalFileObjectStorage,
 ):
     key = "chat-1/update.txt"
     local_storage.save(key, b"before")
@@ -69,13 +69,13 @@ def test_update_existing_file_overwrites_content(
 
 
 def test_update_missing_file_raises_file_not_found(
-    local_storage: LocalFileStorageService,
+    local_storage: LocalFileObjectStorage,
 ):
     with pytest.raises(FileNotFoundError):
         local_storage.update("chat-1/missing.txt", b"data")
 
 
-def test_count_all_files(local_storage: LocalFileStorageService):
+def test_count_all_files(local_storage: LocalFileObjectStorage):
     local_storage.save("chat-a/file1.txt", b"1")
     local_storage.save("chat-b/file2.txt", b"2")
     local_storage.save("chat-b/file3.txt", b"3")
@@ -83,7 +83,7 @@ def test_count_all_files(local_storage: LocalFileStorageService):
     assert local_storage.count() == 3
 
 
-def test_count_for_specific_folder(local_storage: LocalFileStorageService):
+def test_count_for_specific_folder(local_storage: LocalFileObjectStorage):
     local_storage.save("chat-a/file1.txt", b"1")
     local_storage.save("chat-a/file2.txt", b"2")
     local_storage.save("chat-b/file3.txt", b"3")
@@ -91,19 +91,19 @@ def test_count_for_specific_folder(local_storage: LocalFileStorageService):
     assert local_storage.count("chat-a") == 2
 
 
-def test_count_for_specific_file_key(local_storage: LocalFileStorageService):
+def test_count_for_specific_file_key(local_storage: LocalFileObjectStorage):
     key = "chat-a/file1.txt"
     local_storage.save(key, b"1")
 
     assert local_storage.count(key) == 1
 
 
-def test_count_for_missing_key_returns_zero(local_storage: LocalFileStorageService):
+def test_count_for_missing_key_returns_zero(local_storage: LocalFileObjectStorage):
     assert local_storage.count("chat-none") == 0
 
 
 def test_delete_all_for_chat_removes_files_and_chat_folder(
-    local_storage: LocalFileStorageService,
+    local_storage: LocalFileObjectStorage,
 ):
     chat_id = "876e9c45-b84d-416d-a9bf-0ef3e6dee81d"
     local_storage.save(f"{chat_id}/Battle_of_Endor.pdf", b"pdf-bytes")
@@ -118,7 +118,7 @@ def test_delete_all_for_chat_removes_files_and_chat_folder(
     assert not chat_folder.exists()
 
 
-def test_delete_all_for_single_file_key(local_storage: LocalFileStorageService):
+def test_delete_all_for_single_file_key(local_storage: LocalFileObjectStorage):
     key = "chat-1/file.txt"
     local_storage.save(key, b"data")
 
@@ -129,13 +129,13 @@ def test_delete_all_for_single_file_key(local_storage: LocalFileStorageService):
 
 
 def test_delete_all_for_missing_key_returns_zero(
-    local_storage: LocalFileStorageService,
+    local_storage: LocalFileObjectStorage,
 ):
     assert local_storage.delete_all("chat-x") == 0
 
 
 def test_delete_all_without_key_clears_all_files(
-    local_storage: LocalFileStorageService,
+    local_storage: LocalFileObjectStorage,
 ):
     local_storage.save("chat-a/file-a.txt", b"a")
     local_storage.save("chat-b/file-b.txt", b"b")
@@ -147,22 +147,22 @@ def test_delete_all_without_key_clears_all_files(
     assert local_storage.root.exists()
 
 
-def test_save_rejects_path_traversal(local_storage: LocalFileStorageService):
+def test_save_rejects_path_traversal(local_storage: LocalFileObjectStorage):
     with pytest.raises(ValueError):
         local_storage.save("../outside.txt", b"x")
 
 
-def test_load_rejects_path_traversal(local_storage: LocalFileStorageService):
+def test_load_rejects_path_traversal(local_storage: LocalFileObjectStorage):
     with pytest.raises(ValueError):
         local_storage.load("../../outside.txt")
 
 
-def test_delete_all_rejects_path_traversal(local_storage: LocalFileStorageService):
+def test_delete_all_rejects_path_traversal(local_storage: LocalFileObjectStorage):
     with pytest.raises(ValueError):
         local_storage.delete_all("../outside")
 
 
-def test_save_wraps_ioerror_when_open_fails(local_storage: LocalFileStorageService):
+def test_save_wraps_ioerror_when_open_fails(local_storage: LocalFileObjectStorage):
     with (
         patch("builtins.open", side_effect=OSError("disk full")),
         pytest.raises(IOError),
@@ -170,7 +170,7 @@ def test_save_wraps_ioerror_when_open_fails(local_storage: LocalFileStorageServi
         local_storage.save("chat-1/file.txt", b"data")
 
 
-def test_load_wraps_ioerror_when_open_fails(local_storage: LocalFileStorageService):
+def test_load_wraps_ioerror_when_open_fails(local_storage: LocalFileObjectStorage):
     key = "chat-1/file.txt"
     local_storage.save(key, b"data")
 
@@ -181,7 +181,7 @@ def test_load_wraps_ioerror_when_open_fails(local_storage: LocalFileStorageServi
         local_storage.load(key)
 
 
-def test_update_wraps_ioerror_when_open_fails(local_storage: LocalFileStorageService):
+def test_update_wraps_ioerror_when_open_fails(local_storage: LocalFileObjectStorage):
     key = "chat-1/file.txt"
     local_storage.save(key, b"data")
 

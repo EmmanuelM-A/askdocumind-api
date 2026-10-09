@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from src.uploads.storage.local_file_storage_service import LocalFileStorageService
+from src.uploads.storage.local_object_storage import LocalFileObjectStorage
 
 
 @pytest.fixture
@@ -16,10 +16,10 @@ def storage_root(tmp_path: Path) -> Path:
 @pytest.fixture
 def local_storage(
     monkeypatch: pytest.MonkeyPatch, storage_root: Path
-) -> LocalFileStorageService:
+) -> LocalFileObjectStorage:
     """Provide LocalFileStorageService bound to an isolated test directory."""
     monkeypatch.setattr(
         "src.database.storage.local_file_storage_service.settings.files.LOCAL_FILE_STORAGE_DIR",
         str(storage_root),
     )
-    return LocalFileStorageService()
+    return LocalFileObjectStorage()
