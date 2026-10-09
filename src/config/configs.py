@@ -127,29 +127,17 @@ class UploadSettings(_BaseSettings):
 
     model_config = _DEFAULT_MODEL_CONFIG
 
-    MAX_UPLOAD_SIZE_MB: float = Field(default=50.0, gt=0, le=500)
-    ALLOWED_FILE_TYPES: list[str] = Field(default=...)
-
-    # Object storage settings
-    DEV_OBJECT_STORAGE: str = Field(default=str(_PROJECT_ROOT / "uploads"))
-
-
-class AWSSettings(_BaseSettings):
-    """
-    AWS configuration settings for the AskDocuMind API application.
-    """
-
-    model_config = _DEFAULT_MODEL_CONFIG
-
+    # Object storage
     S3_BUCKET_NAME: str = Field(default="")
-    REGION: str = Field(default="")
+    S3_PRESIGN_ENDPOINT_URL: str = Field(default="")
+    PRESIGNED_URL_TTL_SECS: int = Field(default=300, ge=60, le=3600)
 
-    @field_validator("S3_BUCKET_NAME", "REGION")
-    @classmethod
-    def validate_aws_settings(cls, value: str, field) -> str:
-        if not value or value.strip() == "":
-            raise ValueError(f"{field.name} cannot be empty.")
-        return value
+    # Business rules
+    MAX_FILE_SIZE_MB: float = Field(default=50.0, gt=0, le=500)
+    MAX_DOCS_PER_SESSION: int = Field(default=10, ge=1, le=100)
+    ALLOWED_EXTENSIONS: list[str] = Field(default=...)
+    ALLOWED_CONTENT_TYPES: list[str] = Field(default=...)
+    PROCESSING_TIMEOUT_SECS: int = Field(default=30, ge=1, le=300)
 
 
 # ------------------------------------------------------------------
@@ -168,7 +156,6 @@ class Settings(BaseSettings):
     auth: AuthSettings = AuthSettings()
     chat: ChatSessionSettings = ChatSessionSettings()
     uploads: UploadSettings = UploadSettings()
-    aws: AWSSettings = AWSSettings()
 
 
 # Global settings instance
