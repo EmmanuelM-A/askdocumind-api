@@ -44,27 +44,15 @@ class Document(Base):
         nullable=False,
         index=True,
     )
-    original_filename: Mapped[str] = mapped_column(
-        String(255),
-        nullable=False,
-    )
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
     object_key: Mapped[str] = mapped_column(
         String(512),
         unique=True,
         nullable=False,
     )
-    content_type: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-    )
-    size_bytes: Mapped[int] = mapped_column(
-        BigInteger,
-        nullable=False,
-    )
-    checksum: Mapped[str | None] = mapped_column(
-        String(64),
-        nullable=True,
-    )
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    checksum: Mapped[str | None] = mapped_column(String(64))
     status: Mapped[DocumentStatus] = mapped_column(
         Enum(DocumentStatus),
         default=DocumentStatus.PENDING,
