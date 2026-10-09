@@ -33,12 +33,12 @@ class ChatSession(Base):
 
     # Relationships
     messages: Mapped[list["ChatMessage"]] = relationship(
-        back_populates="session",
+        back_populates="chat_session",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
     documents: Mapped[list["Document"]] = relationship(
-        back_populates="session",
+        back_populates="chat_session",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )

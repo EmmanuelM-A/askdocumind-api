@@ -1,7 +1,6 @@
 from uuid import UUID
 
 from src.shared.utils import CamelCaseSerializer
-from src.uploads.domain.document import ProcessingStatus
 
 
 class ViewableDocument(CamelCaseSerializer):
@@ -12,7 +11,9 @@ class ViewableDocument(CamelCaseSerializer):
     id: UUID
     chat_session_id: UUID
     filename: str
-    file_size: int
-    processing_status: ProcessingStatus
+    content_type: str
+    size_bytes: int
+    checksum: str | None
+    status: str
     created_at: str
     updated_at: str
