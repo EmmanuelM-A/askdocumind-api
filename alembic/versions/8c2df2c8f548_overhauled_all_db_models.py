@@ -19,6 +19,30 @@ down_revision: Union[str, Sequence[str], None] = "b1e7c4a29f3d"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+chat_message_role = postgresql.ENUM(
+    "USER", "ASSISTANT", "SYSTEM", name="chatmessagerole", create_type=False
+)
+document_status = postgresql.ENUM(
+    "PENDING",
+    "UPLOADED",
+    "PROCESSING",
+    "COMPLETED",
+    "FAILED",
+    name="documentstatus",
+    create_type=False,
+)
+old_processing_status = postgresql.ENUM(
+    "PENDING",
+    "PROCESSING",
+    "COMPLETED",
+    "FAILED",
+    name="processingstatus",
+    create_type=False,
+)
+old_document_source_type = postgresql.ENUM(
+    "UPLOAD", "WEB_SEARCH", name="documentsourcetype", create_type=False
+)
+
 
 def upgrade() -> None:
     """Upgrade schema."""
@@ -33,6 +57,11 @@ def upgrade() -> None:
     op.execute("DROP TYPE IF EXISTS chatmessagerole")
     op.execute("DROP TYPE IF EXISTS processingstatus")
     op.execute("DROP TYPE IF EXISTS documentsourcetype")
+
+    # Create new enum types
+    bind = op.get_bind()
+    chat_message_role.create(bind, checkfirst=True)
+    document_status.create(bind, checkfirst=True)
 
     # Create new tables, parents first
     op.create_table(
@@ -73,11 +102,7 @@ def upgrade() -> None:
         "chat_messages",
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("chat_session_id", sa.UUID(), nullable=False),
-        sa.Column(
-            "role",
-            sa.Enum("USER", "ASSISTANT", "SYSTEM", name="chatmessagerole"),
-            nullable=False,
-        ),
+        sa.Column("role", chat_message_role, nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("sources", postgresql.ARRAY(sa.String()), nullable=False),
         sa.Column(
@@ -106,18 +131,7 @@ def upgrade() -> None:
         sa.Column("content_type", sa.String(length=100), nullable=False),
         sa.Column("size_bytes", sa.BigInteger(), nullable=False),
         sa.Column("checksum", sa.String(length=64), nullable=False),
-        sa.Column(
-            "status",
-            sa.Enum(
-                "PENDING",
-                "UPLOADED",
-                "PROCESSING",
-                "COMPLETED",
-                "FAILED",
-                name="documentstatus",
-            ),
-            nullable=False,
-        ),
+        sa.Column("status", document_status, nullable=False),
         sa.Column("error_message", sa.String(length=512), nullable=True),
         sa.Column(
             "created_at",
@@ -171,6 +185,12 @@ def downgrade() -> None:
     op.execute("DROP TYPE IF EXISTS chatmessagerole")
     op.execute("DROP TYPE IF EXISTS documentstatus")
 
+    # Create old enum types
+    bind = op.get_bind()
+    chat_message_role.create(bind, checkfirst=True)
+    old_processing_status.create(bind, checkfirst=True)
+    old_document_source_type.create(bind, checkfirst=True)
+
     # Recreate old tables, parents first
     op.create_table(
         "user",
@@ -222,9 +242,7 @@ def downgrade() -> None:
         sa.Column("source_size", sa.BIGINT(), autoincrement=False, nullable=False),
         sa.Column(
             "processing_status",
-            postgresql.ENUM(
-                "PENDING", "PROCESSING", "COMPLETED", "FAILED", name="processingstatus"
-            ),
+            old_processing_status,
             autoincrement=False,
             nullable=False,
         ),
@@ -242,7 +260,7 @@ def downgrade() -> None:
         ),
         sa.Column(
             "source_type",
-            postgresql.ENUM("UPLOAD", "WEB_SEARCH", name="documentsourcetype"),
+            old_document_source_type,
             autoincrement=False,
             nullable=False,
         ),
@@ -298,12 +316,7 @@ def downgrade() -> None:
         "chat_message",
         sa.Column("id", sa.UUID(), autoincrement=False, nullable=False),
         sa.Column("session_id", sa.UUID(), autoincrement=False, nullable=False),
-        sa.Column(
-            "role",
-            postgresql.ENUM("USER", "ASSISTANT", "SYSTEM", name="chatmessagerole"),
-            autoincrement=False,
-            nullable=False,
-        ),
+        sa.Column("role", chat_message_role, autoincrement=False, nullable=False),
         sa.Column("content", sa.TEXT(), autoincrement=False, nullable=False),
         sa.Column(
             "created_at",
