@@ -26,7 +26,7 @@ class ChatMessage(Base):
         ForeignKey("chat_sessions.id", ondelete="CASCADE"),
         index=True,
     )
-    role: Mapped[ChatMessageRole] = mapped_column(Enum(ChatMessageRole))
+    role: Mapped[ChatMessageRole] = mapped_column(Enum(ChatMessageRole), nullable=False)
     content: Mapped[str] = mapped_column(Text)
     sources: Mapped[list[str]] = mapped_column(ARRAY(String))
     created_at: Mapped[datetime] = mapped_column(
