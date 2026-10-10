@@ -21,3 +21,4 @@ mypy-boto3-s3
 tree-sitter-language-pack
 tree-sitter
 spacy
+langchain-openai

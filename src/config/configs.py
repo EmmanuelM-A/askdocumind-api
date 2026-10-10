@@ -151,6 +151,9 @@ class _RAGSettings(_BaseSettings):
     model_config = _DEFAULT_MODEL_CONFIG
 
     EMBEDDING_DIMENSIONS: int = Field(default=1536, ge=1, le=10000)
+    EMBEDDING_MODEL: str = Field(default="text-embedding-3-small")
+    EMBEDDING_REQUEST_TIMEOUT_SECS: int = Field(default=30, ge=1, le=300)
+    EMBEDDING_MAX_RETRIES: int = Field(default=3, ge=0, le=10)
 
 
 # ------------------------------------------------------------------
