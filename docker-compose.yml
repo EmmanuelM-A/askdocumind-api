@@ -1,31 +1,16 @@
 services:
   database:
     image: pgvector/pgvector:pg16
-    container_name: ask_docu_mind_postgres
+    container_name: askdocumind_postgres
     environment:
-      POSTGRES_USER: ask_docu_mind
+      POSTGRES_USER: askdocumind
       POSTGRES_PASSWORD: secret
-      POSTGRES_DB: ask_docu_mind_postgres
+      POSTGRES_DB: askdocumind_db
     ports:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     restart: always
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: ask_docu_mind_pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@example.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "8080:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    depends_on:
-      - database
-    restart: unless-stopped
-
 volumes:
   db_data:
-  pgadmin_data:

@@ -13,7 +13,8 @@ class ViewableDocument(CamelCaseSerializer):
     filename: str
     content_type: str
     size_bytes: int
-    checksum: str | None
+    checksum: str
     status: str
+    error_message: str | None
     created_at: str
     updated_at: str

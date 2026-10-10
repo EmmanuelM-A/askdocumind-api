@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
@@ -13,10 +14,12 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.chat_session.models.chat_session import ChatSession
 from src.database import Base
 from src.uploads.domain.document import DocumentStatus
 from src.uploads.models.mapper import ViewableDocument
+
+if TYPE_CHECKING:
+    from src.chat_session.models.chat_session import ChatSession
 
 
 class Document(Base):
@@ -52,12 +55,14 @@ class Document(Base):
     )
     content_type: Mapped[str] = mapped_column(String(100), nullable=False)
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    checksum: Mapped[str | None] = mapped_column(String(64))
+    checksum: Mapped[str] = mapped_column(String(64))
     status: Mapped[DocumentStatus] = mapped_column(
         Enum(DocumentStatus),
         default=DocumentStatus.PENDING,
         nullable=False,
+        index=True,
     )
+    error_message: Mapped[str | None] = mapped_column(String(512), default=None)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -68,6 +73,7 @@ class Document(Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+        index=True,
     )
 
     # Relationships
@@ -86,6 +92,7 @@ class Document(Base):
             size_bytes=self.size_bytes,
             checksum=self.checksum,
             status=self.status.value,
+            error_message=self.error_message,
             created_at=self.created_at.isoformat(),
             updated_at=self.updated_at.isoformat(),
         )

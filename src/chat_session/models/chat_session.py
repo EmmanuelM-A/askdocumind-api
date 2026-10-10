@@ -1,14 +1,17 @@
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from sqlalchemy import Text, UUID, ForeignKey, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.chat_session.models.chat_message import ChatMessage
 from src.chat_session.models.mapper import ViewableChatSession
 from src.database import Base
 from src.uploads import Document
+
+if TYPE_CHECKING:
+    from src.chat_session.models.chat_message import ChatMessage
 
 
 class ChatSession(Base):
