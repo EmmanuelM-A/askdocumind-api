@@ -127,10 +127,12 @@ class UploadSettings(_BaseSettings):
 
     model_config = _DEFAULT_MODEL_CONFIG
 
-    # Object storage
-    S3_BUCKET_NAME: str = Field(default="")
-    S3_PRESIGN_ENDPOINT_URL: str = Field(default="")
-    PRESIGNED_URL_TTL_SECS: int = Field(default=300, ge=60, le=3600)
+    # Object storage (Both S3 and MinIO compatible)
+    S3_ENDPOINT_URL: SecretStr = Field(default=...)
+    S3_ACCESS_KEY_ID: SecretStr = Field(default=...)
+    S3_SECRET_ACCESS_KEY: SecretStr = Field(default=...)
+    S3_REGION: SecretStr = Field(default=...)
+    S3_BUCKET_NAME: SecretStr = Field(default=...)
 
     # Business rules
     MAX_FILE_SIZE_MB: float = Field(default=50.0, gt=0, le=500)
