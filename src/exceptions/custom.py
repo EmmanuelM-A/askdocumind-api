@@ -208,3 +208,21 @@ def validation_error(
         headers=headers,
         cause=cause,
     )
+
+
+def content_too_large_error(
+    message: str,
+    error_code: str = "CONTENT_TOO_LARGE",
+    error_details: Dict[str, str] | None = None,
+    cause: BaseException | None = None,
+    headers: dict | None = None,
+) -> ApiException:
+    """Raises a 413 Payload Too Large exception."""
+    return ApiException(
+        error_code=error_code,
+        error_details=error_details,
+        message=message,
+        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        headers=headers,
+        cause=cause,
+    )

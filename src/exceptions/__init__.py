@@ -11,6 +11,7 @@ from src.exceptions.custom import (
     object_storage_error,
     service_unavailable_error,
     validation_error,
+    content_too_large_error,
 )
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "object_storage_error",
     "service_unavailable_error",
     "validation_error",
+    "content_too_large_error",
 ]
