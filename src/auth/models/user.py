@@ -28,7 +28,7 @@ class User(Base):
     )
 
     def viewable(self) -> ViewableUser:
-        """Return JSON-serializable dict representation of the User."""
+        """Return a viewable representation of the user."""
 
         return ViewableUser(
             id=self.id,
