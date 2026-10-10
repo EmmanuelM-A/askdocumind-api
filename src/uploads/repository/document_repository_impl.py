@@ -1,14 +1,17 @@
 import logging
+from collections.abc import Collection
+from datetime import datetime
 from uuid import UUID
 
 from fastapi_pagination import Page
 from sqlalchemy import Select, delete, func, select, update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.utils import BaseRepository, Pagination
 from src.exceptions import database_error
-from src.uploads import Document
 from src.uploads.domain.document import DocumentStatus
+from src.uploads.models.document import Document
 from src.uploads.repository.document_repository import (
     DocumentRepository,
     DocumentSearchFilter,
@@ -162,10 +165,15 @@ class DocumentRepositoryImpl(BaseRepository, DocumentRepository):
             ) from e
 
     async def update_document_status(
-        self, document_id: UUID, new_status: DocumentStatus
+        self,
+        document_id: UUID,
+        new_status: DocumentStatus,
+        error_message: str | None = None,
     ) -> None:
         statement = (
-            update(Document).where(Document.id == document_id).values(status=new_status)
+            update(Document)
+            .where(Document.id == document_id)
+            .values(status=new_status, error_message=error_message)
         )
         try:
             result = await self._session.execute(statement)
@@ -181,3 +189,61 @@ class DocumentRepositoryImpl(BaseRepository, DocumentRepository):
                 message="Document not found for status update.",
                 error_code="DOCUMENT_NOT_FOUND",
             )
+
+    async def transition_document_status(
+        self,
+        document_id: UUID,
+        from_statuses: Collection[DocumentStatus],
+        to_status: DocumentStatus,
+        error_message: str | None = None,
+    ) -> bool:
+        if not from_statuses:
+            return False
+
+        statement = (
+            update(Document)
+            .where(
+                Document.id == document_id,
+                Document.status.in_(list(from_statuses)),
+            )
+            .values(
+                status=to_status,
+                error_message=error_message,
+                updated_at=func.now(),
+            )
+            .execution_options(synchronize_session=False)
+        )
+        try:
+            result = await self._session.execute(statement)
+        except SQLAlchemyError as e:
+            raise database_error(
+                message="An error occurred while transitioning the document status.",
+                error_code="DOCUMENT_UPDATE_ERROR",
+                cause=e,
+            ) from e
+
+        return result.rowcount > 0
+
+    async def list_stale_documents(
+        self,
+        status: DocumentStatus,
+        older_than: datetime,
+        limit: int = 100,
+    ) -> list[Document]:
+        statement = (
+            select(Document)
+            .where(Document.status == status, Document.updated_at < older_than)
+            .order_by(Document.updated_at)
+            .limit(limit)
+            .with_for_update(skip_locked=True)
+        )
+        try:
+            result = await self._session.execute(statement)
+        except SQLAlchemyError as e:
+            raise database_error(
+                message="An error occurred while listing stale documents.",
+                error_code="DOCUMENT_LIST_ERROR",
+                cause=e,
+            ) from e
+
+        return list(result.scalars().all())

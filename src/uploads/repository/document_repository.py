@@ -3,14 +3,16 @@ Repository interface for document CRUD operations.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Collection
+from datetime import datetime
 from uuid import UUID
 
 from fastapi_pagination import Page
 from pydantic import BaseModel
 
-from src.database import Pagination
-from src.uploads import Document
+from src.database.utils import Pagination
 from src.uploads.domain.document import DocumentStatus
+from src.uploads.models.document import Document
 
 
 class DocumentSearchFilter(BaseModel):
@@ -113,11 +115,46 @@ class DocumentRepository(ABC):
 
     @abstractmethod
     async def update_document_status(
-        self, document_id: UUID, new_status: DocumentStatus
+        self,
+        document_id: UUID,
+        new_status: DocumentStatus,
+        error_message: str | None = None,
     ) -> None:
         """
         Update the status of a document.
         """
         raise NotImplementedError(
             "The 'update_document_status' method must be implemented by its subclasses."
+        )
+
+    @abstractmethod
+    async def transition_document_status(
+        self,
+        document_id: UUID,
+        from_statuses: Collection[DocumentStatus],
+        to_status: DocumentStatus,
+        error_message: str | None = None,
+    ) -> bool:
+        """
+        Move a document to to_status only when its current status is in
+        from_statuses. Return True when the row changed, False otherwise.
+        """
+        raise NotImplementedError(
+            "The 'transition_document_status' method must be implemented by its subclasses."
+        )
+
+    @abstractmethod
+    async def list_stale_documents(
+        self,
+        status: DocumentStatus,
+        older_than: datetime,
+        limit: int = 100,
+    ) -> list[Document]:
+        """
+        Return up to limit documents in the given status whose updated_at is
+        before older_than, oldest first. Rows are locked with SKIP LOCKED until
+        the transaction ends.
+        """
+        raise NotImplementedError(
+            "The 'list_stale_documents' method must be implemented by its subclasses."
         )
