@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.chat_session.models.chat_session import ChatSession
 from src.chat_session.repository.chat_session_repository import ChatSessionRepository
-from src.database import Pagination
+from src.database.utils import Pagination
 from src.database.utils import BaseRepository
 from src.exceptions import database_error
 

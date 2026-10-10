@@ -4,7 +4,7 @@ Abstract object storage interface along with utility functions.
 
 from abc import ABC, abstractmethod
 
-from exceptions import unprocessable_content_error
+from src.exceptions import unprocessable_content_error
 
 
 class ObjectStorage(ABC):

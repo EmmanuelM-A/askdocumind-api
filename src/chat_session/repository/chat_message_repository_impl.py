@@ -10,7 +10,7 @@ from src.chat_session.repository.chat_message_repository import (
     ChatMessageRepository,
     ChatMessageSearchFilter,
 )
-from src.database import Pagination
+from src.database.utils import Pagination
 from src.database.utils import BaseRepository
 from src.exceptions import database_error
 

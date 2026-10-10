@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from src.chat_session.domain.chat import ChatMessageRole
 from src.chat_session.models.chat_message import ChatMessage
-from src.database import Pagination
+from src.database.utils import Pagination
 
 
 class ChatMessageSearchFilter(BaseModel):

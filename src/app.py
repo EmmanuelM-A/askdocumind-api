@@ -17,8 +17,8 @@ from src.chat_session.routes.chat_session_router import chat_session_router
 from src.config.configs import settings
 from src.config.logger import setup_logging
 from src.config.paths import PUBLIC_PATHS
-from src.database import DatabaseSessionManager
-from src.exceptions import setup_exception_handlers
+from src.exceptions.handlers import setup_exception_handlers
+from src.database.session import DatabaseSessionManager
 from src.health.router import health_check_router
 from src.middleware.anonymous_sessions import AnonymousSessionMiddleware
 from src.middleware.concurrent_request_limit import ConcurrentRequestLimitMiddleware

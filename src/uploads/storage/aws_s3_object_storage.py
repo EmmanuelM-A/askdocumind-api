@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from botocore.exceptions import BotoCoreError, ClientError
 
-from exceptions import object_storage_error
+from src.exceptions import object_storage_error
 
 if TYPE_CHECKING:
     from mypy_boto3_s3.client import S3Client

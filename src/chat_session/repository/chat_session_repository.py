@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi_pagination import Page
 
 from src.chat_session.models.chat_session import ChatSession
-from src.database import Pagination
+from src.database.utils import Pagination
 
 
 class ChatSessionRepository(ABC):
