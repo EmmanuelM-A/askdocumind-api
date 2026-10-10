@@ -8,3 +8,4 @@ from src.auth.models.user import User
 from src.chat_session.models.chat_session import ChatSession
 from src.chat_session.models.chat_message import ChatMessage
 from src.uploads.models.document import Document
+from src.rag.models.chunk_embedding import ChunkEmbedding

@@ -16,6 +16,6 @@ class ViewableChunkEmbedding(CamelCaseSerializer):
     id: UUID
     document_id: UUID
     chat_session_id: UUID
+    chunk_index: int
     chunk_text: str
     created_at: str
-    updated_at: str | None

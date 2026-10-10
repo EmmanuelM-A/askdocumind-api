@@ -19,6 +19,7 @@ from src.uploads.domain.document import DocumentStatus
 from src.uploads.models.mapper import ViewableDocument
 
 if TYPE_CHECKING:
+    from src.rag.models.chunk_embedding import ChunkEmbedding
     from src.chat_session.models.chat_session import ChatSession
 
 
@@ -33,6 +34,7 @@ class Document(Base):
             "original_filename",
             name="uq_document_chat_session_filename",
         ),
+        UniqueConstraint("id", "chat_session_id", name="uq_document_id_session"),
     )
 
     # Columns
@@ -79,6 +81,13 @@ class Document(Base):
     # Relationships
     chat_session: Mapped["ChatSession"] = relationship(
         back_populates="documents",
+    )
+
+    chunk_embeddings: Mapped[list["ChunkEmbedding"]] = relationship(
+        back_populates="document",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="raise",
     )
 
     def viewable(self) -> ViewableDocument:

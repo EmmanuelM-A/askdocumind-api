@@ -32,7 +32,7 @@ class _BaseSettings(BaseSettings):
         return {k: v for k, v in values.items() if v != ""}
 
 
-class ServerSettings(_BaseSettings):
+class _ServerSettings(_BaseSettings):
     """
     Server configuration settings for the AskDocuMind API application.
     """
@@ -50,7 +50,7 @@ class ServerSettings(_BaseSettings):
     RATE_LIMIT_WINDOW_SECS: int = Field(default=60, ge=1, le=3600)
 
 
-class LoggingSettings(_BaseSettings):
+class _LoggingSettings(_BaseSettings):
     """
     Logging configuration settings for the AskDocuMind API application.
     """
@@ -66,7 +66,7 @@ class LoggingSettings(_BaseSettings):
     DATE_FORMAT: str = Field(default="%Y-%m-%d %H:%M:%S")
 
 
-class DatabaseSettings(_BaseSettings):
+class _DatabaseSettings(_BaseSettings):
     """
     Database configuration settings for the AskDocuMind API application.
     """
@@ -93,7 +93,7 @@ class DatabaseSettings(_BaseSettings):
         return value
 
 
-class AuthSettings(_BaseSettings):
+class _AuthSettings(_BaseSettings):
     """
     Authentication configuration settings for the AskDocuMind API application.
     """
@@ -110,7 +110,7 @@ class AuthSettings(_BaseSettings):
     UPDATE_LAST_SEEN_FREQ_MINS: int = Field(default=5, ge=1, le=60)
 
 
-class ChatSessionSettings(_BaseSettings):
+class _ChatSessionSettings(_BaseSettings):
     """
     Chat session configuration settings for the AskDocuMind API application.
     """
@@ -120,7 +120,7 @@ class ChatSessionSettings(_BaseSettings):
     MAX_QUERIES_PER_MINUTE: int = Field(default=60, ge=1, le=1000)
 
 
-class UploadSettings(_BaseSettings):
+class _UploadSettings(_BaseSettings):
     """
     Upload configuration settings for the AskDocuMind API application.
     """
@@ -142,23 +142,35 @@ class UploadSettings(_BaseSettings):
     PROCESSING_TIMEOUT_SECS: int = Field(default=30, ge=1, le=300)
 
 
+class _RAGSettings(_BaseSettings):
+    """
+    Retrieval-Augmented Generation (RAG) configuration settings for the
+    AskDocuMind API application.
+    """
+
+    model_config = _DEFAULT_MODEL_CONFIG
+
+    EMBEDDING_DIMENSIONS: int = Field(default=1536, ge=1, le=10000)
+
+
 # ------------------------------------------------------------------
 # Main Settings Container
 # ------------------------------------------------------------------
-class Settings(BaseSettings):
+class _Settings(BaseSettings):
     """
     Main settings container aggregating all configuration domains.
     """
 
     model_config = _DEFAULT_MODEL_CONFIG
 
-    server: ServerSettings = ServerSettings()
-    logging: LoggingSettings = LoggingSettings()
-    database: DatabaseSettings = DatabaseSettings()
-    auth: AuthSettings = AuthSettings()
-    chat: ChatSessionSettings = ChatSessionSettings()
-    uploads: UploadSettings = UploadSettings()
+    server: _ServerSettings = _ServerSettings()
+    logging: _LoggingSettings = _LoggingSettings()
+    database: _DatabaseSettings = _DatabaseSettings()
+    auth: _AuthSettings = _AuthSettings()
+    chat: _ChatSessionSettings = _ChatSessionSettings()
+    uploads: _UploadSettings = _UploadSettings()
+    rag: _RAGSettings = _RAGSettings()
 
 
 # Global settings instance
-settings = Settings()
+settings = _Settings()
