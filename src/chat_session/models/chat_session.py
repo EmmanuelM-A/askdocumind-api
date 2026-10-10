@@ -7,8 +7,8 @@ from sqlalchemy import Text, UUID, ForeignKey, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.chat_session.models.mapper import ViewableChatSession
-from src.database import Base
-from src.uploads import Document
+from src.database.orm_base import Base
+from src.uploads.models.document import Document
 
 if TYPE_CHECKING:
     from src.chat_session.models.chat_message import ChatMessage

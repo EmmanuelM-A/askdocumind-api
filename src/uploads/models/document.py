@@ -14,7 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.database import Base
+from src.database.orm_base import Base
 from src.uploads.domain.document import DocumentStatus
 from src.uploads.models.mapper import ViewableDocument
 

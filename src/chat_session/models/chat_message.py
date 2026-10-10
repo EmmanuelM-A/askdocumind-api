@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.chat_session.models.chat_session import ChatSession
 from src.chat_session.domain.chat import ChatMessageRole
 from src.chat_session.models.mapper import ViewableChatMessage
-from src.database import Base
+from src.database.orm_base import Base
 
 
 class ChatMessage(Base):

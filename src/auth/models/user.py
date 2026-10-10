@@ -9,7 +9,7 @@ from sqlalchemy import UUID, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.auth.models.mapper import ViewableUser
-from src.database import Base
+from src.database.orm_base import Base
 
 
 class User(Base):
