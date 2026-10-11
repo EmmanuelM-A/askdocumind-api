@@ -105,3 +105,16 @@ class ChunkEmbeddingRepository(ABC):
         raise NotImplementedError(
             "The method 'delete_by_document' must be implemented by its subclass"
         )
+
+    @abstractmethod
+    async def get_candidate_chunk_embeddings(
+        self, chat_session_id: UUID
+    ) -> list[ChunkEmbedding]:
+        """
+        Retrieves a list of candidate chunk embeddings for a given chat
+        session.
+        """
+        raise NotImplementedError(
+            "The method 'get_candidate_chunk_embeddings' must be implemented "
+            "by its subclass"
+        )

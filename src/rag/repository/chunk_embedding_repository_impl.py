@@ -164,3 +164,22 @@ class ChunkEmbeddingRepositoryImpl(ChunkEmbeddingRepository, BaseRepository):
             )
 
         return result.rowcount
+
+    async def get_candidate_chunk_embeddings(
+        self, chat_session_id: UUID
+    ) -> list[ChunkEmbedding]:
+        """
+        Retrieve candidate chunks for similarity search based on the chat session ID.
+        """
+        statement = select(ChunkEmbedding).where(
+            ChunkEmbedding.chat_session_id == chat_session_id
+        )
+
+        try:
+            result = await self._session.execute(statement)
+            return list(result.scalars().all())
+        except Exception as e:
+            raise database_error(
+                message="An error occurred while retrieving candidate chunks.",
+                error_code="CANDIDATE_CHUNK_RETRIEVAL_ERROR",
+            ) from e

@@ -189,6 +189,22 @@ class _RAGSettings(_BaseSettings):
         return value
 
 
+class _LLMSettings(_BaseSettings):
+    """
+    Large Language Model (LLM) configuration settings for the AskDocuMind API application.
+    """
+
+    model_config = _DEFAULT_MODEL_CONFIG
+
+    MODEL_NAME: str = Field(default="gpt-4o-mini", alias="LLM_MODEL_NAME")
+    TEMPERATURE: float = Field(default=0.0, ge=0.0, le=2.0)
+    REQUEST_TIMEOUT_SECS: int = Field(
+        default=30, ge=1, le=300, alias="LLM_REQUEST_TIMEOUT_SECS"
+    )
+    MAX_RETRIES: int = Field(default=3, ge=0, le=10, alias="LLM_MAX_RETRIES")
+    MAX_OUTPUT_TOKENS: int = Field(default=1024, ge=1, le=16000)
+
+
 # ------------------------------------------------------------------
 # Main Settings Container
 # ------------------------------------------------------------------
@@ -206,6 +222,7 @@ class _Settings(BaseSettings):
     chat: _ChatSessionSettings = _ChatSessionSettings()
     uploads: _UploadSettings = _UploadSettings()
     rag: _RAGSettings = _RAGSettings()
+    llm: _LLMSettings = _LLMSettings()
 
 
 # Global settings instance
