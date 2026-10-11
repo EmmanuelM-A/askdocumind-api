@@ -25,3 +25,5 @@ langchain-openai
 httpx
 charset-normalizer
 pymupdf
+langchain-core
+sentence-transformers
