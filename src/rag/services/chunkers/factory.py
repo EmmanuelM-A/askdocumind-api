@@ -24,8 +24,6 @@ from src.rag.services.chunkers.structure_aware import (
     StructureAwareChunkerConfig,
 )
 
-# TODO: Replace hardcoded values with configuration from a config file
-
 # A set of file extensions that are considered to be Markdown files.
 _MARKDOWN_EXTENSIONS: frozenset[str] = frozenset(
     {
@@ -41,7 +39,7 @@ _MARKDOWN_EXTENSIONS: frozenset[str] = frozenset(
 )
 
 _TEXT_EXTENSIONS: frozenset[str] = frozenset(
-    {".txt", ".text", ".log", ".docx", ".pdf", ".html"}
+    {".txt", ".text", ".docx", ".pdf", ".html"}
 )
 
 """
