@@ -24,20 +24,6 @@ from src.rag.services.chunkers.structure_aware import (
     StructureAwareChunkerConfig,
 )
 
-# A set of file extensions that are considered to be Markdown files.
-_MARKDOWN_EXTENSIONS: frozenset[str] = frozenset(
-    {
-        ".md",
-        ".markdown",
-        ".mdown",
-        ".mkdn",
-        ".mkd",
-        ".mdwn",
-        ".mdtxt",
-        ".mdtext",
-    }
-)
-
 _TEXT_EXTENSIONS: frozenset[str] = frozenset(
     {".txt", ".text", ".docx", ".pdf", ".html"}
 )
@@ -155,7 +141,7 @@ class ChunkerFactory:
         StructureAwareChunker for Markdown files or a SentenceBasedChunker for
         other text files. Expects an already-normalized extension.
         """
-        if normalized_extension in _MARKDOWN_EXTENSIONS:
+        if normalized_extension in ".md":
             return StructureAwareChunker(
                 StructureAwareChunkerConfig(
                     chunk_size=self._config.chunk_size,

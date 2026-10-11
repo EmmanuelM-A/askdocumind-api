@@ -138,6 +138,7 @@ class _UploadSettings(_BaseSettings):
     MAX_FILE_SIZE_MB: float = Field(default=50.0, gt=0, le=500)
     MAX_DOCS_PER_SESSION: int = Field(default=10, ge=1, le=100)
     ALLOWED_FILE_EXTENSIONS: list[str] = Field(default=...)
+    ALLOWED_CODE_EXTENSIONS: list[str] = Field(default=...)
     ALLOWED_CONTENT_TYPES: list[str] = Field(default=...)
     PROCESSING_TIMEOUT_SECS: int = Field(default=30, ge=1, le=300)
 
@@ -150,10 +151,22 @@ class _RAGSettings(_BaseSettings):
 
     model_config = _DEFAULT_MODEL_CONFIG
 
+    # Embeddings
     EMBEDDING_DIMENSIONS: int = Field(default=1536, ge=1, le=10000)
     EMBEDDING_MODEL: str = Field(default="text-embedding-3-small")
     EMBEDDING_REQUEST_TIMEOUT_SECS: int = Field(default=30, ge=1, le=300)
     EMBEDDING_MAX_RETRIES: int = Field(default=3, ge=0, le=10)
+
+    # Chunkers
+
+    # Extraction
+    READ_BLOCK_BYTES: int = Field(default=8192, ge=1024, le=65536)
+    FALLBACK_ENCODING: str = Field(default="cp1252")
+    SEGMENT_TARGET_CHARS: int = Field(default=1000, ge=100, le=10000)
+
+    # Reranking
+
+    # Web Search
 
 
 # ------------------------------------------------------------------

@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 
 from src.rag.services.extract.extractors.extractor import Segment
-from src.rag.services.extract.extractor_factory import ExtractorFactory
+from src.rag.services.extract.extractors.factory import ExtractorFactory
 from src.rag.services.extract.file_downloader import S3FileDownloader
 
 

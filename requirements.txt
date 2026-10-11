@@ -23,3 +23,5 @@ tree-sitter
 spacy
 langchain-openai
 httpx
+charset-normalizer
+pymupdf
