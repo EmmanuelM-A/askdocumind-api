@@ -158,6 +158,9 @@ class _RAGSettings(_BaseSettings):
     EMBEDDING_MAX_RETRIES: int = Field(default=3, ge=0, le=10)
 
     # Chunkers
+    STREAM_FLUSH_CHARS: int = Field(default=20000, ge=7500, le=40000)
+    PROCESSING_BATCH_SIZE: int = Field(default=100, ge=1, le=1000)
+    MIN_CONTENT_LENGTH: int = Field(default=150, ge=100, le=1000)
 
     # Extraction
     READ_BLOCK_BYTES: int = Field(default=8192, ge=1024, le=65536)
@@ -167,6 +170,23 @@ class _RAGSettings(_BaseSettings):
     # Reranking
 
     # Web Search
+    MAX_SEARCH_RESULTS: int = Field(default=10, le=30, ge=5)
+    USER_AGENT: str = Field(
+        default="Mozilla/5.0 (Windows NT 10.0; Win64; x64)", min_length=10
+    )
+    BRAVE_API_KEY: SecretStr = Field(default=...)
+
+    # Retrieval
+    MIN_CHUNKS_NEEDED_FOR_WEB_SEARCH: int = Field(default=25, ge=20, le=100)
+    MIN_CHUNKS_NEEDED_FOR_RERANKING: int = Field(default=55, ge=50, le=100)
+
+    @field_validator("BRAVE_API_KEY")
+    @classmethod
+    def validate_brave_api_key(cls, value: SecretStr) -> SecretStr:
+        secret = value.get_secret_value().strip()
+        if not secret:
+            raise ValueError("BRAVE_API_KEY cannot be empty.")
+        return value
 
 
 # ------------------------------------------------------------------
