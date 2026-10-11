@@ -4,8 +4,8 @@ from langchain_openai import OpenAIEmbeddings
 
 from src.config.configs import settings
 from src.exceptions import server_error, bad_request_error, service_unavailable_error
-from src.rag.services.chunkers.chunker import Chunk
-from src.rag.services.embedders.embedder import Embedder
+from src.rag.services.chunk.chunker import Chunk
+from src.rag.services.embed.embedder import Embedder
 
 
 class LangChainOpenAIEmbedder(Embedder):

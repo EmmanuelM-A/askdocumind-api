@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import List
 
-from src.rag.services.chunkers.chunker import Chunk
+from src.rag.services.chunk.chunker import Chunk
 
 
 class Embedder(ABC):

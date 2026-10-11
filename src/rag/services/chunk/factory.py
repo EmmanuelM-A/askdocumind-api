@@ -6,20 +6,20 @@ import logging
 
 from pydantic import BaseModel, Field, model_validator
 
-from src.rag.services.chunkers.chunker import Chunker
-from src.rag.services.chunkers.code_aware import (
+from src.rag.services.chunk.chunker import Chunker
+from src.rag.services.chunk.code_aware import (
     CodeAwareChunker,
     CodeAwareChunkerConfig,
 )
-from src.rag.services.chunkers.recursive_character_splitter import (
+from src.rag.services.chunk.recursive_character_splitter import (
     RecursiveCharChunkerConfig,
     RecursiveCharacterSplittingChunker,
 )
-from src.rag.services.chunkers.sentence_based import (
+from src.rag.services.chunk.sentence_based import (
     SentenceBasedChunker,
     SentenceChunkerConfig,
 )
-from src.rag.services.chunkers.structure_aware import (
+from src.rag.services.chunk.structure_aware import (
     StructureAwareChunker,
     StructureAwareChunkerConfig,
 )

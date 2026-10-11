@@ -15,8 +15,8 @@ from tree_sitter import Node
 from tree_sitter_language_pack import get_parser
 
 from src.exceptions import server_error
-from src.rag.services.chunkers.chunker import Chunker, Chunk
-from src.rag.services.chunkers.utils import merge_undersized_chunks
+from src.rag.services.chunk.chunker import Chunker, Chunk
+from src.rag.services.chunk.utils import merge_undersized_chunks
 
 _logger = logging.getLogger(__name__)
 

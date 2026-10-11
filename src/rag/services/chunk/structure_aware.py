@@ -17,7 +17,7 @@ from uuid import UUID
 from pydantic import Field, field_validator, ConfigDict
 
 from src.exceptions import server_error
-from src.rag.services.chunkers.chunker import ChunkConfig, Chunker, Chunk
+from src.rag.services.chunk.chunker import ChunkConfig, Chunker, Chunk
 
 
 class StructureAwareChunkerConfig(ChunkConfig):

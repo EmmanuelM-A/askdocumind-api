@@ -4,7 +4,7 @@ Shared helper functions used across chunker implementations.
 
 from typing import Callable
 
-from src.rag.services.chunkers.chunker import Chunk
+from src.rag.services.chunk.chunker import Chunk
 
 
 def merge_undersized_chunks(

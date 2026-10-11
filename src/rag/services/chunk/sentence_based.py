@@ -9,8 +9,8 @@ import spacy
 from pydantic import Field
 from spacy.language import Language
 
-from src.rag.services.chunkers.chunker import ChunkConfig, Chunker, Chunk
-from src.rag.services.chunkers.utils import merge_undersized_chunks
+from src.rag.services.chunk.chunker import ChunkConfig, Chunker, Chunk
+from src.rag.services.chunk.utils import merge_undersized_chunks
 
 
 class SentenceChunkerConfig(ChunkConfig):
