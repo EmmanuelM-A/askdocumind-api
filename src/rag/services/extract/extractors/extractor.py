@@ -10,6 +10,7 @@ from src.config.configs import settings
 class Segment:
     text: str
     page: int | None = None
+    separator: str = "\n\n"  # placed between this segment and the previous one
 
 
 class Extractor(ABC):
@@ -27,7 +28,9 @@ class Extractor(ABC):
         )
 
 
-def group_blocks(blocks: Iterable[tuple[str, bool]]) -> Iterator[Segment]:
+def group_blocks(
+    blocks: Iterable[tuple[str, bool]], separator: str = "\n\n"
+) -> Iterator[Segment]:
     """
     Join (text, is_heading) blocks into segments. A heading starts a new
     segment, and a segment closes once it reaches the target size.
@@ -40,13 +43,12 @@ def group_blocks(blocks: Iterable[tuple[str, bool]]) -> Iterator[Segment]:
         if buffer and (is_heading or size >= target):
             segment = "\n".join(buffer)
             if segment.strip():
-                yield Segment(text=segment)
+                yield Segment(text=segment, separator=separator)
             buffer, size = [], 0
 
         buffer.append(text)
         size += len(text) + 1
 
     segment = "\n".join(buffer)
-
     if segment.strip():
-        yield Segment(text=segment)
+        yield Segment(text=segment, separator=separator)

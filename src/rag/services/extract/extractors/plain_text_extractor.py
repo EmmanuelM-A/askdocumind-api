@@ -36,4 +36,7 @@ class PlainTextExtractor(Extractor):
         encoding = _detect_encoding(path)
 
         with path.open(encoding=encoding, errors="replace") as file:
-            yield from group_blocks((line.rstrip("\r\n"), False) for line in file)
+            yield from group_blocks(
+                ((line.rstrip("\r\n"), False) for line in file),
+                separator="\n",
+            )
