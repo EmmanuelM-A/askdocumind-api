@@ -23,13 +23,13 @@ class RetrieveChunkEmbeddingService:
         reranker: Reranker,
         web_searcher: WebSearcher,
         embedder: Embedder,
-        chunk_embedding_repo: ChunkEmbeddingRepository,
+        chunk_embedding_repository: ChunkEmbeddingRepository,
     ) -> None:
         self._query_expander = query_expander
         self._reranker = reranker
         self._web_searcher = web_searcher
         self._embedder = embedder
-        self._chunk_embedding_repository = chunk_embedding_repo
+        self._chunk_embedding_repository = chunk_embedding_repository
 
     async def _similarity_search(
         self,
