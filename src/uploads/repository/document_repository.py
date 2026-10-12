@@ -158,3 +158,15 @@ class DocumentRepository(ABC):
         raise NotImplementedError(
             "The 'list_stale_documents' method must be implemented by its subclasses."
         )
+
+    @abstractmethod
+    async def mark_uploaded(
+        self, document_id: UUID, size_bytes: int, checksum: str
+    ) -> bool:
+        """
+        Mark a document as uploaded, setting its size and checksum.
+        Returns True if the document was updated, False otherwise.
+        """
+        raise NotImplementedError(
+            "The 'mark_uploaded' method must be implemented by its subclasses."
+        )

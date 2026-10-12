@@ -247,3 +247,27 @@ class DocumentRepositoryImpl(BaseRepository, DocumentRepository):
             ) from e
 
         return list(result.scalars().all())
+
+    async def mark_uploaded(
+        self, document_id: UUID, size_bytes: int, checksum: str
+    ) -> bool:
+        statement = (
+            update(Document)
+            .where(
+                Document.id == document_id, Document.status == DocumentStatus.PENDING
+            )
+            .values(
+                status=DocumentStatus.UPLOADED, size_bytes=size_bytes, checksum=checksum
+            )
+            .execution_options(synchronize_session=False)
+        )
+        try:
+            result = await self._session.execute(statement)
+        except SQLAlchemyError as e:
+            raise database_error(
+                message="An error occurred while marking the document as uploaded.",
+                error_code="DOCUMENT_UPDATE_ERROR",
+                cause=e,
+            ) from e
+
+        return result.rowcount > 0
