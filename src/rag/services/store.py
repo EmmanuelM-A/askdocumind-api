@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from src.config.configs import settings
 from src.exceptions import conflict_error, unprocessable_content_error, ApiException
@@ -14,7 +14,7 @@ from src.rag.repository.chunk_embedding_repository import ChunkEmbeddingReposito
 from src.rag.services.chunk.factory import ChunkerFactory
 from src.rag.services.embed.embedder import Embedder
 from src.rag.services.extract.extraction import Extraction
-from src.rag.services.report import (
+from src.rag.services.report.status_reporter import (
     StatusReporter,
     ProcessingStatus,
     StatusConflict,
@@ -34,11 +34,10 @@ class StorageJob(BaseModel):
 
     document_id: UUID
     chat_session_id: UUID
-    owner_id: UUID
     filename: str
     content_type: str
     checksum: str
-    download_url: str = Field(repr=False)
+    object_key: str
 
     @property
     def extension(self) -> str:
