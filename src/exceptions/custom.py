@@ -226,3 +226,21 @@ def content_too_large_error(
         headers=headers,
         cause=cause,
     )
+
+
+def unsupported_media_type_error(
+    message: str,
+    error_code: str = "UNSUPPORTED_MEDIA_TYPE",
+    error_details: Dict[str, str] | None = None,
+    cause: BaseException | None = None,
+    headers: dict | None = None,
+) -> ApiException:
+    """Raises a 415 Unsupported Media Type exception."""
+    return ApiException(
+        error_code=error_code,
+        error_details=error_details,
+        message=message,
+        status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+        headers=headers,
+        cause=cause,
+    )

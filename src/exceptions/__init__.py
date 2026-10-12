@@ -12,6 +12,7 @@ from src.exceptions.custom import (
     service_unavailable_error,
     validation_error,
     content_too_large_error,
+    unsupported_media_type_error,
 )
 
 __all__ = [
@@ -27,5 +28,6 @@ __all__ = [
     "object_storage_error",
     "service_unavailable_error",
     "validation_error",
+    "unsupported_media_type_error",
     "content_too_large_error",
 ]
