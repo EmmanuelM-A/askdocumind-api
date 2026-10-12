@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TypeVar
 from uuid import UUID
 
+from anyio import Semaphore
 from pydantic import BaseModel
 
 from src.config.configs import settings
@@ -119,6 +120,7 @@ class StoreChunkEmbeddingService:
         chunk_embedding_repository: ChunkEmbeddingRepository,
         status_reporter: StatusReporter,
         guard: RunGuard,
+        max_concurrent: int = 1,
     ) -> None:
         self._extraction = extraction
         self._chunker_factory = chunker_factory
@@ -126,6 +128,7 @@ class StoreChunkEmbeddingService:
         self.chunk_embedding_repository = chunk_embedding_repository
         self._status = status_reporter
         self._guard = guard
+        self._slots = Semaphore(max_concurrent)
 
     async def run(self, job: StorageJob) -> None:
         """
@@ -141,7 +144,8 @@ class StoreChunkEmbeddingService:
             return
 
         try:
-            await self._handle_processing_for(job)
+            async with self._slots:
+                await self._handle_processing_for(job)
         finally:
             self._guard.release(job.document_id)
 
