@@ -5,12 +5,12 @@ from typing import TYPE_CHECKING
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     DateTime,
-    ForeignKeyConstraint,
     Index,
     Integer,
     Text,
     UniqueConstraint,
     func,
+    ForeignKey,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -32,11 +32,6 @@ class ChunkEmbedding(Base):
     __tablename__ = "chunk_embeddings"
 
     __table_args__ = (
-        ForeignKeyConstraint(
-            ["document_id", "chat_session_id"],
-            ["documents.id", "documents.chat_session_id"],
-            ondelete="CASCADE",
-        ),
         UniqueConstraint(
             "document_id",
             "chunk_index",
@@ -55,9 +50,12 @@ class ChunkEmbedding(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-    document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE")
+    )
     chat_session_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("chat_sessions.id", ondelete="CASCADE"),
     )
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
     chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
