@@ -170,3 +170,12 @@ class DocumentRepository(ABC):
         raise NotImplementedError(
             "The 'mark_uploaded' method must be implemented by its subclasses."
         )
+
+    @abstractmethod
+    async def count(self, chat_session_id: UUID) -> int:
+        """
+        Count documents belonging to a specific chat session.
+        """
+        raise NotImplementedError(
+            "The 'count' method must be implemented by its subclasses."
+        )

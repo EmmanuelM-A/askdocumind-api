@@ -135,12 +135,13 @@ class _UploadSettings(_BaseSettings):
     S3_BUCKET_NAME: SecretStr = Field(default=...)
 
     # Business rules
-    MAX_FILE_SIZE_MB: float = Field(default=50.0, gt=0, le=500)
     MAX_DOCS_PER_SESSION: int = Field(default=10, ge=1, le=100)
     ALLOWED_FILE_EXTENSIONS: list[str] = Field(default=...)
     ALLOWED_CODE_EXTENSIONS: list[str] = Field(default=...)
     ALLOWED_CONTENT_TYPES: list[str] = Field(default=...)
     PROCESSING_TIMEOUT_SECS: int = Field(default=30, ge=1, le=300)
+    BLOCK_SIZE_TO_READ_BYTES: int = Field(default=8192, ge=1024, le=65536)
+    MAX_FILE_SIZE_MB: int = Field(default=10, ge=1, le=500)
 
 
 class _RAGSettings(_BaseSettings):
