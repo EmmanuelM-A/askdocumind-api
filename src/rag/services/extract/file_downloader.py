@@ -1,89 +1,59 @@
 import asyncio
 import hashlib
-import tempfile
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from httpx import AsyncClient, HTTPStatusError, HTTPError
+from src.exceptions import conflict_error
+from src.uploads.storage.object_storage import ObjectStorage
 
-from src.exceptions import content_too_large_error, server_error, \
-    conflict_error
+
+def _calculate_checksum(file_path: Path) -> str:
+    """
+    Calculates the SHA256 checksum of the file at the given path.
+    """
+    with open(file_path, "rb") as f:
+        return hashlib.file_digest(f, "sha256").hexdigest()
 
 
 class S3FileDownloader:
     """
-    Downloads files from S3 or any HTTP endpoint, ensuring that the
-    downloaded file does not exceed a specified maximum size and that its
-    checksum matches an expected value.
+    Downloads files from an S3-compatible object storage service, verifies
+    their checksums, and provides a temporary file path for further
+    processing.
     """
 
-    def __init__(self, max_bytes: int, chunk_bytes: int, timeout: float) -> None:
-        self._max_bytes = max_bytes
-        self._chunk_bytes = chunk_bytes
-        self._timeout = timeout
+    def __init__(self, object_service: ObjectStorage) -> None:
+        self._object_service = object_service
 
     @asynccontextmanager
     async def download(
-        self, url: str, expected_checksum: str, suffix: str = ""
+        self, object_key: str, expected_checksum: str, suffix: str = ""
     ) -> AsyncIterator[Path]:
-        hasher = hashlib.sha256()
-        size = 0
+        """
+        Downloads a file from the specified object key, verifies its checksum,
+        and saves the file to a temporary location with the given suffix.
+        """
+        with TemporaryDirectory() as temp_dir:
+            file_path = Path(temp_dir) / f"download{suffix}"
 
-        with tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
-            try:
-                async with AsyncClient(timeout=self._timeout) as client:
-                    async with client.stream("GET", url) as response:
-                        response.raise_for_status()
+            await asyncio.to_thread(
+                self._object_service.download_to, object_key, file_path
+            )
 
-                        declared = int(response.headers.get("content-length", 0))
-                        if declared > self._max_bytes:
-                            raise content_too_large_error(
-                                message="The file downloaded has exceeded the "
-                                        "maximum allowed size.",
-                                error_code="FILE_TOO_LARGE",
-                            )
+            digest = await asyncio.to_thread(_calculate_checksum, file_path)
 
-                        async for block in response.aiter_bytes(self._chunk_bytes):
-                            size += len(block)
-                            if size > self._max_bytes:
-                                raise content_too_large_error(
-                                    message="The file downloading has exceeded the "
-                                            "maximum allowed size.",
-                                    error_code="FILE_TOO_LARGE",
-                                )
-
-                            hasher.update(block)
-                            await asyncio.to_thread(tmp.write, block)
-
-            except HTTPStatusError as exc:
-                raise server_error(
-                    message="An error occurred while downloading the file.",
-                    error_code="DOWNLOAD_ERROR",
-                    error_details={
-                        "url": url,
-                    },
-                    cause=exc
-                ) from exc
-            except HTTPError:
-                raise server_error(
-                    message="An error occurred while downloading the file.",
-                    error_code="DOWNLOAD_ERROR",
-                    error_details={
-                        "url": url,
-                    }
-                )
-
-            tmp.flush()
-
-            if hasher.hexdigest() != expected_checksum:
+            if digest != expected_checksum.lower():
                 raise conflict_error(
-                    message="The file downloaded's checksum does not match "
-                            "the expected checksum.",
+                    message="The downloaded file's checksum does not match "
+                    "the expected value.",
                     error_code="CHECKSUM_MISMATCH",
                     error_details={
-                        "url": url
-                    }
+                        "object_key": object_key,
+                        "expected_checksum": expected_checksum,
+                        "actual_checksum": digest,
+                    },
                 )
 
-            yield Path(tmp.name)
+            yield file_path
