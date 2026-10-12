@@ -2,6 +2,7 @@
 AWS S3 storage for production use.
 """
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from botocore.exceptions import BotoCoreError, ClientError
@@ -152,5 +153,18 @@ class AWSS3ObjectStorage(ObjectStorage):
                 message="Failed to generate presigned URL for S3 object",
                 error_code="S3_PRESIGNED_URL_ERROR",
                 error_details={"key": key, "bucket": self._bucket},
+                cause=e,
+            ) from e
+
+    def download_to(self, key: str, path: Path) -> None:
+        validate_key(key)
+
+        try:
+            self._client.download_file(Bucket=self._bucket, Key=key, Filename=str(path))
+        except (ClientError, BotoCoreError) as e:
+            raise object_storage_error(
+                message="Failed to download S3 object to local path",
+                error_code="S3_DOWNLOAD_ERROR",
+                error_details={"key": key, "bucket": self._bucket, "path": str(path)},
                 cause=e,
             ) from e

@@ -3,6 +3,7 @@ Abstract object storage interface along with utility functions.
 """
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from src.exceptions import unprocessable_content_error
 
@@ -59,6 +60,15 @@ class ObjectStorage(ABC):
         """
         raise NotImplementedError(
             "The method 'presigned_url' must be implemented by its subclasses."
+        )
+
+    @abstractmethod
+    def download_to(self, key: str, path: Path) -> None:
+        """
+        Download the object with the given key to the specified path.
+        """
+        raise NotImplementedError(
+            "The method 'download_to' must be implemented by its subclasses."
         )
 
 
