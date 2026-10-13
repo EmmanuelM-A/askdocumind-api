@@ -271,3 +271,15 @@ class DocumentRepositoryImpl(BaseRepository, DocumentRepository):
             ) from e
 
         return result.rowcount > 0
+
+    async def delete_by_chat_session(self, chat_session_id: UUID) -> int:
+        statement = delete(Document).where(Document.chat_session_id == chat_session_id)
+        try:
+            result = await self._session.execute(statement)
+            return result.rowcount
+        except SQLAlchemyError as e:
+            raise database_error(
+                message="An error occurred while deleting documents by chat session.",
+                error_code="DOCUMENT_DELETION_ERROR",
+                cause=e,
+            ) from e

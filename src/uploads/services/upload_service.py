@@ -117,7 +117,7 @@ class UploadService:
             )
 
         document_id = uuid4()
-        key = f"{chat_session_id}/{document_id}"
+        key = f"{chat_session_id}/{document_id}"  # TODO: Make a function for this -> to keep things consistent
 
         await self._document_repository.create(
             Document(
@@ -203,6 +203,43 @@ class UploadService:
             )
 
         return document.status
+
+    async def delete_uploaded_file(
+        self, chat_session_id: UUID, user_id: UUID, document_id: UUID
+    ) -> None:
+        await self._verify_existence_and_ownership(chat_session_id, user_id)
+
+        document = await self._document_repository.get_by_id(document_id)
+
+        if document is None:
+            _logger.warning(
+                "The document with the ID '%s' does not exist. Assuming "
+                "the file has already been deleted.",
+                document_id,
+            )
+            return
+
+        if document.chat_session_id != chat_session_id:
+            raise not_found_error(
+                message="The document provided does not exist in this chat session.",
+                error_code="DOCUMENT_NOT_FOUND",
+            )
+
+        # NOTE: Add explicit chunk deletion if needed
+
+        await to_thread(self._object_storage.delete, document.object_key)
+        await self._document_repository.delete(document_id)
+
+    async def delete_uploaded_files(self, chat_session_id: UUID, user_id: UUID) -> int:
+        await self._verify_existence_and_ownership(chat_session_id, user_id)
+
+        deleted = await self._document_repository.delete_by_chat_session(
+            chat_session_id
+        )
+
+        await to_thread(self._object_storage.delete_prefix, f"{chat_session_id}/")
+
+        return deleted
 
     async def _verify_existence_and_ownership(
         self, chat_session_id: UUID, user_id: UUID

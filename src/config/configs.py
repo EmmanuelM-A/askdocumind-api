@@ -171,6 +171,11 @@ class _RAGSettings(_BaseSettings):
     FALLBACK_ENCODING: str = Field(default="cp1252")
     SEGMENT_TARGET_CHARS: int = Field(default=1000, ge=100, le=10000)
 
+    # Expansion
+    EXPANSION_PROMPT_TEMPLATE: str = Field(
+        default=f"{_PROJECT_ROOT}/src/prompts/expand_query_prompt.yaml"
+    )
+
     # Reranking
 
     # Web Search

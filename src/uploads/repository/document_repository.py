@@ -170,3 +170,13 @@ class DocumentRepository(ABC):
         raise NotImplementedError(
             "The 'mark_uploaded' method must be implemented by its subclasses."
         )
+
+    @abstractmethod
+    async def delete_by_chat_session(self, chat_session_id: UUID) -> int:
+        """
+        Delete all documents belonging to a specific chat session.
+        Returns the number of documents deleted.
+        """
+        raise NotImplementedError(
+            "The 'delete_by_chat_session' method must be implemented by its subclasses."
+        )
