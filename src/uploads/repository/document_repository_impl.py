@@ -271,19 +271,3 @@ class DocumentRepositoryImpl(BaseRepository, DocumentRepository):
             ) from e
 
         return result.rowcount > 0
-
-    async def count(self, chat_session_id: UUID) -> int:
-        statement = (
-            select(func.count())
-            .select_from(Document)
-            .where(Document.chat_session_id == chat_session_id)
-        )
-        try:
-            result = await self._session.execute(statement)
-            return result.scalar_one()
-        except SQLAlchemyError as e:
-            raise database_error(
-                message="An error occurred while counting documents.",
-                error_code="DOCUMENT_COUNT_ERROR",
-                cause=e,
-            ) from e
