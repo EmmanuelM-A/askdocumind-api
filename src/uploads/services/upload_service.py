@@ -5,10 +5,12 @@ from pathlib import PureWindowsPath
 from uuid import UUID, uuid4
 
 from fastapi import UploadFile
+from fastapi_pagination import Page, Params
 
 from src.auth.repository.user_repository import UserRepository
 from src.chat_session.repository.chat_session_repository import ChatSessionRepository
 from src.config.configs import settings
+from src.database.utils import Pagination
 from src.exceptions import (
     unprocessable_content_error,
     unsupported_media_type_error,
@@ -17,7 +19,9 @@ from src.exceptions import (
     not_found_error,
     forbidden_error,
 )
+from src.uploads.domain.document import DocumentStatus
 from src.uploads.models.document import Document
+from src.uploads.models.mapper import ViewableDocument
 from src.uploads.repository.document_repository import DocumentRepository
 from src.uploads.storage.object_storage import ObjectStorage
 
@@ -73,28 +77,7 @@ class UploadService:
     async def upload(
         self, chat_session_id: UUID, user_id: UUID, file: UploadFile
     ) -> Document:
-        user = await self._user_repository.get_by_id(user_id)
-
-        if user is None:
-            raise not_found_error(
-                message="The user provided does not exist.",
-                error_code="USER_NOT_FOUND",
-            )
-
-        chat_session = await self._chat_session_repository.get_by_id(chat_session_id)
-
-        if chat_session is None:
-            raise not_found_error(
-                message="The chat session provided does not exist.",
-                error_code="CHAT_SESSION_NOT_FOUND",
-            )
-
-        if chat_session.user_id != user_id:
-            raise forbidden_error(
-                message="The user does not have permission to upload files "
-                "to this chat session.",
-                error_code="UPLOAD_DENIED",
-            )
+        await self._verify_existence_and_ownership(chat_session_id, user_id)
 
         if not file.filename:
             raise unprocessable_content_error(
@@ -188,4 +171,66 @@ class UploadService:
                 key,
                 document_id,
                 exc_info=exc,
+            )
+
+    async def get_uploaded_files(
+        self, chat_session_id: UUID, user_id: UUID, paginate: Pagination
+    ) -> Page[ViewableDocument]:
+
+        await self._verify_existence_and_ownership(chat_session_id, user_id)
+
+        documents = await self._document_repository.list_by_criteria_paginated(
+            chat_session_id, paginate
+        )
+
+        items = [document.viewable() for document in documents.items]
+
+        params = Params(page=paginate.page, size=paginate.limit)
+
+        return Page.create(list(items), params=params, total=documents.total)
+
+    async def get_uploaded_file_status(
+        self, chat_session_id: UUID, user_id: UUID, document_id: UUID
+    ) -> DocumentStatus:
+        await self._verify_existence_and_ownership(chat_session_id, user_id)
+
+        document = await self._document_repository.get_by_id(document_id)
+
+        if document is None or document.chat_session_id != chat_session_id:
+            raise not_found_error(
+                message="The document provided does not exist in this chat session.",
+                error_code="DOCUMENT_NOT_FOUND",
+            )
+
+        return document.status
+
+    async def _verify_existence_and_ownership(
+        self, chat_session_id: UUID, user_id: UUID
+    ) -> None:
+        """
+        Verifies that the user exists, the chat session exists, and that
+        the user owns the chat session. Raises appropriate errors if any
+        of these checks fail.
+        """
+        user = await self._user_repository.get_by_id(user_id)
+
+        if user is None:
+            raise not_found_error(
+                message="The user provided does not exist.",
+                error_code="USER_NOT_FOUND",
+            )
+
+        chat_session = await self._chat_session_repository.get_by_id(chat_session_id)
+
+        if chat_session is None:
+            raise not_found_error(
+                message="The chat session provided does not exist.",
+                error_code="CHAT_SESSION_NOT_FOUND",
+            )
+
+        if chat_session.user_id != user_id:
+            raise forbidden_error(
+                message="The user does not have permission to upload files "
+                "to this chat session.",
+                error_code="UPLOAD_DENIED",
             )

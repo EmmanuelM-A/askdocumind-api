@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 class Pagination(BaseModel):
     """Pagination parameters for database queries."""
 
+    model_config = {"extra": "forbid"}
+
     page: int = Field(default=1, ge=1)
     limit: int = Field(default=10, ge=1, le=100)
 
