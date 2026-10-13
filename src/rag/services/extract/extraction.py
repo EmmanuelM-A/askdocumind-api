@@ -23,7 +23,7 @@ class Extraction:
         :param job: The storage job containing the file information.
         :return: An asynchronous iterator over the extracted text segments.
         """
-        async with self._downloader.download(job.download_url, job.checksum) as path:
+        async with self._downloader.download(job.object_key, job.checksum) as path:
             segments = iter(self._factory.get_extractor(job.extension).extract(path))
 
             while (

@@ -152,6 +152,9 @@ class _RAGSettings(_BaseSettings):
 
     model_config = _DEFAULT_MODEL_CONFIG
 
+    # General
+    MAX_CONCURRENCY: int = Field(default=10, ge=1, le=100)
+
     # Embeddings
     EMBEDDING_DIMENSIONS: int = Field(default=1536, ge=1, le=10000)
     EMBEDDING_MODEL: str = Field(default="text-embedding-3-small")

@@ -27,3 +27,4 @@ charset-normalizer
 pymupdf
 langchain-core
 sentence-transformers
+anyio

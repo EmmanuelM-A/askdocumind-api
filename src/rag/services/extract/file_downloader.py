@@ -24,8 +24,8 @@ class S3FileDownloader:
     processing.
     """
 
-    def __init__(self, object_service: ObjectStorage) -> None:
-        self._object_service = object_service
+    def __init__(self, object_storage: ObjectStorage) -> None:
+        self._object_storage = object_storage
 
     @asynccontextmanager
     async def download(
@@ -39,7 +39,7 @@ class S3FileDownloader:
             file_path = Path(temp_dir) / f"download{suffix}"
 
             await asyncio.to_thread(
-                self._object_service.download_to, object_key, file_path
+                self._object_storage.download_to, object_key, file_path
             )
 
             digest = await asyncio.to_thread(_calculate_checksum, file_path)
