@@ -6,12 +6,16 @@ from uuid import UUID, uuid4
 
 from fastapi import UploadFile
 
+from src.auth.repository.user_repository import UserRepository
+from src.chat_session.repository.chat_session_repository import ChatSessionRepository
 from src.config.configs import settings
 from src.exceptions import (
     unprocessable_content_error,
     unsupported_media_type_error,
     content_too_large_error,
     conflict_error,
+    not_found_error,
+    forbidden_error,
 )
 from src.uploads.models.document import Document
 from src.uploads.repository.document_repository import DocumentRepository
@@ -55,12 +59,43 @@ async def _read_from(file: UploadFile) -> tuple[bytes, int, str]:
 class UploadService:
 
     def __init__(
-        self, document_repository: DocumentRepository, object_storage: ObjectStorage
+        self,
+        document_repository: DocumentRepository,
+        user_repository: UserRepository,
+        chat_session_repository: ChatSessionRepository,
+        object_storage: ObjectStorage,
     ) -> None:
         self._document_repository = document_repository
+        self._user_repository = user_repository
+        self._chat_session_repository = chat_session_repository
         self._object_storage = object_storage
 
-    async def upload(self, chat_session_id: UUID, file: UploadFile) -> Document:
+    async def upload(
+        self, chat_session_id: UUID, user_id: UUID, file: UploadFile
+    ) -> Document:
+        user = await self._user_repository.get_by_id(user_id)
+
+        if user is None:
+            raise not_found_error(
+                message="The user provided does not exist.",
+                error_code="USER_NOT_FOUND",
+            )
+
+        chat_session = await self._chat_session_repository.get_by_id(chat_session_id)
+
+        if chat_session is None:
+            raise not_found_error(
+                message="The chat session provided does not exist.",
+                error_code="CHAT_SESSION_NOT_FOUND",
+            )
+
+        if chat_session.user_id != user_id:
+            raise forbidden_error(
+                message="The user does not have permission to upload files "
+                "to this chat session.",
+                error_code="UPLOAD_DENIED",
+            )
+
         if not file.filename:
             raise unprocessable_content_error(
                 message="The file provided has no filename.",
