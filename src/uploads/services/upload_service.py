@@ -160,7 +160,7 @@ class UploadService:
                     error_code="UPLOAD_FAILED",
                 )
         except Exception as exc:
-            await self.discard_file(document_id, key)
+            await self._discard_file(document_id, key)
             raise exc
 
         created = await self._document_repository.get_by_id(document_id)
@@ -173,7 +173,7 @@ class UploadService:
 
         return created
 
-    async def discard_file(self, document_id: UUID, key: str) -> None:
+    async def _discard_file(self, document_id: UUID, key: str) -> None:
         """
         Discards a file by deleting it from the object storage and
         removing its metadata from the document repository. If an error
