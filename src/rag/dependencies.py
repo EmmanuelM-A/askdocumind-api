@@ -14,8 +14,11 @@ from src.rag.services.embed.langchain_openai_embedder import LangChainOpenAIEmbe
 from src.rag.services.extract.extraction import Extraction
 from src.rag.services.extract.extractors.factory import ExtractorFactory
 from src.rag.services.extract.file_downloader import S3FileDownloader
+from src.rag.services.report.document_status_reporter import DocumentStatusReporter
 from src.rag.services.report.status_reporter import StatusReporter
 from src.rag.services.store import StoreChunkEmbeddingService, RunGuard
+from src.uploads.dependencies import get_document_repository
+from src.uploads.repository.document_repository import DocumentRepository
 from src.uploads.storage.object_storage import ObjectStorage
 
 
@@ -61,11 +64,15 @@ def get_chunker_factory() -> ChunkerFactory:
     return ChunkerFactory(config=_chunker_build_config)
 
 
-def get_status_reporter() -> StatusReporter:
+def get_status_reporter(
+    document_repository: Annotated[
+        DocumentRepository, Depends(get_document_repository)
+    ],
+) -> StatusReporter:
     """
     Provide a StatusReporter instance for the current request.
     """
-    pass
+    return DocumentStatusReporter(document_repository)
 
 
 def get_rag_storage_service(
