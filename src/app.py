@@ -7,7 +7,6 @@ context manager.
 """
 
 from contextlib import asynccontextmanager
-from typing import TypedDict, AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,17 +26,8 @@ from src.middleware.request_logger import RequestLoggerMiddleware
 from src.middleware.request_size_limit import RequestSizeLimitMiddleware
 
 
-class _AppState(TypedDict):
-    """
-    Represents the state of the FastAPI application, including the database
-    session manager.
-    """
-
-    session_manager: DatabaseSessionManager
-
-
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[dict[str, DatabaseSessionManager]]:
+async def lifespan(app: FastAPI):
     """
     Lifespan context manager for the FastAPI application. It manages the
     database connection lifecycle, ensuring that the database session manager
@@ -50,7 +40,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[dict[str, DatabaseSessionMana
     # On startup
     await session_manager.connect()
 
-    yield {"session_manager": session_manager}
+    app.state.session_manager = session_manager
+
+    yield
 
     # On shutdown
     await session_manager.disconnect()
