@@ -29,3 +29,4 @@ langchain-core
 sentence-transformers
 anyio
 pyyaml
+pytest-asyncio
