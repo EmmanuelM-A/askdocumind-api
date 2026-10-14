@@ -23,6 +23,7 @@ from src.uploads.domain.document import DocumentStatus
 from src.uploads.models.document import Document
 from src.uploads.models.mapper import ViewableDocument
 from src.uploads.repository.document_repository import DocumentRepository
+from src.uploads.services.ingestion_service import IngestionService
 from src.uploads.storage.object_storage import ObjectStorage
 
 _logger = logging.getLogger(__name__)
@@ -240,6 +241,50 @@ class UploadService:
         await to_thread(self._object_storage.delete_prefix, f"{chat_session_id}/")
 
         return deleted
+
+    async def reprocess_uploaded_file(
+        self, chat_session_id: UUID, user_id: UUID, document_id: UUID
+    ) -> None:
+        await self._verify_existence_and_ownership(chat_session_id, user_id)
+
+        document = await self._document_repository.get_by_id(document_id)
+
+        if document is None:
+            raise not_found_error(
+                message="The document provided does not exist.",
+                error_code="DOCUMENT_NOT_FOUND",
+            )
+
+        if document.chat_session_id != chat_session_id:
+            raise forbidden_error(
+                message="The user does not have permission to reprocess this file.",
+                error_code="REPROCESS_DENIED",
+            )
+
+        exists = to_thread(self._object_storage.exists, document.object_key)
+
+        if not await exists:
+            raise conflict_error(
+                message="The original file for this document is missing from storage",
+                error_code="FILE_MISSING",
+            )
+
+        transitioned = await self._document_repository.transition_document_status(
+            document_id=document_id,
+            from_statuses=[DocumentStatus.FAILED],
+            to_status=DocumentStatus.UPLOADED,
+            error_message=None,
+        )
+
+        if not transitioned:
+            raise conflict_error(
+                message="The document is not in a state that allows reprocessing.",
+                error_code="INVALID_DOCUMENT_STATE",
+            )
+
+        job = IngestionService.build_job(document=document)
+
+        # Implement a background task to run the ingestion process
 
     async def _verify_existence_and_ownership(
         self, chat_session_id: UUID, user_id: UUID

@@ -26,7 +26,7 @@ class IngestionService:
         )
 
     @staticmethod
-    async def run_ingestion(job: StorageJob, request: Request) -> None:
+    async def run_ingestion(job: StorageJob, request: Request) -> None: # TODO: Change this to use get_session_manager instead
         """
         Run the ingestion process for a given StorageJob.
         """
