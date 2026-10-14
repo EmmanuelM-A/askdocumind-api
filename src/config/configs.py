@@ -44,8 +44,12 @@ class _ServerSettings(_BaseSettings):
     )
     PORT: int = Field(default=5001, ge=1, le=65535)
     CORS_ORIGINS: list[str] = Field(default=...)
+    MAX_CONCURRENCY: int = Field(
+        default=10, ge=1, le=100, validation_alias="SERVER_MAX_CONCURRENCY"
+    )
 
     MAX_REQUEST_BODY_SIZE_MB: float = Field(default=10.0, gt=0, le=500)
+    MAX_CONCURRENT_REQUESTS: int = Field(default=10, ge=1, le=100)
     RATE_LIMIT_REQUESTS: int = Field(default=100, ge=1, le=10000)
     RATE_LIMIT_WINDOW_SECS: int = Field(default=60, ge=1, le=3600)
 
@@ -153,7 +157,9 @@ class _RAGSettings(_BaseSettings):
     model_config = _DEFAULT_MODEL_CONFIG
 
     # General
-    MAX_CONCURRENCY: int = Field(default=10, ge=1, le=100)
+    MAX_CONCURRENCY: int = Field(
+        default=5, ge=1, le=100, validation_alias="RAG_MAX_CONCURRENCY"
+    )
 
     # Embeddings
     EMBEDDING_DIMENSIONS: int = Field(default=1536, ge=1, le=10000)

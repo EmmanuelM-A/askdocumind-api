@@ -67,10 +67,7 @@ def create_app() -> FastAPI:
         AnonymousSessionMiddleware,
         exclude_paths=PUBLIC_PATHS,
     )
-    app.add_middleware(
-        RequestSizeLimitMiddleware,
-        max_body_size_bytes=settings.server.MAX_BODY_BYTES,
-    )
+    app.add_middleware(RequestSizeLimitMiddleware)
     app.add_middleware(
         ConcurrentRequestLimitMiddleware,
         max_concurrent_requests=settings.server.MAX_CONCURRENT_REQUESTS,

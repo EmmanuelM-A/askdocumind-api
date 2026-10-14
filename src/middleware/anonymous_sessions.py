@@ -12,7 +12,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from src.auth.repository.user_repository_impl import UserRepositoryImpl
 from src.auth.services.token_service import InvalidTokenError, decode_anonymous_token
 from src.config.configs import settings
-from src.database import DatabaseSessionManager
+from src.database.session import DatabaseSessionManager
 from src.exceptions.base import ApiException
 from src.response.delivery import send_error_response
 
