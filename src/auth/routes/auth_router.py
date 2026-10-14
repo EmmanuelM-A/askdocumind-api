@@ -31,7 +31,7 @@ async def init_anonymous_session(
     returns the existing user. Otherwise, a new anonymous user is created and
     a new token is set in the response cookies.
     """
-    cookie_value = request.cookies.get(settings.auth.COOKIE_NAME)
+    cookie_value = request.cookies.get(settings.auth.ANONYMOUS_COOKIE_NAME)
 
     user, token = await anonymous_user_service.init_anonymous_user(
         anonymous_token=cookie_value

@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
     await session_manager.connect()
 
     # Makes the session manager available to other parts of the application
-    app.state["session_manager"] = session_manager
+    app.state.session_manager = session_manager
 
     yield
 
