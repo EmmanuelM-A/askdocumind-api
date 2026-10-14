@@ -7,10 +7,8 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from uuid import UUID
 
-from fastapi_pagination import Page
 from pydantic import BaseModel
 
-from src.database.utils import Pagination
 from src.rag.models.chunk_embedding import ChunkEmbedding
 
 
@@ -29,63 +27,12 @@ class ChunkEmbeddingRepository(ABC):
     """
 
     @abstractmethod
-    async def create(self, data: ChunkEmbedding) -> ChunkEmbedding:
-        """
-        Create a new Chunk Embedding for a resource.
-        """
-        raise NotImplementedError(
-            "The method 'create' must be implemented by its subclass"
-        )
-
-    @abstractmethod
-    async def list_by_chat_session(
-        self, chat_session_id: UUID, paginate: Pagination
-    ) -> Page[ChunkEmbedding]:
-        """
-        List all chunk embeddings to a specific chat session, with
-        pagination support.
-        """
-        raise NotImplementedError(
-            "The method 'list_by_chat_session' must be implemented by its subclass"
-        )
-
-    @abstractmethod
-    async def get_by_id(self, chunk_id: UUID) -> ChunkEmbedding | None:
-        """
-        Retrieve a single chunk embedding by its id.
-        """
-        raise NotImplementedError(
-            "The method 'get_by_id' must be implemented by its subclass"
-        )
-
-    @abstractmethod
-    async def list_by_document(
-        self, document_id: UUID, paginate: Pagination
-    ) -> Page[ChunkEmbedding]:
-        """
-        List all chunk embeddings that belong to a document, with
-        pagination support.
-        """
-        raise NotImplementedError(
-            "The method 'list_by_document' must be implemented by its subclass"
-        )
-
-    @abstractmethod
     async def create_many(self, chunks: list[ChunkEmbedding]) -> int:
         """
         Create multiple chunk embeddings at once.
         """
         raise NotImplementedError(
             "The method 'create_many' must be implemented by its subclass"
-        )
-
-    @abstractmethod
-    async def delete(self, chunk_id: UUID) -> None:
-        """
-        Delete a single chunk embedding by its id.
-        """
-        raise NotImplementedError(
-            "The method 'delete' must be implemented by its subclass"
         )
 
     @abstractmethod
