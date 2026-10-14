@@ -252,6 +252,16 @@ class TestUpdateLastSeen:
                 await repo.update_last_seen(uuid.uuid4(), 5)
         assert exc.value.status_code == _INTERNAL_ERROR
 
+    async def test_loaded_user_stays_readable_after_update(self, repo):
+        old = datetime.now(timezone.utc) - timedelta(hours=3)
+        user = await _add_user(repo, last_seen_at=old)
+        loaded = await repo.get_by_id(user.id)
+
+        await repo.update_last_seen(user.id, 30)
+
+        assert loaded is not None
+        assert loaded.last_seen_at is not None
+
 
 class TestGetExpiredUsers:
     async def test_returns_only_users_older_than_cutoff(self, repo):

@@ -76,7 +76,10 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
             .where(User.id == user_id)
             .where(User.last_seen_at < func.now() - timedelta(minutes=freq_mins))
             .values(last_seen_at=func.now())
+            .execution_options(synchronize_session=False)
         )
+        # NOTE: The User entity in memory will not be updated with the new
+        # NOTE: last_seen_at value after this operation.
 
         await self._session.execute(statement)
 
