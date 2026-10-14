@@ -30,7 +30,7 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
         message="An error occurred while creating a new user.",
         error_code="USER_CREATION_ERROR",
     )
-    @handle_database_unavailable_exceptions
+    @handle_database_unavailable_exceptions()
     async def create(self, data: User) -> User:
         self._session.add(data)
         await self._session.flush()
@@ -40,7 +40,7 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
         message="An error occurred while retrieving the user by ID.",
         error_code="USER_RETRIEVAL_ERROR",
     )
-    @handle_database_unavailable_exceptions
+    @handle_database_unavailable_exceptions()
     async def get_by_id(self, user_id: UUID) -> User | None:
         return await self._fetch_one(select(User).where(User.id == user_id))
 
@@ -48,7 +48,7 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
         message="An error occurred while deleting the user.",
         error_code="USER_DELETION_ERROR",
     )
-    @handle_database_unavailable_exceptions
+    @handle_database_unavailable_exceptions()
     async def delete(self, user_id: UUID) -> bool:
         result = await self._session.execute(delete(User).where(User.id == user_id))
         return result.rowcount > 0
@@ -57,7 +57,7 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
         message="An error occurred while deleting multiple users.",
         error_code="USER_DELETION_ERROR",
     )
-    @handle_database_unavailable_exceptions
+    @handle_database_unavailable_exceptions()
     async def delete_many(self, user_ids: list[UUID]) -> int:
         if not user_ids:
             return 0
@@ -69,7 +69,7 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
         message="An error occurred while updating the user's last seen timestamp.",
         error_code="USER_UPDATE_ERROR",
     )
-    @handle_database_unavailable_exceptions
+    @handle_database_unavailable_exceptions()
     async def update_last_seen(self, user_id: UUID, freq_mins: int) -> None:
         statement = (
             update(User)
@@ -84,7 +84,7 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
         message="An error occurred while retrieving expired users.",
         error_code="USER_RETRIEVAL_ERROR",
     )
-    @handle_database_unavailable_exceptions
+    @handle_database_unavailable_exceptions()
     async def get_expired_users(self, cutoff: datetime) -> list[UUID]:
         statement = select(User.id).where(User.last_seen_at < cutoff)
 
