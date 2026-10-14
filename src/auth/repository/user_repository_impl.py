@@ -13,7 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth.models.user import User
 from src.auth.repository.user_repository import UserRepository
 from src.database.utils import BaseRepository
-from src.exceptions import database_error
+from src.exceptions.decorators import (
+    handle_database_unavailable_exceptions,
+    handle_sqlalchemy_exceptions,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -23,55 +26,50 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
+    @handle_sqlalchemy_exceptions(
+        message="An error occurred while creating a new user.",
+        error_code="USER_CREATION_ERROR",
+    )
+    @handle_database_unavailable_exceptions
     async def create(self, data: User) -> User:
-        try:
-            self._session.add(data)
-            await self._session.flush()
-            return data
-        except Exception as e:
-            raise database_error(
-                message="An error occurred while creating a new user.",
-                error_code="USER_CREATION_ERROR",
-                cause=e,
-            ) from e
+        self._session.add(data)
+        await self._session.flush()
+        return data
 
+    @handle_sqlalchemy_exceptions(
+        message="An error occurred while retrieving the user by ID.",
+        error_code="USER_RETRIEVAL_ERROR",
+    )
+    @handle_database_unavailable_exceptions
     async def get_by_id(self, user_id: UUID) -> User | None:
-        try:
-            return await self._fetch_one(select(User).where(User.id == user_id))
-        except Exception as e:
-            raise database_error(
-                message="An error occurred while retrieving the user by ID.",
-                error_code="USER_RETRIEVAL_ERROR",
-                cause=e,
-            ) from e
+        return await self._fetch_one(select(User).where(User.id == user_id))
 
+    @handle_sqlalchemy_exceptions(
+        message="An error occurred while deleting the user.",
+        error_code="USER_DELETION_ERROR",
+    )
+    @handle_database_unavailable_exceptions
     async def delete(self, user_id: UUID) -> bool:
-        try:
-            result = await self._session.execute(delete(User).where(User.id == user_id))
-            return result.rowcount > 0
-        except Exception as e:
-            raise database_error(
-                message="An error occurred while deleting the user.",
-                error_code="USER_DELETION_ERROR",
-                cause=e,
-            ) from e
+        result = await self._session.execute(delete(User).where(User.id == user_id))
+        return result.rowcount > 0
 
+    @handle_sqlalchemy_exceptions(
+        message="An error occurred while deleting multiple users.",
+        error_code="USER_DELETION_ERROR",
+    )
+    @handle_database_unavailable_exceptions
     async def delete_many(self, user_ids: list[UUID]) -> int:
         if not user_ids:
             return 0
 
-        try:
-            result = await self._session.execute(
-                delete(User).where(User.id.in_(user_ids))
-            )
-            return result.rowcount
-        except Exception as e:
-            raise database_error(
-                message="An error occurred while deleting multiple users.",
-                error_code="USER_DELETION_ERROR",
-                cause=e,
-            ) from e
+        result = await self._session.execute(delete(User).where(User.id.in_(user_ids)))
+        return result.rowcount
 
+    @handle_sqlalchemy_exceptions(
+        message="An error occurred while updating the user's last seen timestamp.",
+        error_code="USER_UPDATE_ERROR",
+    )
+    @handle_database_unavailable_exceptions
     async def update_last_seen(self, user_id: UUID, freq_mins: int) -> None:
         statement = (
             update(User)
@@ -79,26 +77,19 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
             .where(User.last_seen_at < func.now() - timedelta(minutes=freq_mins))
             .values(last_seen_at=func.now())
         )
-        try:
-            await self._session.execute(statement)
-        except Exception as e:
-            raise database_error(
-                message="An error occurred while updating the user's last seen timestamp.",
-                error_code="USER_UPDATE_ERROR",
-                cause=e,
-            ) from e
 
+        await self._session.execute(statement)
+
+    @handle_sqlalchemy_exceptions(
+        message="An error occurred while retrieving expired users.",
+        error_code="USER_RETRIEVAL_ERROR",
+    )
+    @handle_database_unavailable_exceptions
     async def get_expired_users(self, cutoff: datetime) -> list[UUID]:
         statement = select(User.id).where(User.last_seen_at < cutoff)
-        try:
-            result = await self._session.execute(statement)
-            return list(result.scalars().all())
-        except Exception as e:
-            raise database_error(
-                message="An error occurred while retrieving expired users.",
-                error_code="USER_RETRIEVAL_ERROR",
-                cause=e,
-            ) from e
+
+        result = await self._session.execute(statement)
+        return list(result.scalars().all())
 
     async def _fetch_one(self, statement) -> User | None:
         """
