@@ -3,12 +3,69 @@ from typing import List
 from langchain_openai import OpenAIEmbeddings
 
 from src.config.configs import settings
-from src.exceptions import server_error, bad_request_error, service_unavailable_error
+from src.exceptions import (
+    server_error,
+    bad_request_error,
+    service_unavailable_error,
+    ApiException,
+)
 from src.rag.services.chunk.chunker import Chunk
 from src.rag.services.embed.embedder import Embedder
 
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    AuthenticationError,
+    BadRequestError,
+    NotFoundError,
+    PermissionDeniedError,
+    RateLimitError,
+    UnprocessableEntityError,
+)
+
+
+def _handle_openai_exception(
+    exception: Exception, fallback_message: str, fallback_error_code: str
+) -> ApiException:
+    """
+    Handle exceptions raised by the OpenAI API and raise appropriate
+    ApiException with meaningful messages and error codes.
+    """
+    if isinstance(
+        exception, (AuthenticationError, PermissionDeniedError, NotFoundError)
+    ):
+        return server_error(
+            message="An error occurred with the OpenAI embedder's configuration.",
+            error_code="EMBEDDER_CONFIG_ERROR",
+            cause=exception,
+        )
+
+    if isinstance(exception, (BadRequestError, UnprocessableEntityError)):
+        return server_error(
+            message="The OpenAI embedder rejected the input.",
+            error_code="INPUT_REJECTED",
+            cause=exception,
+        )
+
+    if isinstance(exception, (RateLimitError, APIConnectionError, APIStatusError)):
+        return service_unavailable_error(
+            message="The embedding service is temporarily unavailable.",
+            error_code="EMBEDDER_UNAVAILABLE",
+            cause=exception,
+        )
+
+    return server_error(
+        message=fallback_message,
+        error_code=fallback_error_code,
+        cause=exception,
+    )
+
 
 class LangChainOpenAIEmbedder(Embedder):
+    """
+    An implementation of the Embedder interface using LangChain's
+    OpenAIEmbeddings.
+    """
 
     def __init__(self):
         try:
@@ -30,12 +87,12 @@ class LangChainOpenAIEmbedder(Embedder):
 
         try:
             texts = [chunk.text for chunk in chunks]
-            return self._model.embed_documents(texts)
+            return await self._model.aembed_documents(texts)
         except Exception as e:
-            raise service_unavailable_error(
-                message="Failed to embed chunks. The embedding service may be unavailable.",
-                error_code="EMBED_CHUNKS_ERROR",
-                cause=e,
+            raise _handle_openai_exception(
+                fallback_message="Failed to embed chunks.",
+                fallback_error_code="CHUNK_EMBBEDDING_ERROR",
+                exception=e,
             )
 
     async def embed_query(self, query: str) -> List[float]:
@@ -46,10 +103,10 @@ class LangChainOpenAIEmbedder(Embedder):
             )
 
         try:
-            return self._model.embed_query(query)
+            return await self._model.aembed_query(query)
         except Exception as e:
-            raise service_unavailable_error(
-                message="Failed to embed query. The embedding service may be unavailable.",
-                error_code="EMBED_QUERY_ERROR",
-                cause=e,
+            raise _handle_openai_exception(
+                fallback_message="Failed to embed query.",
+                fallback_error_code="QUERY_EMBEDDING_ERROR",
+                exception=e,
             )

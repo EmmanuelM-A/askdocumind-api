@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import List
 
 from src.rag.services.chunk.chunker import Chunk
@@ -10,6 +10,7 @@ class Embedder(ABC):
     converting text chunks into vector representations (embeddings).
     """
 
+    @abstractmethod
     async def embed_chunks(self, chunks: List[Chunk]) -> List[List[float]]:
         """
         Embed a list of chunks and return their embeddings.
@@ -19,6 +20,7 @@ class Embedder(ABC):
         """
         raise NotImplementedError
 
+    @abstractmethod
     async def embed_query(self, query: str) -> List[float]:
         """
         Embed a query string and return its embedding.

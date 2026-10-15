@@ -30,3 +30,4 @@ sentence-transformers
 anyio
 pyyaml
 pytest-asyncio
+openai
