@@ -1,6 +1,3 @@
-# Tests for LangChainOpenAIEmbedder. The real OpenAIEmbeddings class is constructed with a fake
-# API key, and only its async network calls (aembed_documents and aembed_query) are patched.
-
 import inspect
 import uuid
 from unittest.mock import AsyncMock, patch
@@ -51,28 +48,6 @@ def status_error(error_class, status, code=None):
     body = {"code": code} if code else None
     return error_class("failure", response=response, body=body)
 
-
-_REQUEST = httpx.Request("POST", "https://api.openai.com/v1/embeddings")
-
-
-def _status_error(error_class, status, code=None):
-    response = httpx.Response(status, request=_REQUEST)
-    body = {"code": code} if code else None
-    return error_class("failure", response=response, body=body)
-
-
-CHUNK_CASES = [
-    (_status_error(AuthenticationError, 401), 500),
-    (_status_error(PermissionDeniedError, 403), 500),
-    (_status_error(NotFoundError, 404), 500),
-    (_status_error(BadRequestError, 400), 500),
-    (_status_error(RateLimitError, 429), 503),
-    (_status_error(RateLimitError, 429, "insufficient_quota"), 500),
-    (_status_error(InternalServerError, 503), 503),
-    (APIConnectionError(request=_REQUEST), 503),
-    (APITimeoutError(request=_REQUEST), 503),
-    (ValueError("bug"), 500),
-]
 
 ERROR_CASES = [
     pytest.param(status_error(AuthenticationError, 401), 500, id="authentication"),
