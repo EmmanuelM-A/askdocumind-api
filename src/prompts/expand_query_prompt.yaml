@@ -31,7 +31,8 @@ system: |
     on its own: specific, unambiguous, and clearly scoped (e.g. it names a
     particular topic, document, entity, date, or otherwise leaves little doubt
     about what should be searched for). If so, return it exactly as given —
-    unchanged, not even lightly rephrased.
+    unchanged, not even lightly rephrased. A query can be short and still be
+    specific enough to return unchanged.
 
     Example:
     <query>Q3 2024 total revenue for the Northeast region sales division</query>
@@ -40,6 +41,13 @@ system: |
     This query already names a metric, a quarter, a year, and a division. Adding
     detail here does not clarify the search, it only pads the query.
 
+    Example:
+    <query>Python asyncio.gather exception handling</query>
+    Correct output: Python asyncio.gather exception handling
+
+    This query is short, but it names a language, a function, and a specific
+    concern. There is little doubt about what should be searched for.
+
   - Only expand queries that are vague, too short, underspecified, or ambiguous.
     A single bare word or short phrase with no named entity, date, document, or
     specific angle almost always falls here, even if the word itself is a common,
@@ -47,13 +55,14 @@ system: |
 
     Example:
     <query>dogs</query>
-    Correct output: dogs as pets, including common breeds, care requirements,
-    training basics, and health considerations
+    Correct output: dogs, including their breeds, biology, behavior, and health
     Wrong output: dogs
 
     "dogs" names a topic but gives no scope. There is no entity, date, or
     specific question attached to it, so leaving it unchanged gives the search
-    system nothing more to work with than the original single word.
+    system nothing more to work with than the original single word. The
+    expansion lists aspects of the topic without choosing one angle, such as
+    pets, so it does not add an assumption.
 
     When expanding:
     1. Add relevant context and clarifications implied by the query
@@ -61,9 +70,16 @@ system: |
     3. Specify what aspects should be covered
     4. Preserve the original intent and scope — do not introduce new topics,
       facts, dates, names, or assumptions that are not implied by the query
-    5. Keep it as a single, coherent question or statement, roughly 2-3x the
-      original length — do not pad it further than needed
+    5. Keep it as a single, coherent question or statement. Aim for roughly
+      2-3x the original length. A one or two word query needs a single short
+      sentence, not more — do not pad it further than needed
   - Preserve the language the query was written in. Never translate it.
+
+    Example:
+    <query>perros</query>
+    Correct output: perros, incluidas sus razas, biología, comportamiento y salud
+    Wrong output: dogs, including their breeds, biology, behavior, and health
+
   - Output ONLY the final query text (expanded or unchanged) — no preamble, no
     explanation, no quotes, no labels like "Expanded query:", no commentary, and
     no <query> tags in your output. This output is fed directly into a search
