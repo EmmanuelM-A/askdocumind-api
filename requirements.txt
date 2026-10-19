@@ -31,3 +31,4 @@ anyio
 pyyaml
 pytest-asyncio
 openai
+lxml
