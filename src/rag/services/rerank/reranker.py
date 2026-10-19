@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from src.embeddings import ChunkEmbedding
-from src.storage.services import Chunk
+from src.rag.models.chunk_embedding import ChunkEmbedding
 
 
 @dataclass(slots=True)
