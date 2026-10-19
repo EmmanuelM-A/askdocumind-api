@@ -14,7 +14,7 @@ from src.config.configs import settings
 from src.rag.services.extract.extractors.extractor import Segment
 
 
-class ChunkConfig(BaseModel):
+class ChunkerConfig(BaseModel):
     """
     Configuration for the chunking process.
     """
@@ -27,7 +27,7 @@ class ChunkConfig(BaseModel):
     length_function: Callable[[str], int] = len
 
     @model_validator(mode="after")
-    def _check_sizes(self) -> "ChunkConfig":
+    def _check_sizes(self) -> "ChunkerConfig":
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("chunk_overlap must be smaller than chunk_size")
         if self.min_chunk_size >= self.chunk_size:

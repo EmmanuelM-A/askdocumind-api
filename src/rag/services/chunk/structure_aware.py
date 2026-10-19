@@ -17,10 +17,10 @@ from uuid import UUID
 from pydantic import Field, field_validator, ConfigDict
 
 from src.exceptions import server_error
-from src.rag.services.chunk.chunker import ChunkConfig, Chunker, Chunk
+from src.rag.services.chunk.chunker import ChunkerConfig, Chunker, Chunk
 
 
-class StructureAwareChunkerConfig(ChunkConfig):
+class StructureAwareChunkerConfig(ChunkerConfig):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     fallback_chunker: "Chunker | None" = Field(default=None)

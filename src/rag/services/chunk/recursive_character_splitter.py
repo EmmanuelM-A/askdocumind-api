@@ -2,11 +2,11 @@ from uuid import UUID
 
 from pydantic import Field
 
-from src.rag.services.chunk.chunker import ChunkConfig, Chunker, Chunk
+from src.rag.services.chunk.chunker import ChunkerConfig, Chunker, Chunk
 from src.rag.services.chunk.utils import merge_undersized_chunks
 
 
-class RecursiveCharChunkerConfig(ChunkConfig):
+class RecursiveCharChunkerConfig(ChunkerConfig):
     separators: list[str] = Field(
         default_factory=lambda: [
             "\n\n",

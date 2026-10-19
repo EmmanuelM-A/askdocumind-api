@@ -141,7 +141,7 @@ class ChunkerFactory:
         StructureAwareChunker for Markdown files or a SentenceBasedChunker for
         other text files. Expects an already-normalized extension.
         """
-        if normalized_extension in ".md":
+        if normalized_extension == ".md":
             return StructureAwareChunker(
                 StructureAwareChunkerConfig(
                     chunk_size=self._config.chunk_size,
