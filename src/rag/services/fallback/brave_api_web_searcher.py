@@ -1,26 +1,24 @@
 """
-This module defines the BraveApiWebSearcher class, which implements the
+This module defines the BraveAPIWebSearcher class, which implements the
 WebSearcher interface to perform web searches using the Brave Search API.
 """
 
 import asyncio
 import ipaddress
 import logging
-from dataclasses import dataclass
+import re
 import socket
-from html import escape
-from typing import AsyncIterable
-from urllib.parse import urlparse
+import time
+from collections.abc import AsyncIterable
+from dataclasses import dataclass
+from html import escape, unescape
+from urllib.parse import urljoin, urlparse
 
 import requests
+from charset_normalizer import from_bytes
 from ddgs import DDGS
-from ddgs.exceptions import DDGSException
-from requests import HTTPError
 
 from src.config.configs import settings
-from src.exceptions import server_error
-from src.rag.services.chunk.chunker import Chunker
-from src.rag.services.embed.embedder import Embedder
 from src.rag.services.fallback.web_searcher import WebSearcher
 
 
@@ -31,16 +29,73 @@ class _SearchResult:
     snippet: str
 
 
-_BATCH_SIZE = settings.rag.PROCESSING_BATCH_SIZE
+@dataclass
+class _Page:
+    """The outcome of one request: a redirect target, the page text, or neither."""
+
+    redirect_to: str | None = None
+    text: str | None = None
+
+
 _NUM_RESULTS = settings.rag.MAX_SEARCH_RESULTS
+
+# Brave rejects queries longer than 400 characters.
+_MAX_QUERY_CHARS = 400
+_MAX_PAGE_BYTES = 2 * 1024 * 1024
+_MAX_REDIRECTS = 3
+_MAX_PARALLEL_FETCHES = 5
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+_HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
+_TAG_PATTERN = re.compile(r"<[^>]+>")
+_CHARSET_PATTERN = re.compile(r"charset=([^;\s]+)", re.IGNORECASE)
 
 _logger = logging.getLogger(__name__)
 
 
+def _clean_text(value: str | None) -> str:
+    """Remove the highlight tags Brave adds to titles and descriptions."""
+    return " ".join(unescape(_TAG_PATTERN.sub("", value or "")).split())
+
+
+def _is_public_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """
+    True only for addresses on the public internet. The check is_private
+    alone misses shared address space (100.64.0.0/10, which includes a cloud
+    metadata address) and IPv4 addresses wrapped in IPv6.
+    """
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+
+    return ip.is_global and not (
+        ip.is_loopback
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_reserved
+        or ip.is_unspecified
+    )
+
+
+def _decode(body: bytes, content_type: str) -> str:
+    """
+    Decode a page. A charset in the header wins, then UTF-8, then a guess.
+    The requests library would read a page without a charset as Latin-1,
+    which garbles UTF-8 text.
+    """
+    declared = _CHARSET_PATTERN.search(content_type)
+
+    for encoding in (declared.group(1).strip("\"'") if declared else None, "utf-8"):
+        if encoding:
+            try:
+                return body.decode(encoding)
+            except (UnicodeDecodeError, LookupError):
+                continue
+
+    match = from_bytes(body).best()
+    return str(match) if match else body.decode("utf-8", errors="replace")
+
+
 class BraveAPIWebSearcher(WebSearcher):
-    def __init__(self, chunker: Chunker, embedder: Embedder) -> None:
-        self._chunker = chunker
-        self._embedder = embedder
+    def __init__(self) -> None:
         self._URL = "https://api.search.brave.com/res/v1/web/search"
         self._HEADERS = {
             "Accept": "application/json",
@@ -51,35 +106,21 @@ class BraveAPIWebSearcher(WebSearcher):
     async def search_web(self, query: str) -> list[str]:
         """
         Performs a web search using the Brave Search API and returns the content
-        of the search results as a list of strings.
+        of the search results as a list of strings, in result order.
         """
-        search_results = self._search_for_results_on_the_web_for(query)
+        results = await self._search_for_results_on_the_web_for(query)
 
-        contents: list[str] = []
-        successes = 0
-
-        for i, result in enumerate(search_results):
-            url = result.url.strip()
-
-            if not url or not await self._is_url_safe(url):
-                _logger.debug(f"Skipping unsafe or empty URL: '{url}'")
-                continue
-
-            content = await self._fetch_web_content(result)
-
-            if not content:
-                _logger.debug(f"No content fetched for URL: '{url}'")
-                continue
-
-            contents.append(content)
-            successes += 1
-
-        if successes == 0:
+        if not results:
             return []
 
+        semaphore = asyncio.Semaphore(_MAX_PARALLEL_FETCHES)
+        pages = await asyncio.gather(
+            *(self._fetch_limited(result, semaphore) for result in results)
+        )
+        contents = [page for page in pages if page]
+
         _logger.debug(
-            f"Successfully fetched content from "
-            f"{successes}/{len(search_results)} search results"
+            "Fetched content for %d/%d search results", len(contents), len(results)
         )
 
         return contents
@@ -87,140 +128,159 @@ class BraveAPIWebSearcher(WebSearcher):
     async def search_web_stream(self, query: str) -> AsyncIterable[str]:
         """
         Performs a web search using the Brave Search API and yields the content
-        of the search results as an asynchronous iterator of strings.
+        of the search results in result order. All pages download at the same
+        time, so each one is ready by the time the caller asks for it.
         """
-        search_results = self._search_for_results_on_the_web_for(query)
+        results = await self._search_for_results_on_the_web_for(query)
 
-        for i, result in enumerate(search_results):
-            url = result.url.strip()
+        semaphore = asyncio.Semaphore(_MAX_PARALLEL_FETCHES)
+        tasks = [
+            asyncio.create_task(self._fetch_limited(result, semaphore))
+            for result in results
+        ]
 
-            if not url or not await self._is_url_safe(url):
-                _logger.debug(f"Skipping unsafe or empty URL: '{url}'")
-                continue
+        try:
+            for index, task in enumerate(tasks):
+                content = await task
 
-            content = await self._fetch_web_content(result)
+                if not content:
+                    continue
 
-            if not content:
-                _logger.debug(f"No content fetched for URL: '{url}'")
-                continue
+                _logger.debug(
+                    "Yielding content for search result %d/%d", index + 1, len(tasks)
+                )
 
-            _logger.debug(
-                f"Yielding content for URL: '{url}'"
-                f" Search result {i + 1}/{len(search_results)}"
-            )
-
-            yield content
+                yield content
+        finally:
+            # The caller can stop early, so stop the downloads still running.
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     # ========================== HELPER METHODS ==========================
 
-    def _search_for_results_on_the_web_for(self, query: str) -> list[_SearchResult]:
+    async def _search_for_results_on_the_web_for(
+        self, query: str
+    ) -> list[_SearchResult]:
         """
-        Performs a web search using the Brave Search API and yields the content
-        of the search results.
-
-        If the Brave Search API fails or returns no results, it falls back to
-        using DuckDuckGo's search API.
+        Performs a web search using the Brave Search API and returns the
+        results. If the Brave Search API fails or returns no results, it falls
+        back to DuckDuckGo. A query with no results gives an empty list.
         """
-        search_results: list[_SearchResult] = []
+        query = " ".join(query.split())[:_MAX_QUERY_CHARS]
 
+        if not query:
+            return []
+
+        results = await self._brave_search(query)
+
+        if not results:
+            results = await self._fallback_search(query, num_results=_NUM_RESULTS)
+
+        if not results:
+            _logger.warning("No search results found for the query.")
+
+        return results
+
+    async def _brave_search(self, query: str) -> list[_SearchResult]:
         try:
-            response = requests.get(
+            response = await asyncio.to_thread(
+                requests.get,
                 url=self._URL,
                 headers=self._HEADERS,
                 params={"q": query, "count": _NUM_RESULTS},
                 timeout=settings.web.REQUEST_TIMEOUT_SECS,
             )
             response.raise_for_status()
+            items = response.json().get("web", {}).get("results", [])
+        except Exception:
+            _logger.exception("Failed to fetch search results from Brave Search API")
+            return []
 
-            data = response.json()
-            items = data.get("web", {}).get("results", [])
-
-            if not items:
-                search_results = self._fallback_search(query, num_results=_NUM_RESULTS)
-            else:
-                for item in items:
-                    search_results.append(
-                        _SearchResult(
-                            title=item.get("title", ""),
-                            url=item.get("url", ""),
-                            snippet=item.get("description", ""),
-                        )
-                    )
-        except HTTPError | Exception as e:
-            _logger.exception(
-                "Failed to fetch search results from Brave Search API", exc_info=e
+        return [
+            _SearchResult(
+                title=_clean_text(item.get("title")),
+                url=(item.get("url") or "").strip(),
+                snippet=_clean_text(item.get("description")),
             )
-            search_results = self._fallback_search(query, num_results=_NUM_RESULTS)
-
-        if not search_results:
-            raise server_error(
-                message=f"No search results found for query '{query}'",
-                error_code="NO_SEARCH_RESULTS",
-            )
-
-        return search_results
+            for item in items
+            if isinstance(item, dict)
+        ]
 
     @staticmethod
-    def _fallback_search(query: str, num_results: int = 5) -> list[_SearchResult]:
+    async def _fallback_search(query: str, num_results: int = 5) -> list[_SearchResult]:
         """
         Fallback search method using DuckDuckGo's search API.
         """
         try:
-            raw_results = DDGS().text(query, max_results=num_results)
-
-            _logger.debug(f"Retrieved {len(raw_results)} results from fallback search")
-
-            return [
-                _SearchResult(
-                    title=result.get("title", ""),
-                    url=result.get("url", ""),
-                    snippet=result.get("body", ""),
-                )
-                for result in raw_results
-            ]
-        except DDGSException | Exception:
+            raw_results = await asyncio.to_thread(
+                lambda: DDGS().text(query, max_results=num_results)
+            )
+        except Exception:
+            _logger.warning("Fallback search failed", exc_info=True)
             return []
 
-    async def _is_url_safe(self, url: str) -> bool:
+        _logger.debug("Retrieved %d results from fallback search", len(raw_results))
+
+        return [
+            _SearchResult(
+                title=_clean_text(result.get("title")),
+                # DuckDuckGo results name the link "href", not "url".
+                url=(result.get("href") or result.get("url") or "").strip(),
+                snippet=_clean_text(result.get("body")),
+            )
+            for result in raw_results
+        ]
+
+    @staticmethod
+    async def _is_url_safe(url: str) -> bool:
         """
         Checks if the given URL is safe to access by resolving its hostname
-        and ensuring it does not point to any private or reserved IP addresses.
+        and ensuring it points only to public IP addresses.
         """
-        parsed = urlparse(url)
-        if parsed.scheme not in ("http", "https"):
-            return False
-
-        hostname = parsed.hostname
-        if not hostname:
-            return False
         try:
-            loop = asyncio.get_running_loop()
-            infos = await loop.getaddrinfo(
-                hostname, None, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM
+            parsed = urlparse(url)
+
+            if parsed.scheme not in ("http", "https") or not parsed.hostname:
+                return False
+
+            infos = await asyncio.wait_for(
+                asyncio.get_running_loop().getaddrinfo(
+                    parsed.hostname,
+                    None,
+                    family=socket.AF_UNSPEC,
+                    type=socket.SOCK_STREAM,
+                ),
+                timeout=settings.web.REQUEST_TIMEOUT_SECS,
             )
+
+            if not infos:
+                return False
+
             for _, _, _, _, sockaddr in infos:
-                addr = sockaddr[0]
-                ip = ipaddress.ip_address(addr)
-                if (
-                    ip.is_private
-                    or ip.is_loopback
-                    or ip.is_link_local
-                    or ip.is_reserved
-                    or ip.is_multicast
-                ):
-                    _logger.debug(f"Blocked unsafe IP {addr} for host {hostname}")
+                # An IPv6 address can carry a scope such as "fe80::1%eth0".
+                address = ipaddress.ip_address(str(sockaddr[0]).split("%")[0])
+
+                if not _is_public_ip(address):
+                    _logger.debug(
+                        "Blocked non-public IP %s for host %s", address, parsed.hostname
+                    )
                     return False
+
             return True
         except Exception as e:
-            _logger.debug(f"Error resolving {hostname}: {e}")
+            _logger.debug("Could not verify the URL '%s': %s", url, e)
             return False
 
     @staticmethod
     def _backup_web_content(result: _SearchResult) -> str:
         """
         Fallback method to generate HTML content from the search result's
-        title and snippet.
+        title and snippet. It returns an empty string when both are empty.
         """
+        if not (result.title or result.snippet):
+            return ""
+
         return (
             "<html><body>"
             f"<h1>{escape(result.title)}</h1>"
@@ -228,39 +288,81 @@ class BraveAPIWebSearcher(WebSearcher):
             "</body></html>"
         )
 
+    async def _fetch_limited(
+        self, result: _SearchResult, semaphore: asyncio.Semaphore
+    ) -> str:
+        async with semaphore:
+            return await self._fetch_web_content(result)
+
     async def _fetch_web_content(self, result: _SearchResult) -> str:
         """
-        Fetches the web content from the given search result's URL.
-        If the URL is deemed unsafe or if fetching fails, it falls back to
-        generating HTML content from the search result's title and snippet.
+        Fetches the web content from the given search result's URL. If the URL
+        is unsafe or the page cannot be used (an error status, a timeout, a
+        non-HTML type or too many redirects), it falls back to HTML built from
+        the result's title and snippet. This method does not raise.
         """
-
-        if not await self._is_url_safe(result.url):
-            return self._backup_web_content(result)
-
-        headers = {"User-Agent": settings.web.USER_AGENT}
-
         try:
-            response = requests.get(
-                url=result.url,
-                headers=headers,
-                timeout=settings.web.REQUEST_TIMEOUT_SECS,
-            )
+            page = await self._download_page(result.url)
+        except Exception as e:
+            _logger.debug("Could not fetch '%s': %s", result.url, e)
+            page = None
+
+        return page or self._backup_web_content(result)
+
+    async def _download_page(self, url: str) -> str | None:
+        """
+        Downloads a page and follows redirects by hand, so every address in
+        the chain passes the safety check. A redirect to an internal address
+        is blocked the same way as a search result that points there.
+        """
+        for _ in range(_MAX_REDIRECTS + 1):
+            if not await self._is_url_safe(url):
+                return None
+
+            page = await asyncio.to_thread(self._get_once, url)
+
+            if page.redirect_to:
+                url = urljoin(url, page.redirect_to)
+                continue
+
+            return page.text
+
+        return None
+
+    @staticmethod
+    def _get_once(url: str) -> _Page:
+        """Make one request without following redirects. This blocks."""
+        timeout = settings.web.REQUEST_TIMEOUT_SECS
+        deadline = time.monotonic() + timeout * 3
+
+        with requests.get(
+            url,
+            headers={"User-Agent": settings.web.USER_AGENT},
+            timeout=timeout,
+            allow_redirects=False,
+            stream=True,
+        ) as response:
+            if response.status_code in _REDIRECT_STATUSES:
+                return _Page(redirect_to=response.headers.get("Location"))
 
             response.raise_for_status()
-        except HTTPError as e:
-            raise server_error(
-                message=f"Failed to fetch web content from '{result.url}'",
-                error_code="FETCH_ERROR",
-            ) from e
 
-        content_type = response.headers.get("Content-Type")
+            content_type = response.headers.get("Content-Type", "")
 
-        if content_type and "text/html" not in content_type:
-            _logger.debug(f"Non-HTML content type '{content_type}' for '{result.url}'")
-            return self._backup_web_content(result)
+            if content_type and not any(
+                html_type in content_type.lower() for html_type in _HTML_CONTENT_TYPES
+            ):
+                _logger.debug("Non-HTML content type '%s' for '%s'", content_type, url)
+                return _Page()
 
-        if not response.text:
-            return self._backup_web_content(result)
+            body = bytearray()
 
-        return response.text
+            # Read in blocks, so a huge or slow page cannot use unlimited
+            # memory or time. A page cut at the limit still gives its start.
+            for block in response.iter_content(chunk_size=64 * 1024):
+                body += block
+
+                if len(body) >= _MAX_PAGE_BYTES or time.monotonic() > deadline:
+                    break
+
+            return _Page(text=_decode(bytes(body[:_MAX_PAGE_BYTES]), content_type))
