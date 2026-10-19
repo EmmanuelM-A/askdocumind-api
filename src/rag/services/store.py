@@ -1,12 +1,10 @@
 import logging
 from collections.abc import AsyncIterator
 from contextlib import aclosing
-from pathlib import Path
 from typing import TypeVar
 from uuid import UUID
 
 from anyio import Semaphore
-from pydantic import BaseModel
 
 from src.config.configs import settings
 from src.exceptions import conflict_error, unprocessable_content_error, ApiException
@@ -21,28 +19,11 @@ from src.rag.services.report.status_reporter import (
     StatusConflict,
     StatusReportFailed,
 )
+from src.rag.services.utils import RunGuard, StorageJob
 
 _logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
-
-
-class StorageJob(BaseModel):
-    """
-    Represents a job request payload to process and store a document/file
-    as embeddings in the storage system.
-    """
-
-    document_id: UUID
-    chat_session_id: UUID
-    filename: str
-    content_type: str
-    checksum: str
-    object_key: str
-
-    @property
-    def extension(self) -> str:
-        return Path(self.filename).suffix.lower()
 
 
 async def _batch_items(items: AsyncIterator[T], size: int) -> AsyncIterator[list[T]]:
@@ -79,36 +60,6 @@ def _safe_message(exception: Exception) -> str:
         "message",
         "PROCESSING_ERROR: The file could not be processed.",
     )
-
-
-class RunGuard:
-    """
-    A guard to ensure that only one ingestion process runs for a given
-    document at a time.
-    """
-
-    def __init__(self) -> None:
-        self._active: set[UUID] = set()
-
-    def acquire(self, document_id: UUID) -> bool:
-        """
-        Attempts to acquire a lock for the given document ID. If the
-        document is already being processed, it returns False. Otherwise,
-        it adds the document ID to the active set
-        """
-        if document_id in self._active:
-            return False
-
-        self._active.add(document_id)
-
-        return True
-
-    def release(self, document_id: UUID) -> None:
-        """
-        Releases the lock for the given document ID, allowing other
-        ingestion processes to proceed.
-        """
-        self._active.discard(document_id)
 
 
 class StoreChunkEmbeddingService:
