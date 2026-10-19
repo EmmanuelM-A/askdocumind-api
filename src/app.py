@@ -24,6 +24,10 @@ from src.middleware.anonymous_sessions import AnonymousSessionMiddleware
 from src.middleware.concurrent_request_limit import ConcurrentRequestLimitMiddleware
 from src.middleware.request_logger import RequestLoggerMiddleware
 from src.middleware.request_size_limit import RequestSizeLimitMiddleware
+from src.rag.services.rerank.cross_encoder_reranker import (
+    CrossEncoderReranker,
+    CrossEncoderRerankerConfig,
+)
 
 
 @asynccontextmanager
@@ -42,10 +46,22 @@ async def lifespan(app: FastAPI):
 
     app.state.session_manager = session_manager
 
-    yield
+    try:
+        app.state.session_manager = session_manager
 
-    # On shutdown
-    await session_manager.disconnect()
+        reranker = CrossEncoderReranker(
+            CrossEncoderRerankerConfig(
+                model_name=settings.rag.RERANKER_MODEL_NAME,
+                max_length=settings.rag.RERANKER_MAX_LENGTH,
+                batch_size=settings.rag.RERANKER_BATCH_SIZE,
+            )
+        )
+        await reranker.warm_up()
+        app.state.reranker = reranker
+
+        yield
+    finally:
+        await session_manager.disconnect()
 
 
 def create_app() -> FastAPI:

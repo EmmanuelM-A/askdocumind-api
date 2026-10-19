@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Request
 
 from src.chat_session.dependencies import get_chat_session_repository
 from src.chat_session.repository.chat_session_repository import ChatSessionRepository
@@ -29,7 +29,7 @@ from src.rag.services.rerank.reranker import Reranker
 from src.rag.services.retrieve import RetrieveChunkEmbeddingService
 from src.rag.services.store import StoreChunkEmbeddingService, RunGuard
 from src.shared.prompts import load_prompt_from
-from src.uploads.dependencies import get_document_repository
+from src.uploads.dependencies import get_document_repository, get_object_storage
 from src.uploads.repository.document_repository import DocumentRepository
 from src.uploads.storage.object_storage import ObjectStorage
 
@@ -42,7 +42,7 @@ def get_chunk_embedding_repository(session: DbSession) -> ChunkEmbeddingReposito
 
 
 def get_downloader_service(
-    object_storage: Annotated[ObjectStorage, Depends],
+    object_storage: Annotated[ObjectStorage, Depends(get_object_storage)],
 ) -> S3FileDownloader:
     """
     Provide an S3FileDownloader service instance for the current request.
@@ -144,8 +144,11 @@ def get_query_expander() -> QueryExpander:
     )
 
 
-def get_reranker() -> Reranker:
-    pass
+def get_reranker(request: Request) -> Reranker:
+    """
+    Provide a Reranker service instance for the current request.
+    """
+    return request.app.state.reranker
 
 
 def get_web_searcher() -> WebSearcher:

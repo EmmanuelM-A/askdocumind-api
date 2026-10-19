@@ -183,6 +183,9 @@ class _RAGSettings(_BaseSettings):
     )
 
     # Reranking
+    RERANKER_MODEL_NAME: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2")
+    RERANKER_MAX_LENGTH: int = Field(default=256, ge=50, le=512)
+    RERANKER_BATCH_SIZE: int = Field(default=32, ge=1, le=128)
 
     # Web Search
     MAX_SEARCH_RESULTS: int = Field(default=10, le=30, ge=5)
