@@ -25,6 +25,8 @@ _logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+_GENERIC_ERROR_MESSAGE = "PROCESSING_ERROR: The file could not be processed."
+
 
 async def _batch_items(items: AsyncIterator[T], size: int) -> AsyncIterator[list[T]]:
     """
@@ -45,21 +47,15 @@ async def _batch_items(items: AsyncIterator[T], size: int) -> AsyncIterator[list
 
 def _safe_message(exception: Exception) -> str:
     """
-    Safely retrieves a message from an exception. If the exception is an
-    instance of ApiException, it returns a formatted string with the error code
-    and detail. Otherwise, it attempts to get the 'message' attribute of the
-    exception, defaulting to a generic processing error message if not found.
+    Builds the message stored on a failed document. The client sees this
+    message, so only ApiException text is used. Other exceptions, such as
+    errors from the embedding provider, carry request details, so they get a
+    generic message. The full error goes to the log.
     """
     if isinstance(exception, ApiException):
-        code = exception.error_code
-        message = exception.detail
-        return f"{code}: {message}"
+        return f"{exception.error_code}: {exception.detail}"
 
-    return getattr(
-        exception,
-        "message",
-        "PROCESSING_ERROR: The file could not be processed.",
-    )
+    return _GENERIC_ERROR_MESSAGE
 
 
 class StoreChunkEmbeddingService:
@@ -73,10 +69,13 @@ class StoreChunkEmbeddingService:
         guard: RunGuard,
         max_concurrent: int = 1,
     ) -> None:
+        if max_concurrent < 1:
+            raise ValueError("max_concurrent must be at least 1.")
+
         self._extraction = extraction
         self._chunker_factory = chunker_factory
         self._embedder = embedder
-        self.chunk_embedding_repository = chunk_embedding_repository
+        self._chunk_embedding_repository = chunk_embedding_repository
         self._status = status_reporter
         self._guard = guard
         self._slots = Semaphore(max_concurrent)
@@ -89,8 +88,8 @@ class StoreChunkEmbeddingService:
         """
         if not self._guard.acquire(job.document_id):
             _logger.info(
-                "The document with the provided ID is already being "
-                "processed. Skipping..."
+                "The document '%s' is already being processed. Skipping...",
+                job.document_id,
             )
             return
 
@@ -111,17 +110,22 @@ class StoreChunkEmbeddingService:
             )
         except StatusConflict:
             _logger.info(
-                "The document with the provided ID is already being "
-                "processed. Skipping..."
+                "The document '%s' cannot be claimed. It is already being "
+                "processed, finished or removed. Skipping...",
+                job.document_id,
             )
             return
         except StatusReportFailed:
-            _logger.info("Failed to report the processing status for document")
+            _logger.warning(
+                "Could not report the processing status for the document "
+                "'%s'. Skipping...",
+                job.document_id,
+            )
             return
 
         # Phase 2: Process and store chunk embeddings for the document.
         try:
-            await self.chunk_embedding_repository.delete_by_document(
+            await self._chunk_embedding_repository.delete_by_document(
                 document_id=job.document_id
             )
             total_chunks, total_chars = await self._handle_storage(job)
@@ -145,8 +149,8 @@ class StoreChunkEmbeddingService:
             await self._status.report(job.document_id, ProcessingStatus.COMPLETED)
         except StatusConflict:
             _logger.warning(
-                "The document with the provided ID changed state during the run. "
-                "Removing chunks."
+                "The document '%s' changed state during the run. " "Removing chunks.",
+                job.document_id,
             )
             await self._handle_safe_delete(job.document_id)
         except StatusReportFailed:
@@ -160,39 +164,41 @@ class StoreChunkEmbeddingService:
         total_chunks = 0
         total_chars = 0
 
-        async with aclosing(self._extraction.stream(job)) as segments:
-            chunk_stream = chunker.chunk_stream(
-                stream=segments, source_id=job.document_id
-            )
+        # Each generator closes when the block ends, last opened first, so an
+        # error or early exit releases the extractor and its temp file at once.
+        async with (
+            aclosing(self._extraction.stream(job)) as segments,
+            aclosing(
+                chunker.chunk_stream(stream=segments, source_id=job.document_id)
+            ) as chunks,
+            aclosing(
+                _batch_items(chunks, settings.rag.PROCESSING_BATCH_SIZE)
+            ) as batches,
+        ):
+            async for batch in batches:
+                embeddings = await self._embedder.embed_chunks(batch)
 
-            async with aclosing(chunk_stream) as chunks:
-                async for batch in _batch_items(
-                    chunks, settings.rag.PROCESSING_BATCH_SIZE
-                ):
-                    embeddings = await self._embedder.embed_chunks(batch)
-
-                    if len(embeddings) != len(batch):
-                        raise conflict_error(
-                            message="Mismatch between number of chunks and "
-                            "embeddings.",
-                            error_code="COUNT_MISMATCH",
-                        )
-
-                    await self.chunk_embedding_repository.create_many(
-                        chunks=[
-                            ChunkEmbedding(
-                                document_id=job.document_id,
-                                chat_session_id=job.chat_session_id,
-                                chunk_index=chunk.index,
-                                chunk_text=chunk.text,
-                                embedding=embedding,
-                            )
-                            for chunk, embedding in zip(batch, embeddings)
-                        ]
+                if len(embeddings) != len(batch):
+                    raise conflict_error(
+                        message="Mismatch between number of chunks and " "embeddings.",
+                        error_code="COUNT_MISMATCH",
                     )
 
-                    total_chunks += len(batch)
-                    total_chars += sum(len(chunk.text) for chunk in batch)
+                await self._chunk_embedding_repository.create_many(
+                    chunks=[
+                        ChunkEmbedding(
+                            document_id=job.document_id,
+                            chat_session_id=job.chat_session_id,
+                            chunk_index=chunk.index,
+                            chunk_text=chunk.text,
+                            embedding=embedding,
+                        )
+                        for chunk, embedding in zip(batch, embeddings, strict=True)
+                    ]
+                )
+
+                total_chunks += len(batch)
+                total_chars += sum(len(chunk.text) for chunk in batch)
 
         return total_chunks, total_chars
 
@@ -214,7 +220,7 @@ class StoreChunkEmbeddingService:
 
     async def _handle_safe_delete(self, document_id: UUID) -> None:
         try:
-            await self.chunk_embedding_repository.delete_by_document(
+            await self._chunk_embedding_repository.delete_by_document(
                 document_id=document_id
             )
         except Exception as exc:
