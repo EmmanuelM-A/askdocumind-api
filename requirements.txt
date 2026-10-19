@@ -32,3 +32,4 @@ pyyaml
 pytest-asyncio
 openai
 lxml
+beautifulsoup4

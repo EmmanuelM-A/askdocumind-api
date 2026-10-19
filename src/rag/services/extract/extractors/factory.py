@@ -6,16 +6,29 @@ from src.rag.services.extract.extractors.html_extractor import HtmlExtractor
 from src.rag.services.extract.extractors.pdf_extractor import PdfExtractor
 from src.rag.services.extract.extractors.plain_text_extractor import PlainTextExtractor
 
+
+def _normalize_extension(extension: str) -> str:
+    """Lowercase an extension and add the leading dot when it is missing."""
+    extension = extension.strip().lower()
+    if extension and not extension.startswith("."):
+        extension = f".{extension}"
+    return extension
+
+
 _EXTRACTORS: dict[str, type[Extractor]] = {
+    # Configured code extensions come first, so a bad entry such as ".pdf"
+    # cannot replace a built-in extractor. They are normalized because
+    # get_extractor lowercases the extension it looks up.
+    **{
+        _normalize_extension(extension): PlainTextExtractor
+        for extension in settings.uploads.ALLOWED_CODE_EXTENSIONS
+        if extension.strip()
+    },
     ".pdf": PdfExtractor,
     ".docx": DocxExtractor,
     ".html": HtmlExtractor,
     ".txt": PlainTextExtractor,
     ".md": PlainTextExtractor,
-    **{
-        extension: PlainTextExtractor
-        for extension in settings.uploads.ALLOWED_CODE_EXTENSIONS
-    },
 }
 
 
