@@ -83,7 +83,9 @@ class RetrieveChunkEmbeddingService:
         return [chunk for _, chunk in scores]
 
     async def retrieve(
-        self, data: GetChunkEmbeddings, chat_session_id: UUID
+        self,
+        data: GetChunkEmbeddings,
+        chat_session_id: UUID,  # TODO: Add user_id and check ownership of the chat session
     ) -> tuple[list[ViewableChunkEmbedding], list[str]]:
         """
         Retrieves relevant context based on the provided query and owner ID.

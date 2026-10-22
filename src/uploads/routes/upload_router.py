@@ -7,7 +7,6 @@ from fastapi import (
     Request,
     UploadFile,
     File,
-    BackgroundTasks,
     Query,
     Depends,
 )
@@ -15,8 +14,8 @@ from starlette.responses import JSONResponse
 
 from src.database.utils import Pagination
 from src.response.delivery import send_success_response
-from src.uploads.dependencies import get_upload_service
-from src.uploads.services.ingestion_service import IngestionService
+from src.uploads.dependencies import get_upload_service, get_ingestion_runner
+from src.uploads.services.ingestion_service import IngestionRunner, build_job
 from src.uploads.services.upload_service import UploadService
 
 upload_router = APIRouter(prefix="/uploads", tags=["Uploads"])
@@ -31,7 +30,7 @@ async def upload_file(
     request: Request,
     chat_session_id: UUID,
     upload_service: Annotated[UploadService, Depends(get_upload_service)],
-    background_tasks: BackgroundTasks,
+    runner: Annotated[IngestionRunner, Depends(get_ingestion_runner)],
     file: UploadFile = File(...),
 ) -> JSONResponse:
     """
@@ -44,9 +43,7 @@ async def upload_file(
         file=file,
     )
 
-    job = IngestionService.build_job(document=document)
-
-    background_tasks.add_task(IngestionService.run_ingestion, job, request)
+    runner.start(build_job(document))
 
     return send_success_response(
         message="File uploaded successfully.",
@@ -107,3 +104,20 @@ async def get_uploaded_file_status(
         status_code=status.HTTP_200_OK,
         data={"status": document_status},
     )
+
+
+@upload_router.post("{chat_session_id}/{file_id}/reprocess", status_code=202)
+async def reprocess(
+    request: Request,
+    chat_session_id: UUID,
+    file_id: UUID,
+    upload_service: Annotated[UploadService, Depends(get_upload_service)],
+    runner: Annotated[IngestionRunner, Depends(get_ingestion_runner)],
+):
+    document = await upload_service.reprocess_uploaded_file(
+        chat_session_id=chat_session_id,
+        user_id=request.state.user_id,
+        document_id=file_id,
+    )
+    runner.start(build_job(document))
+    return document.viewable()

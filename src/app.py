@@ -17,6 +17,7 @@ from src.chat_session.routes.chat_session_router import chat_session_router
 from src.config.configs import settings
 from src.config.logger import setup_logging
 from src.config.paths import PUBLIC_PATHS
+from src.database.dependencies import DbSession
 from src.database.session import DatabaseSessionManager
 from src.exceptions.handlers import setup_exception_handlers
 from src.health.router import health_check_router
@@ -24,10 +25,21 @@ from src.middleware.anonymous_sessions import AnonymousSessionMiddleware
 from src.middleware.concurrent_request_limit import ConcurrentRequestLimitMiddleware
 from src.middleware.request_logger import RequestLoggerMiddleware
 from src.middleware.request_size_limit import RequestSizeLimitMiddleware
+from src.rag.dependencies import (
+    get_chunker_factory,
+    get_extraction_service,
+    get_downloader_service,
+    get_embedder,
+    get_status_reporter,
+)
 from src.rag.services.rerank.cross_encoder_reranker import (
     CrossEncoderReranker,
     CrossEncoderRerankerConfig,
 )
+from src.rag.services.utils import RunGuard
+from src.uploads.dependencies import get_object_storage, get_document_repository
+from src.uploads.services.ingestion_service import IngestionRunner
+from src.uploads.services.sweeper import Sweeper, SweeperConfig
 
 
 @asynccontextmanager
@@ -44,23 +56,41 @@ async def lifespan(app: FastAPI):
     # On startup
     await session_manager.connect()
 
+    runner = IngestionRunner(
+        session_manager=session_manager,
+        chunker_factory=get_chunker_factory(),
+        extraction=get_extraction_service(get_downloader_service(get_object_storage())),
+        embedder=get_embedder(),
+        status_reporter=get_status_reporter(get_document_repository(DbSession)),
+        guard=RunGuard(),
+    )
+    sweeper = Sweeper(
+        session_manager=session_manager,
+        storage=get_object_storage(),
+        runner=runner,
+        config=SweeperConfig(),
+    )
+
     app.state.session_manager = session_manager
+    app.state.ingestion_runner = runner
+
+    sweeper.start()
+
+    reranker = CrossEncoderReranker(
+        CrossEncoderRerankerConfig(
+            model_name=settings.rag.RERANKER_MODEL_NAME,
+            max_length=settings.rag.RERANKER_MAX_LENGTH,
+            batch_size=settings.rag.RERANKER_BATCH_SIZE,
+        )
+    )
+    await reranker.warm_up()
+    app.state.reranker = reranker
 
     try:
-        app.state.session_manager = session_manager
-
-        reranker = CrossEncoderReranker(
-            CrossEncoderRerankerConfig(
-                model_name=settings.rag.RERANKER_MODEL_NAME,
-                max_length=settings.rag.RERANKER_MAX_LENGTH,
-                batch_size=settings.rag.RERANKER_BATCH_SIZE,
-            )
-        )
-        await reranker.warm_up()
-        app.state.reranker = reranker
-
         yield
     finally:
+        await sweeper.stop()
+        await runner.shutdown()
         await session_manager.disconnect()
 
 

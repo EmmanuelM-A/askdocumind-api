@@ -146,6 +146,7 @@ class _UploadSettings(_BaseSettings):
     PROCESSING_TIMEOUT_SECS: int = Field(default=30, ge=1, le=300)
     BLOCK_SIZE_TO_READ_BYTES: int = Field(default=8192, ge=1024, le=65536)
     MAX_FILE_SIZE_MB: int = Field(default=10, ge=1, le=500)
+    MAX_CONCURRENT_UPLOADS: int = Field(default=5, ge=1, le=50)
 
 
 class _RAGSettings(_BaseSettings):

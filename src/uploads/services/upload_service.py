@@ -23,7 +23,6 @@ from src.uploads.domain.document import DocumentStatus
 from src.uploads.models.document import Document
 from src.uploads.models.mapper import ViewableDocument
 from src.uploads.repository.document_repository import DocumentRepository
-from src.uploads.services.ingestion_service import IngestionService
 from src.uploads.storage.object_storage import ObjectStorage
 
 _logger = logging.getLogger(__name__)
@@ -244,7 +243,7 @@ class UploadService:
 
     async def reprocess_uploaded_file(
         self, chat_session_id: UUID, user_id: UUID, document_id: UUID
-    ) -> None:
+    ) -> Document:
         await self._verify_existence_and_ownership(chat_session_id, user_id)
 
         document = await self._document_repository.get_by_id(document_id)
@@ -282,9 +281,7 @@ class UploadService:
                 error_code="INVALID_DOCUMENT_STATE",
             )
 
-        job = IngestionService.build_job(document=document)
-
-        # Implement a background task to run the ingestion process
+        return document
 
     async def _verify_existence_and_ownership(
         self, chat_session_id: UUID, user_id: UUID

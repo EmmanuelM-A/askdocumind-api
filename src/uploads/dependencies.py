@@ -11,9 +11,11 @@ from src.config.configs import settings
 from src.database.dependencies import DbSession
 from src.uploads.repository.document_repository import DocumentRepository
 from src.uploads.repository.document_repository_impl import DocumentRepositoryImpl
+from src.uploads.services.ingestion_service import IngestionRunner
 from src.uploads.services.upload_service import UploadService
 from src.uploads.storage.aws_s3_object_storage import AWSS3ObjectStorage
 from src.uploads.storage.object_storage import ObjectStorage
+from fastapi import Request
 
 
 def get_document_repository(session: DbSession) -> DocumentRepository:
@@ -61,3 +63,7 @@ def get_upload_service(
         chat_session_repository=chat_session_repository,
         object_storage=object_storage,
     )
+
+
+def get_ingestion_runner(request: Request) -> IngestionRunner:
+    return request.app.state.ingestion_runner
