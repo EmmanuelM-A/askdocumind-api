@@ -63,6 +63,7 @@ async def lifespan(app: FastAPI):
         embedder=get_embedder(),
         status_reporter=get_status_reporter(get_document_repository(DbSession)),
         guard=RunGuard(),
+        max_concurrent=settings.uploads.MAX_CONCURRENT_UPLOADS,
     )
     sweeper = Sweeper(
         session_manager=session_manager,

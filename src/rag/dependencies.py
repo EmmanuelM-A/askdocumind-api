@@ -30,7 +30,7 @@ from src.rag.services.report.document_status_reporter import DocumentStatusRepor
 from src.rag.services.report.status_reporter import StatusReporter
 from src.rag.services.rerank.reranker import Reranker
 from src.rag.services.retrieve import RetrieveChunkEmbeddingService
-from src.rag.services.store import StoreChunkEmbeddingService, RunGuard
+from src.rag.services.store import StoreChunkEmbeddingService
 from src.shared.prompts import load_prompt_from
 from src.uploads.dependencies import get_document_repository, get_object_storage
 from src.uploads.repository.document_repository import DocumentRepository
@@ -108,8 +108,6 @@ def get_rag_storage_service(
         embedder=embedder,
         chunk_embedding_repository=chunk_embedding_repository,
         status_reporter=status_reporter,
-        guard=RunGuard(),
-        max_concurrent=settings.rag.MAX_CONCURRENCY,
     )
 
 

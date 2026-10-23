@@ -4,10 +4,8 @@ from contextlib import aclosing
 from typing import TypeVar
 from uuid import UUID
 
-from anyio import Semaphore
-
 from src.config.configs import settings
-from src.exceptions import conflict_error, unprocessable_content_error, ApiException
+from src.exceptions import unprocessable_content_error, ApiException
 from src.rag.models.chunk_embedding import ChunkEmbedding
 from src.rag.repository.chunk_embedding_repository import ChunkEmbeddingRepository
 from src.rag.services.chunk.factory import ChunkerFactory
@@ -19,7 +17,7 @@ from src.rag.services.report.status_reporter import (
     StatusConflict,
     StatusReportFailed,
 )
-from src.rag.services.utils import RunGuard, StorageJob
+from src.rag.services.utils import StorageJob
 
 _logger = logging.getLogger(__name__)
 
@@ -66,42 +64,22 @@ class StoreChunkEmbeddingService:
         embedder: Embedder,
         chunk_embedding_repository: ChunkEmbeddingRepository,
         status_reporter: StatusReporter,
-        guard: RunGuard,
-        max_concurrent: int = 1,
     ) -> None:
-        if max_concurrent < 1:
-            raise ValueError("max_concurrent must be at least 1.")
-
         self._extraction = extraction
         self._chunker_factory = chunker_factory
         self._embedder = embedder
         self._chunk_embedding_repository = chunk_embedding_repository
         self._status = status_reporter
-        self._guard = guard
-        self._slots = Semaphore(max_concurrent)
 
-    async def run(self, job: StorageJob) -> None:
+    async def run(self, job: StorageJob) -> bool:
         """
-        Runs the ingestion process for a given job. It ensures that only one
-        ingestion process runs for a given document at a time using the
-        RunGuard.
-        """
-        if not self._guard.acquire(job.document_id):
-            _logger.info(
-                "The document '%s' is already being processed. Skipping...",
-                job.document_id,
-            )
-            return
+        Claims the document, then extracts, chunks, embeds and stores its
+        chunk embeddings. The chunks are only flushed, so the caller must
+        commit the session before it marks the document as completed.
 
-        try:
-            async with self._slots:
-                await self._handle_processing_for(job)
-        finally:
-            self._guard.release(job.document_id)
-
-    async def _handle_processing_for(self, job: StorageJob) -> None:
-        """
-        Processes the ingestion of a document/file into the storage system.
+        :returns: True when the chunks are stored and the document is ready
+            to be marked as completed. False when the document was skipped
+            or failed.
         """
         # Phase 1: Claim the document.
         try:
@@ -114,14 +92,14 @@ class StoreChunkEmbeddingService:
                 "processed, finished or removed. Skipping...",
                 job.document_id,
             )
-            return
+            return False
         except StatusReportFailed:
             _logger.warning(
                 "Could not report the processing status for the document "
                 "'%s'. Skipping...",
                 job.document_id,
             )
-            return
+            return False
 
         # Phase 2: Process and store chunk embeddings for the document.
         try:
@@ -142,22 +120,9 @@ class StoreChunkEmbeddingService:
                 )
         except Exception as exc:
             await self._handle_fail(job, exc)
-            return
+            return False
 
-        # Phase 3: finish.
-        try:
-            await self._status.report(job.document_id, ProcessingStatus.COMPLETED)
-        except StatusConflict:
-            _logger.warning(
-                "The document '%s' changed state during the run. " "Removing chunks.",
-                job.document_id,
-            )
-            await self._handle_safe_delete(job.document_id)
-        except StatusReportFailed:
-            _logger.error(
-                "Failed to report the document '%s' as completed.",
-                job.document_id,
-            )
+        return True
 
     async def _handle_storage(self, job: StorageJob) -> tuple[int, int]:
         chunker = self._chunker_factory.get_chunker(job.extension)
@@ -178,10 +143,11 @@ class StoreChunkEmbeddingService:
             async for batch in batches:
                 embeddings = await self._embedder.embed_chunks(batch)
 
+                # Not an ApiException, so the client gets the generic message.
                 if len(embeddings) != len(batch):
-                    raise conflict_error(
-                        message="Mismatch between number of chunks and " "embeddings.",
-                        error_code="COUNT_MISMATCH",
+                    raise RuntimeError(
+                        f"The embedder returned {len(embeddings)} embeddings "
+                        f"for {len(batch)} chunks."
                     )
 
                 await self._chunk_embedding_repository.create_many(
