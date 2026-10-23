@@ -22,7 +22,7 @@ from src.exceptions import unprocessable_content_error
 from src.rag.repository.chunk_embedding_repository_impl import (
     ChunkEmbeddingRepositoryImpl,
 )
-from src.shared.utils import BaseService
+from src.shared.services import BaseService
 from src.uploads.repository.document_repository_impl import DocumentRepositoryImpl
 from src.uploads.storage.object_storage import ObjectStorage
 

@@ -15,7 +15,7 @@ from src.chat_session.repository.chat_session_repository_impl import (
 from src.chat_session.services.chat_session_service import ChatSessionService
 from src.database.dependencies import DbSession, get_session_manager
 from src.database.session import DatabaseSessionManager
-from src.uploads.dependencies import get_object_storage
+from src.uploads.storage.dependencies import get_object_storage
 from src.uploads.storage.object_storage import ObjectStorage
 
 

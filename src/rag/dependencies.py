@@ -32,7 +32,8 @@ from src.rag.services.rerank.reranker import Reranker
 from src.rag.services.retrieve import RetrieveChunkEmbeddingService
 from src.rag.services.store import StoreChunkEmbeddingService
 from src.shared.prompts import load_prompt_from
-from src.uploads.dependencies import get_document_repository, get_object_storage
+from src.uploads.dependencies import get_document_repository
+from src.uploads.storage.dependencies import get_object_storage
 from src.uploads.repository.document_repository import DocumentRepository
 from src.uploads.storage.object_storage import ObjectStorage
 

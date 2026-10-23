@@ -37,7 +37,8 @@ from src.rag.services.rerank.cross_encoder_reranker import (
     CrossEncoderRerankerConfig,
 )
 from src.rag.services.utils import RunGuard
-from src.uploads.dependencies import get_object_storage, get_document_repository
+from src.uploads.dependencies import get_document_repository
+from src.uploads.storage.dependencies import get_object_storage
 from src.uploads.services.ingestion_service import IngestionRunner
 from src.uploads.services.sweeper import Sweeper, SweeperConfig
 

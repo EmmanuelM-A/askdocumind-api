@@ -28,7 +28,7 @@ from src.uploads.storage.object_storage import ObjectStorage
 _logger = logging.getLogger(__name__)
 
 _ALLOWED_EXTENSIONS = (
-    settings.uploads.ALLOWED_EXTENSIONS + settings.uploads.ALLOWED_CODE_EXTENSIONS,
+    settings.uploads.ALLOWED_FILE_EXTENSIONS + settings.uploads.ALLOWED_CODE_EXTENSIONS
 )
 
 _ALLOWED_CONTENT_TYPES = settings.uploads.ALLOWED_CONTENT_TYPES
@@ -93,7 +93,7 @@ class UploadService:
                 error_code="INVALID_FILENAME",
             )
 
-        extension = filename.split(".")[-1].lower()
+        extension = PureWindowsPath(filename).suffix.lower()
 
         if extension not in _ALLOWED_EXTENSIONS:
             raise unsupported_media_type_error(
