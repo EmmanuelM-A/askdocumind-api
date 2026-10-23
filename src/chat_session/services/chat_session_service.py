@@ -18,10 +18,11 @@ from src.chat_session.repository.chat_session_repository_impl import (
 )
 from src.chat_session.schemas.chat_session import CreateChatSession
 from src.database.session import DatabaseSessionManager
-from src.exceptions import unprocessable_content_error, forbidden_error, not_found_error
+from src.exceptions import unprocessable_content_error
 from src.rag.repository.chunk_embedding_repository_impl import (
     ChunkEmbeddingRepositoryImpl,
 )
+from src.shared.utils import BaseService
 from src.uploads.repository.document_repository_impl import DocumentRepositoryImpl
 from src.uploads.storage.object_storage import ObjectStorage
 
@@ -31,7 +32,7 @@ _logger = logging.getLogger(__name__)
 _MAX_CHATS_PER_USER = 5  # Maximum number of chat sessions allowed per user
 
 
-class ChatSessionService:
+class ChatSessionService(BaseService):
 
     def __init__(
         self,
@@ -41,8 +42,7 @@ class ChatSessionService:
         object_storage: ObjectStorage,
         session_manager: DatabaseSessionManager,
     ) -> None:
-        self._user_repository = user_repository
-        self._chat_session_repository = chat_session_repository
+        super().__init__(user_repository, chat_session_repository)
         self._chat_message_repository = chat_message_repository
         self._object_storage = object_storage
         self._session_manager = session_manager
@@ -106,19 +106,9 @@ class ChatSessionService:
         """
         await self._verify_user_exists(user_id)
 
-        chat_session = await self._chat_session_repository.get_by_id(chat_session_id)
-
-        if chat_session is None:
-            raise not_found_error(
-                message="The chat session with provided id does not exist",
-                error_code="CHAT_SESSION_NOT_FOUND",
-            )
-
-        if chat_session.user_id != user_id:
-            raise forbidden_error(
-                message="The user does not have permission to access this chat session",
-                error_code="ACCESS_DENIED",
-            )
+        chat_session = await self._verify_user_owns_chat_session(
+            user_id, chat_session_id
+        )
 
         return chat_session.viewable()
 
@@ -128,20 +118,7 @@ class ChatSessionService:
         to it.
         """
         await self._verify_user_exists(user_id)
-
-        chat_session = await self._chat_session_repository.get_by_id(chat_session_id)
-
-        if chat_session is None:
-            raise not_found_error(
-                message="The chat session with provided id does not exist",
-                error_code="CHAT_SESSION_NOT_FOUND",
-            )
-
-        if chat_session.user_id != user_id:
-            raise forbidden_error(
-                message="The user does not have permission to delete this chat session",
-                error_code="ACCESS_DENIED",
-            )
+        await self._verify_user_owns_chat_session(user_id, chat_session_id)
 
         prefix = f"{chat_session_id}/"
 
@@ -178,20 +155,7 @@ class ChatSessionService:
         Retrieve the messages for a chat session, ensuring that the user has access to it.
         """
         await self._verify_user_exists(user_id)
-
-        chat_session = await self._chat_session_repository.get_by_id(chat_session_id)
-
-        if chat_session is None:
-            raise not_found_error(
-                message="The chat session with provided id does not exist",
-                error_code="CHAT_SESSION_NOT_FOUND",
-            )
-
-        if chat_session.user_id != user_id:
-            raise forbidden_error(
-                message="The user does not have permission to access this chat session",
-                error_code="ACCESS_DENIED",
-            )
+        await self._verify_user_owns_chat_session(user_id, chat_session_id)
 
         messages = await self._chat_message_repository.list_by_criteria(
             user_id=user_id,
@@ -199,16 +163,3 @@ class ChatSessionService:
         )
 
         return [message.viewable() for message in messages]
-
-    async def _verify_user_exists(self, user_id: UUID) -> None:
-        """
-        Verify that a user exists in the system.
-        Raises an exception if the user does not exist.
-        """
-        user = await self._user_repository.get_by_id(user_id)
-        if user is None:
-            raise not_found_error(
-                message=f"The user with provided id does not exist",
-                error_code="USER_NOT_FOUND",
-            )
-        _logger.debug("The user '%s' exists in the system.", user_id)

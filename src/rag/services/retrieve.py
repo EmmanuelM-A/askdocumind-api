@@ -2,7 +2,13 @@ import logging
 from math import sqrt
 from uuid import UUID
 
+from src.auth.models.user import User
+from src.auth.repository.user_repository import UserRepository
+from src.chat_session.models.chat_session import ChatSession
+from src.chat_session.repository.chat_session_repository import \
+    ChatSessionRepository
 from src.config.configs import settings
+from src.exceptions import not_found_error, forbidden_error
 from src.rag.models.chunk_embedding import ChunkEmbedding
 from src.rag.models.mapper import ViewableChunkEmbedding
 from src.rag.repository.chunk_embedding_repository import ChunkEmbeddingRepository
@@ -11,11 +17,12 @@ from src.rag.services.embed.embedder import Embedder
 from src.rag.services.expand.query_expander import QueryExpander
 from src.rag.services.fallback.web_searcher import WebSearcher
 from src.rag.services.rerank.reranker import Reranker
+from src.shared.utils import BaseService
 
 _logger = logging.getLogger(__name__)
 
 
-class RetrieveChunkEmbeddingService:
+class RetrieveChunkEmbeddingService(BaseService):
 
     def __init__(
         self,
@@ -24,12 +31,16 @@ class RetrieveChunkEmbeddingService:
         web_searcher: WebSearcher,
         embedder: Embedder,
         chunk_embedding_repository: ChunkEmbeddingRepository,
+        chat_session_repository: ChatSessionRepository,
+        user_repository: UserRepository,
     ) -> None:
+        super().__init__(user_repository, chat_session_repository)
         self._query_expander = query_expander
         self._reranker = reranker
         self._web_searcher = web_searcher
         self._embedder = embedder
         self._chunk_embedding_repository = chunk_embedding_repository
+        self._chat_session_repository = chat_session_repository
 
     async def _similarity_search(
         self,
@@ -85,11 +96,16 @@ class RetrieveChunkEmbeddingService:
     async def retrieve(
         self,
         data: GetChunkEmbeddings,
-        chat_session_id: UUID,  # TODO: Add user_id and check ownership of the chat session
+        chat_session_id: UUID,
+        authenticated_user_id: UUID,
     ) -> tuple[list[ViewableChunkEmbedding], list[str]]:
         """
         Retrieves relevant context based on the provided query and owner ID.
         """
+        await self._verify_user_owns_chat_session(
+            authenticated_user_id, chat_session_id
+        )
+
         expanded_query = await self._query_expander.expand(data.query)
 
         query_vector = await self._embedder.embed_query(expanded_query)

@@ -2,6 +2,8 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
+from src.auth.dependencies import get_user_repository
+from src.auth.repository.user_repository import UserRepository
 from src.chat_session.dependencies import get_chat_session_repository
 from src.chat_session.repository.chat_session_repository import ChatSessionRepository
 from src.config.configs import settings
@@ -22,6 +24,7 @@ from src.rag.services.expand.query_expander import QueryExpander
 from src.rag.services.extract.extraction import Extraction
 from src.rag.services.extract.extractors.factory import ExtractorFactory
 from src.rag.services.extract.file_downloader import S3FileDownloader
+from src.rag.services.fallback.brave_api_web_searcher import BraveAPIWebSearcher
 from src.rag.services.fallback.web_searcher import WebSearcher
 from src.rag.services.report.document_status_reporter import DocumentStatusReporter
 from src.rag.services.report.status_reporter import StatusReporter
@@ -110,27 +113,6 @@ def get_rag_storage_service(
     )
 
 
-def build_rag_storage_service(
-    session: DbSession,
-    extraction: Annotated[Extraction, Depends(get_extraction_service)],
-    chunker_factory: Annotated[ChunkerFactory, Depends(get_chunker_factory)],
-    embedder: Annotated[Embedder, Depends(get_embedder)],
-    status_reporter: Annotated[StatusReporter, Depends(get_status_reporter)],
-) -> StoreChunkEmbeddingService:
-    """
-    Provide a StoreChunkEmbeddingService instance for the current request.
-    """
-    return StoreChunkEmbeddingService(
-        extraction=extraction,
-        chunker_factory=chunker_factory,
-        embedder=embedder,
-        chunk_embedding_repository=get_chunk_embedding_repository(session),
-        status_reporter=status_reporter,
-        guard=RunGuard(),
-        max_concurrent=settings.rag.MAX_CONCURRENCY,
-    )
-
-
 def get_query_expander() -> QueryExpander:
     """
     Provide a QueryExpander service instance for the current request.
@@ -152,11 +134,31 @@ def get_reranker(request: Request) -> Reranker:
 
 
 def get_web_searcher() -> WebSearcher:
-    pass
+    return BraveAPIWebSearcher()
 
 
-def get_rag_retrieval_service() -> RetrieveChunkEmbeddingService:
-    pass
+def get_rag_retrieval_service(
+    query_expander: Annotated[QueryExpander, Depends(get_query_expander)],
+    reranker: Annotated[Reranker, Depends(get_reranker)],
+    web_searcher: Annotated[WebSearcher, Depends(get_web_searcher)],
+    embedder: Annotated[Embedder, Depends(get_embedder)],
+    chunk_embedding_repository: Annotated[
+        ChunkEmbeddingRepository, Depends(get_chunk_embedding_repository)
+    ],
+    chat_session_repository: Annotated[
+        ChatSessionRepository, Depends(get_chat_session_repository)
+    ],
+    user_repository: Annotated[UserRepository, Depends(get_user_repository)],
+) -> RetrieveChunkEmbeddingService:
+    return RetrieveChunkEmbeddingService(
+        query_expander=query_expander,
+        reranker=reranker,
+        web_searcher=web_searcher,
+        embedder=embedder,
+        chunk_embedding_repository=chunk_embedding_repository,
+        chat_session_repository=chat_session_repository,
+        user_repository=user_repository,
+    )
 
 
 def get_rag_deletion_service(
