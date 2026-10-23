@@ -65,3 +65,20 @@ class ChunkEmbeddingRepository(ABC):
             "The method 'get_candidate_chunk_embeddings' must be implemented "
             "by its subclass"
         )
+
+    @abstractmethod
+    async def search_by_similarity(
+        self,
+        chat_session_id: UUID,
+        vector: list[float],
+        min_similarity: float,
+        limit: int,
+    ) -> list[ChunkEmbedding]:
+        """
+        Returns up to `limit` chunks from the completed documents of a chat
+        session whose cosine similarity to the vector is at least
+        `min_similarity`, most similar first.
+        """
+        raise NotImplementedError(
+            "The method 'search_by_similarity' must be implemented by its subclass"
+        )

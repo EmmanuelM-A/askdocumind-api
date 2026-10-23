@@ -196,8 +196,9 @@ class _RAGSettings(_BaseSettings):
     BRAVE_API_KEY: SecretStr = Field(default=...)
 
     # Retrieval
-    MIN_CHUNKS_NEEDED_FOR_WEB_SEARCH: int = Field(default=25, ge=20, le=100)
-    MIN_CHUNKS_NEEDED_FOR_RERANKING: int = Field(default=55, ge=50, le=100)
+    MIN_CHUNKS_NEEDED_FOR_WEB_SEARCH: int = Field(default=3, ge=1, le=100)
+    MIN_CHUNKS_NEEDED_FOR_RERANKING: int = Field(default=2, ge=2, le=100)
+    MAX_RETRIEVAL_CANDIDATES: int = Field(default=50, ge=1, le=200)
 
     @field_validator("BRAVE_API_KEY")
     @classmethod

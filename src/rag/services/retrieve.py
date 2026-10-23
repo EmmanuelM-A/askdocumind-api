@@ -1,23 +1,16 @@
 import logging
-from math import sqrt
 from uuid import UUID
 
-from src.auth.models.user import User
 from src.auth.repository.user_repository import UserRepository
-from src.chat_session.models.chat_session import ChatSession
-from src.chat_session.repository.chat_session_repository import \
-    ChatSessionRepository
+from src.chat_session.repository.chat_session_repository import ChatSessionRepository
 from src.config.configs import settings
-from src.exceptions import not_found_error, forbidden_error
-from src.rag.models.chunk_embedding import ChunkEmbedding
-from src.rag.models.mapper import ViewableChunkEmbedding
 from src.rag.repository.chunk_embedding_repository import ChunkEmbeddingRepository
-from src.rag.schemas.retrieval import GetChunkEmbeddings
+from src.rag.schemas.retrieval import GetChunkEmbeddings, RetrievalResults
 from src.rag.services.embed.embedder import Embedder
 from src.rag.services.expand.query_expander import QueryExpander
 from src.rag.services.fallback.web_searcher import WebSearcher
 from src.rag.services.rerank.reranker import Reranker
-from src.shared.utils import BaseService
+from src.shared.services import BaseService
 
 _logger = logging.getLogger(__name__)
 
@@ -40,65 +33,13 @@ class RetrieveChunkEmbeddingService(BaseService):
         self._web_searcher = web_searcher
         self._embedder = embedder
         self._chunk_embedding_repository = chunk_embedding_repository
-        self._chat_session_repository = chat_session_repository
-
-    async def _similarity_search(
-        self,
-        chat_session_id: UUID,
-        vector: list[float],
-        threshold: float = 0.7,
-    ) -> list[ChunkEmbedding]:
-        """
-        Performs a similarity search for chunk embeddings based on the provided
-        vector.
-        """
-        if vector is None:
-            return []
-
-        candidates = (
-            await self._chunk_embedding_repository.get_candidate_chunk_embeddings(
-                chat_session_id=chat_session_id
-            )
-        )
-
-        vector_norm = sqrt(sum(x * x for x in vector))
-
-        if vector_norm == 0:
-            return []
-
-        scores: list[tuple[float, ChunkEmbedding]] = []
-
-        for candidate in candidates:
-            embedding = candidate.embedding
-
-            if embedding is None:
-                continue
-
-            embedding_as_list = embedding.tolist()
-
-            embedding_norm = sqrt(sum(x * x for x in embedding_as_list))
-
-            if embedding_norm == 0:
-                continue
-
-            dot_product = sum(x * y for x, y in zip(vector, embedding_as_list))
-
-            similarity = dot_product / (vector_norm * embedding_norm)
-
-            if similarity >= threshold:
-                scores.append((similarity, candidate))
-
-        # Sort by similarity in descending order
-        scores.sort(key=lambda x: x[0], reverse=True)
-
-        return [chunk for _, chunk in scores]
 
     async def retrieve(
         self,
         data: GetChunkEmbeddings,
         chat_session_id: UUID,
         authenticated_user_id: UUID,
-    ) -> tuple[list[ViewableChunkEmbedding], list[str]]:
+    ) -> RetrievalResults:
         """
         Retrieves relevant context based on the provided query and owner ID.
         """
@@ -110,10 +51,11 @@ class RetrieveChunkEmbeddingService(BaseService):
 
         query_vector = await self._embedder.embed_query(expanded_query)
 
-        relevant_chunks: list[ChunkEmbedding] = await self._similarity_search(
+        relevant_chunks = await self._chunk_embedding_repository.search_by_similarity(
             chat_session_id=chat_session_id,
             vector=query_vector,
-            threshold=data.configs.threshold,
+            min_similarity=data.configs.threshold,
+            limit=max(data.configs.top_k, settings.rag.MAX_RETRIEVAL_CANDIDATES),
         )
 
         web_search_needed = (
@@ -128,7 +70,7 @@ class RetrieveChunkEmbeddingService(BaseService):
             additional_results.extend(web_content)
 
         rerank_possible = (
-            len(relevant_chunks) > settings.rag.MIN_CHUNKS_NEEDED_FOR_RERANKING
+            len(relevant_chunks) >= settings.rag.MIN_CHUNKS_NEEDED_FOR_RERANKING
         )
 
         if rerank_possible:
@@ -139,4 +81,8 @@ class RetrieveChunkEmbeddingService(BaseService):
 
         top_k_relevant_chunks = relevant_chunks[: data.configs.top_k]
 
-        return [chunk.viewable() for chunk in top_k_relevant_chunks], additional_results
+        return RetrievalResults(
+            chunks=[chunk.viewable() for chunk in top_k_relevant_chunks],
+            additional=additional_results,
+            expanded_query=expanded_query,
+        )
