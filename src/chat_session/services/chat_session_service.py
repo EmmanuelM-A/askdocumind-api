@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from uuid import UUID
 
@@ -8,9 +9,21 @@ from src.chat_session.repository.chat_message_repository import (
     ChatMessageRepository,
     ChatMessageSearchFilter,
 )
+from src.chat_session.repository.chat_message_repository_impl import (
+    ChatMessageRepositoryImpl,
+)
 from src.chat_session.repository.chat_session_repository import ChatSessionRepository
+from src.chat_session.repository.chat_session_repository_impl import (
+    ChatSessionRepositoryImpl,
+)
 from src.chat_session.schemas.chat_session import CreateChatSession
+from src.database.session import DatabaseSessionManager
 from src.exceptions import unprocessable_content_error, forbidden_error, not_found_error
+from src.rag.repository.chunk_embedding_repository_impl import (
+    ChunkEmbeddingRepositoryImpl,
+)
+from src.uploads.repository.document_repository_impl import DocumentRepositoryImpl
+from src.uploads.storage.object_storage import ObjectStorage
 
 _logger = logging.getLogger(__name__)
 
@@ -25,10 +38,14 @@ class ChatSessionService:
         user_repository: UserRepository,
         chat_session_repository: ChatSessionRepository,
         chat_message_repository: ChatMessageRepository,
+        object_storage: ObjectStorage,
+        session_manager: DatabaseSessionManager,
     ) -> None:
         self._user_repository = user_repository
         self._chat_session_repository = chat_session_repository
         self._chat_message_repository = chat_message_repository
+        self._object_storage = object_storage
+        self._session_manager = session_manager
 
     async def create_new_chat_session(
         self, user_id: UUID, data: CreateChatSession
@@ -126,7 +143,29 @@ class ChatSessionService:
                 error_code="ACCESS_DENIED",
             )
 
-        await self._chat_session_repository.delete(chat_session_id)
+        prefix = f"{chat_session_id}/"
+
+        await asyncio.to_thread(self._object_storage.delete_prefix, prefix)
+
+        async with self._session_manager.get_session() as session:
+            chunk_repository = ChunkEmbeddingRepositoryImpl(session)
+            messages_repository = ChatMessageRepositoryImpl(session)
+            documents_repository = DocumentRepositoryImpl(session)
+            chat_session_repository = ChatSessionRepositoryImpl(session)
+
+            await chunk_repository.delete_by_chat_session(chat_session_id)
+            await messages_repository.delete_all(chat_session_id)
+            await documents_repository.delete_by_chat_session(chat_session_id)
+            await chat_session_repository.delete(chat_session_id)
+
+            await session.commit()
+
+        try:
+            await asyncio.to_thread(self._object_storage.delete_prefix, prefix)
+        except Exception:
+            _logger.exception(
+                "Second file cleanup failed for session '%s'", chat_session_id
+            )
 
         _logger.debug(
             "Chat session '%s' deleted for user '%s'", chat_session_id, user_id

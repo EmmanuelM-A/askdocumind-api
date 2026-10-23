@@ -117,13 +117,13 @@ class ChatMessageRepositoryImpl(ChatMessageRepository, BaseRepository):
                 cause=e,
             ) from e
 
-    async def delete_many(self, chat_message_ids: list[UUID]) -> int:
-        if not chat_message_ids:
-            return 0
-
-        statement = delete(ChatMessage).where(ChatMessage.id.in_(chat_message_ids))
+    async def delete_all(self, chat_session_id: UUID) -> int:
+        statement = delete(ChatMessage).where(
+            ChatMessage.chat_session_id == chat_session_id
+        )
         try:
             result = await self._session.execute(statement)
+            await self._session.flush()
             return result.rowcount
         except Exception as e:
             raise database_error(

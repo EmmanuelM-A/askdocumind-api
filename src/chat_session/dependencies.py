@@ -13,7 +13,10 @@ from src.chat_session.repository.chat_session_repository_impl import (
     ChatSessionRepositoryImpl,
 )
 from src.chat_session.services.chat_session_service import ChatSessionService
-from src.database.dependencies import DbSession
+from src.database.dependencies import DbSession, get_session_manager
+from src.database.session import DatabaseSessionManager
+from src.uploads.dependencies import get_object_storage
+from src.uploads.storage.object_storage import ObjectStorage
 
 
 def get_chat_session_repository(session: DbSession) -> ChatSessionRepository:
@@ -38,6 +41,8 @@ def get_chat_session_service(
     chat_message_repository: Annotated[
         ChatMessageRepository, Depends(get_chat_message_repository)
     ],
+    object_storage: Annotated[ObjectStorage, Depends(get_object_storage)],
+    session_manager: Annotated[DatabaseSessionManager, Depends(get_session_manager)],
 ) -> ChatSessionService:
     """
     Provide a ChatSessionService for the current request.
@@ -46,4 +51,6 @@ def get_chat_session_service(
         user_repository=user_repository,
         chat_session_repository=chat_session_repository,
         chat_message_repository=chat_message_repository,
+        object_storage=object_storage,
+        session_manager=session_manager,
     )

@@ -81,7 +81,7 @@ class ChatMessageRepository(ABC):
         )
 
     @abstractmethod
-    async def delete_many(self, chat_message_ids: list[UUID]) -> int:
+    async def delete_all(self, chat_session_id: UUID) -> int:
         """
         Delete multiple chat messages by their identifiers.
         """
