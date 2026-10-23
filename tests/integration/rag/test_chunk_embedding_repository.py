@@ -4,6 +4,7 @@ Integration tests for ChunkEmbeddingRepositoryImpl.
 
 import datetime as dt
 import importlib
+from math import sqrt
 
 import pkgutil
 import uuid
@@ -25,6 +26,7 @@ from src.rag.models.chunk_embedding import ChunkEmbedding
 from src.rag.repository.chunk_embedding_repository_impl import (
     ChunkEmbeddingRepositoryImpl,
 )
+from src.uploads.domain.document import DocumentStatus
 
 
 def _import_all_models():
@@ -110,6 +112,14 @@ def _vector(index=0):
     return [0.1 + 0.01 * index] * DIMENSIONS
 
 
+QUERY = [1.0] + [0.0] * (DIMENSIONS - 1)
+
+
+def _similar_to_query(similarity):
+    """A unit vector whose cosine similarity to QUERY is `similarity`."""
+    return [similarity, sqrt(1 - similarity**2)] + [0.0] * (DIMENSIONS - 2)
+
+
 def _chunk(chat_session_id, document_id, index=0, embedding=None):
     return ChunkEmbedding(
         id=uuid.uuid4(),
@@ -125,6 +135,28 @@ async def _seed(repo, chat_session_id, document_id, count):
     chunks = [_chunk(chat_session_id, document_id, i) for i in range(count)]
     await repo.create_many(chunks)
     return chunks
+
+
+async def _seed_similar(repo, chat_session_id, document_id, similarities):
+    chunks = [
+        _chunk(chat_session_id, document_id, i, _similar_to_query(similarity))
+        for i, similarity in enumerate(similarities)
+    ]
+    await repo.create_many(chunks)
+    return chunks
+
+
+async def _set_status(session, document_id, status):
+    table = Base.metadata.tables["documents"]
+    await session.execute(
+        table.update().where(table.c.id == document_id).values(status=status)
+    )
+
+
+async def _completed_parents(session, chat_session_id=None):
+    chat_session_id, document_id = await _parents(session, chat_session_id)
+    await _set_status(session, document_id, DocumentStatus.COMPLETED)
+    return chat_session_id, document_id
 
 
 async def _ids(session, **filters):
@@ -148,6 +180,11 @@ def repo(session):
 @pytest_asyncio.fixture
 async def parents(session):
     return await _parents(session)
+
+
+@pytest_asyncio.fixture
+async def completed_parents(session):
+    return await _completed_parents(session)
 
 
 class TestCreateMany:
@@ -412,12 +449,143 @@ class TestGetCandidateChunkEmbeddings:
         assert await repo.get_candidate_chunk_embeddings(chat_session_id) == []
 
 
+class TestSearchBySimilarity:
+    async def test_returns_most_similar_first(self, repo, completed_parents):
+        chat_session_id, document_id = completed_parents
+        low, high, middle = await _seed_similar(
+            repo, chat_session_id, document_id, [0.5, 0.9, 0.7]
+        )
+
+        result = await repo.search_by_similarity(chat_session_id, QUERY, 0.0, 10)
+
+        assert [c.id for c in result] == [high.id, middle.id, low.id]
+
+    async def test_excludes_chunks_below_min_similarity(self, repo, completed_parents):
+        chat_session_id, document_id = completed_parents
+        _, kept, also_kept = await _seed_similar(
+            repo, chat_session_id, document_id, [0.2, 0.6, 0.8]
+        )
+
+        result = await repo.search_by_similarity(chat_session_id, QUERY, 0.5, 10)
+
+        assert {c.id for c in result} == {kept.id, also_kept.id}
+
+    async def test_returns_at_most_limit_most_similar(self, repo, completed_parents):
+        chat_session_id, document_id = completed_parents
+        chunks = await _seed_similar(
+            repo, chat_session_id, document_id, [0.5, 0.6, 0.7, 0.8, 0.9]
+        )
+
+        result = await repo.search_by_similarity(chat_session_id, QUERY, 0.0, 2)
+
+        assert [c.id for c in result] == [chunks[4].id, chunks[3].id]
+
+    async def test_returns_chunks_across_completed_documents(
+        self, repo, session, completed_parents
+    ):
+        chat_session_id, first_document = completed_parents
+        _, second_document = await _completed_parents(session, chat_session_id)
+        first = await _seed_similar(repo, chat_session_id, first_document, [0.8])
+        second = await _seed_similar(repo, chat_session_id, second_document, [0.9])
+
+        result = await repo.search_by_similarity(chat_session_id, QUERY, 0.0, 10)
+
+        assert [c.id for c in result] == [second[0].id, first[0].id]
+
+    async def test_excludes_other_chat_sessions(
+        self, repo, session, completed_parents
+    ):
+        chat_session_id, document_id = completed_parents
+        other_chat_session, other_document = await _completed_parents(session)
+        mine = await _seed_similar(repo, chat_session_id, document_id, [0.6])
+        await _seed_similar(repo, other_chat_session, other_document, [0.9, 0.95])
+
+        result = await repo.search_by_similarity(chat_session_id, QUERY, 0.0, 10)
+
+        assert [c.id for c in result] == [mine[0].id]
+
+    @pytest.mark.parametrize(
+        "status",
+        [s for s in DocumentStatus if s is not DocumentStatus.COMPLETED],
+    )
+    async def test_excludes_documents_that_are_not_completed(
+        self, repo, session, completed_parents, status
+    ):
+        chat_session_id, completed_document = completed_parents
+        _, other_document = await _parents(session, chat_session_id)
+        await _set_status(session, other_document, status)
+        completed = await _seed_similar(
+            repo, chat_session_id, completed_document, [0.6]
+        )
+        await _seed_similar(repo, chat_session_id, other_document, [0.9])
+
+        result = await repo.search_by_similarity(chat_session_id, QUERY, 0.0, 10)
+
+        assert [c.id for c in result] == [completed[0].id]
+
+    async def test_finds_chunks_when_other_sessions_are_closer(
+        self, repo, session, completed_parents
+    ):
+        chat_session_id, document_id = completed_parents
+        other_chat_session, other_document = await _completed_parents(session)
+        await _seed_similar(repo, other_chat_session, other_document, [0.99] * 200)
+        mine = await _seed_similar(
+            repo, chat_session_id, document_id, [0.5, 0.6, 0.7]
+        )
+
+        result = await repo.search_by_similarity(chat_session_id, QUERY, 0.0, 10)
+
+        assert [c.id for c in result] == [c.id for c in reversed(mine)]
+
+    async def test_returns_list_with_loaded_fields(self, repo, completed_parents):
+        chat_session_id, document_id = completed_parents
+        await repo.create_many(
+            [_chunk(chat_session_id, document_id, 2, _similar_to_query(0.8))]
+        )
+
+        result = await repo.search_by_similarity(chat_session_id, QUERY, 0.0, 10)
+
+        assert isinstance(result, list)
+        assert result[0].chunk_text == "chunk 2"
+        assert result[0].chunk_index == 2
+        assert [float(v) for v in result[0].embedding] == pytest.approx(
+            _similar_to_query(0.8), abs=1e-6
+        )
+
+    async def test_no_chunks_returns_empty_list(self, repo, completed_parents):
+        chat_session_id, _ = completed_parents
+        assert await repo.search_by_similarity(chat_session_id, QUERY, 0.0, 10) == []
+
+    async def test_unknown_chat_session_returns_empty_list(self, repo):
+        assert await repo.search_by_similarity(uuid.uuid4(), QUERY, 0.0, 10) == []
+
+    async def test_deleted_chunks_are_not_returned(self, repo, completed_parents):
+        chat_session_id, document_id = completed_parents
+        await _seed_similar(repo, chat_session_id, document_id, [0.6, 0.7])
+        await repo.delete_by_document(document_id)
+
+        assert await repo.search_by_similarity(chat_session_id, QUERY, 0.0, 10) == []
+
+    async def test_wrong_query_dimension_raises(self, repo, completed_parents):
+        chat_session_id, document_id = completed_parents
+        await _seed_similar(repo, chat_session_id, document_id, [0.6])
+
+        with pytest.raises(ApiException) as exc:
+            await repo.search_by_similarity(
+                chat_session_id, [1.0] * (DIMENSIONS + 1), 0.0, 10
+            )
+        assert exc.value.status_code == INTERNAL_ERROR
+
+
 CALLS = {
     "create_many": lambda r: r.create_many([_chunk(uuid.uuid4(), uuid.uuid4())]),
     "delete_by_chat_session": lambda r: r.delete_by_chat_session(uuid.uuid4()),
     "delete_by_document": lambda r: r.delete_by_document(uuid.uuid4()),
     "get_candidate_chunk_embeddings": lambda r: r.get_candidate_chunk_embeddings(
         uuid.uuid4()
+    ),
+    "search_by_similarity": lambda r: r.search_by_similarity(
+        uuid.uuid4(), QUERY, 0.0, 10
     ),
 }
 
