@@ -127,6 +127,7 @@ class TestNewSession:
         assert morsel["samesite"].lower() == "strict"
         assert morsel["path"] == "/"
         assert morsel["domain"] == (settings.auth.COOKIE_DOMAIN or "")
+        assert morsel["max-age"] == str(settings.auth.ANONYMOUS_TOKEN_TTL_HOURS * 3600)
 
     async def test_response_is_json(self, auth_client):
         response = await auth_client.post(_ENDPOINT)
@@ -176,12 +177,16 @@ class TestExistingSession:
         assert response.json()["data"]["id"] == str(user.id)
         assert await _count_users(session) == before
 
-    async def test_valid_cookie_reissues_same_token(self, auth_client, repo):
-        _, token = await _existing_user_with_token(repo)
+    async def test_valid_cookie_reissues_fresh_token_for_same_user(
+        self, auth_client, repo
+    ):
+        user, token = await _existing_user_with_token(repo)
 
         response = await auth_client.post(_ENDPOINT, headers=_cookie_header(token))
 
-        assert _issued_cookie(response).value == token
+        reissued = decode_anonymous_token(_issued_cookie(response).value)
+        assert reissued.user_id == user.id
+        assert reissued.exp >= decode_anonymous_token(token).exp
 
     async def test_issued_cookie_resumes_same_user(self, auth_client):
         first = await auth_client.post(_ENDPOINT)

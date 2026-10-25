@@ -23,17 +23,17 @@ OTHER_SECRET = "a-different-secret-key-with-32-plus-bytes"
 
 
 @pytest.fixture
-def ttl_days() -> int:
-    return 7
+def ttl_hours() -> int:
+    return 1
 
 
 @pytest.fixture(autouse=True)
-def auth_settings(monkeypatch, ttl_days):
+def auth_settings(monkeypatch, ttl_hours):
     """Replace the settings object used by the token service."""
     fake = SimpleNamespace(
         auth=SimpleNamespace(
             ANONYMOUS_TOKEN_SECRET=SecretStr(SECRET),
-            ANONYMOUS_TOKEN_TTL_DAYS=ttl_days,
+            ANONYMOUS_TOKEN_TTL_HOURS=ttl_hours,
         )
     )
     monkeypatch.setattr(token_service, "settings", fake)
@@ -102,13 +102,13 @@ def test_create_payload_contains_expected_claims(user_id):
     assert {"iat", "exp"} <= claims.keys()
 
 
-@pytest.mark.parametrize("ttl_days", [1, 30])
-def test_create_expiry_matches_configured_ttl(user_id, ttl_days):
+@pytest.mark.parametrize("ttl_hours", [1, 5])
+def test_create_expiry_matches_configured_ttl(user_id, ttl_hours):
     token = create_anonymous_token(user_id)
 
     claims = jwt.decode(token, SECRET, algorithms=["HS256"])
 
-    assert claims["exp"] - claims["iat"] == pytest.approx(ttl_days * 86400, abs=1)
+    assert claims["exp"] - claims["iat"] == pytest.approx(ttl_hours * 3600, abs=1)
 
 
 def test_create_sets_issued_at_to_current_time(user_id):

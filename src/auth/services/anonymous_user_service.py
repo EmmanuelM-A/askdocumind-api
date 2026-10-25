@@ -47,7 +47,9 @@ class AnonymousUserService:
 
         _logger.debug("Returning existing anonymous user '%s'", db_user.id)
 
-        return db_user.viewable(), token
+        # A fresh token keeps its expiry in step with the cookie, which is
+        # reset on every init, so active users are not signed out
+        return db_user.viewable(), create_anonymous_token(db_user.id)
 
     async def _create_anonymous_user(self) -> tuple[ViewableUser, str]:
         """

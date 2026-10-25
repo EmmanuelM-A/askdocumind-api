@@ -11,6 +11,7 @@ import pytest
 from fastapi import UploadFile
 from starlette.datastructures import Headers
 
+import src.database.models  # noqa: F401  registers every model for the mappers
 from src.config.configs import settings
 from src.exceptions.base import ApiException
 from src.uploads.services.upload_service import UploadService

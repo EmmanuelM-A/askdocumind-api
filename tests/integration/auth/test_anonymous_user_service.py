@@ -61,6 +61,12 @@ async def _existing_user_with_token(repo, last_seen_at=None):
     return user, create_anonymous_token(user.id)
 
 
+def _assert_refreshed(new_token, old_token, user_id):
+    new, old = decode_anonymous_token(new_token), decode_anonymous_token(old_token)
+    assert new.user_id == user_id
+    assert new.exp >= old.exp
+
+
 class TestNewUserCreation:
     @pytest.mark.parametrize("token", [None, "", " ", "\n\t "])
     async def test_missing_or_blank_token_creates_user(self, service, session, token):
@@ -99,7 +105,7 @@ class TestNewUserCreation:
         resumed, resumed_token = await service.init_anonymous_user(token)
 
         assert resumed.id == created.id
-        assert resumed_token == token
+        _assert_refreshed(resumed_token, token, created.id)
         assert await _count_users(session) == before
 
 
@@ -111,7 +117,7 @@ class TestExistingUser:
         viewable, returned_token = await service.init_anonymous_user(token)
 
         assert viewable.id == user.id
-        assert returned_token == token
+        _assert_refreshed(returned_token, token, user.id)
         assert await _count_users(session) == before
 
     async def test_token_with_surrounding_whitespace_is_stripped(self, service, repo):
@@ -120,7 +126,7 @@ class TestExistingUser:
         viewable, returned_token = await service.init_anonymous_user(f"  {token}\n")
 
         assert viewable.id == user.id
-        assert returned_token == token
+        _assert_refreshed(returned_token, token, user.id)
 
     async def test_stale_last_seen_is_refreshed(self, service, repo, session):
         stale = datetime.now(timezone.utc) - timedelta(
