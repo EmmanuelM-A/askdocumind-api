@@ -40,7 +40,7 @@ async def client(manager):
 
     @app.api_route("/{path:path}", methods=_ALL_METHODS)
     async def catch_all(request: Request):
-        user_id = getattr(request.state, "anonymous_user_id", None)
+        user_id = getattr(request.state, "user_id", None)
         return {"user_id": str(user_id) if user_id else None}
 
     transport = ASGITransport(app=app, raise_app_exceptions=False)

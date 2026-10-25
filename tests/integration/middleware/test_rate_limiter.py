@@ -45,7 +45,7 @@ class _FakeAnonymousSession:
         if scope["type"] == "http":
             user_id = dict(scope["headers"]).get(_USER_HEADER.lower().encode())
             if user_id:
-                scope.setdefault("state", {})["anonymous_user_id"] = user_id.decode()
+                scope.setdefault("state", {})["user_id"] = user_id.decode()
         await self.app(scope, receive, send)
 
 
@@ -230,7 +230,7 @@ async def test_every_api_route_has_a_rate_limit(module, router_name):
         "/chatbot": settings.server.RATE_LIMIT_CHATBOT,
         "/uploads": settings.server.RATE_LIMIT_UPLOADS,
     }
-    overrides = {"/uploads{chat_session_id}/{document_id}/status": DEFAULT_LIMIT}
+    overrides = {"/uploads/{chat_session_id}/{document_id}/status": DEFAULT_LIMIT}
 
     for route in router.routes:
         assert isinstance(route, APIRoute)
