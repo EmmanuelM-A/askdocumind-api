@@ -10,15 +10,16 @@ from starlette.requests import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from src.auth.repository.user_repository_impl import UserRepositoryImpl
-from src.auth.services.token_service import InvalidTokenError, decode_anonymous_token
+from src.auth.services.token_service import decode_anonymous_token
 from src.config.configs import settings
 from src.database.session import DatabaseSessionManager
 from src.exceptions.base import ApiException
+from src.middleware.utils import get_route_path
 from src.response.delivery import send_error_response
 
 _logger = logging.getLogger(__name__)
 
-_INIT_PATH_SUFFIX = "/auth/anonymous/init"
+_INIT_PATH = "/v1/auth/anonymous/init"
 
 
 def _unauthorized(error_code: str, message: str) -> JSONResponse:
@@ -44,12 +45,12 @@ class AnonymousSessionMiddleware:
         self._exclude_paths = exclude_paths
 
     def _is_excluded(self, scope: Scope) -> bool:
-        path = scope["path"].rstrip("/") or "/"
+        path = get_route_path(scope)
         method = scope["method"]
         return (
             method == "OPTIONS"
             or path in self._exclude_paths
-            or (method == "POST" and path.endswith(_INIT_PATH_SUFFIX))
+            or (method == "POST" and path == _INIT_PATH)
         )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
@@ -70,7 +71,7 @@ class AnonymousSessionMiddleware:
         """
         Return an error response, or None after storing the user ID.
         """
-        cookie_value = Request(scope).cookies.get(settings.auth.COOKIE_NAME)
+        cookie_value = Request(scope).cookies.get(settings.auth.ANONYMOUS_COOKIE_NAME)
 
         if not cookie_value:
             return _unauthorized(
@@ -99,11 +100,6 @@ class AnonymousSessionMiddleware:
                     freq_mins=settings.auth.UPDATE_LAST_SEEN_FREQ_MINS,
                 )
 
-        except InvalidTokenError:
-            return _unauthorized(
-                "ANONYMOUS_TOKEN_INVALID",
-                "The anonymous session cookie is invalid or expired.",
-            )
         except ApiException as exc:
             return send_error_response(
                 message=str(exc.detail),
