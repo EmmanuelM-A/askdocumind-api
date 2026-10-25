@@ -19,7 +19,7 @@ def create_anonymous_token(user_id: UUID) -> str:
     payload = AnonymousTokenPayload(
         user_id=user_id,
         iat=now.timestamp(),
-        exp=(now + timedelta(days=settings.auth.ANONYMOUS_TOKEN_TTL_DAYS)).timestamp(),
+        exp=(now + timedelta(hours=settings.auth.ANONYMOUS_TOKEN_TTL_DAYS)).timestamp(),
     )
 
     return jwt.encode(

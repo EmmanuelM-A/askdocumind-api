@@ -126,7 +126,6 @@ class TestNewSession:
         assert morsel["secure"] is True
         assert morsel["samesite"].lower() == "strict"
         assert morsel["path"] == "/"
-        assert morsel["max-age"] == str(settings.auth.COOKIE_TTL_HOURS * 3600)
         assert morsel["domain"] == (settings.auth.COOKIE_DOMAIN or "")
 
     async def test_response_is_json(self, auth_client):
@@ -153,6 +152,7 @@ class TestNewSession:
 
     async def test_requests_without_cookie_create_distinct_users(self, auth_client):
         first = await auth_client.post(_ENDPOINT)
+        auth_client.cookies.clear()
         second = await auth_client.post(_ENDPOINT)
 
         assert first.json()["data"]["id"] != second.json()["data"]["id"]

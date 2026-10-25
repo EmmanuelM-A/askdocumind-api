@@ -49,7 +49,7 @@ async def init_anonymous_session(
         response=response,
         cookie_name=settings.auth.ANONYMOUS_COOKIE_NAME,
         cookie_value=token,
-        max_age_seconds=settings.auth.COOKIE_TTL_HOURS * 3600,
+        max_age_seconds=settings.auth.ANONYMOUS_TOKEN_TTL_HOURS * 60 * 60,
         path="/",
         config=cookie_config,
     )
