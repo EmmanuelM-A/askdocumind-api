@@ -64,7 +64,7 @@ async def get_uploaded_files(
     request: Request,
     chat_session_id: UUID,
     upload_service: Annotated[UploadService, Depends(get_upload_service)],
-    paginate: Annotated[Pagination, Depends(Query())],
+    paginate: Annotated[Pagination, Query()],
 ) -> JSONResponse:
     """
     Retrieve the list of uploaded files for a specific chat session.

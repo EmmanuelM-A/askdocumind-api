@@ -1,4 +1,3 @@
-from datetime import datetime
 from abc import ABC, abstractmethod
 from uuid import UUID
 
@@ -50,14 +49,4 @@ class UserRepository(ABC):
         """
         raise NotImplementedError(
             "Method 'update_last_seen' not implemented in subclass"
-        )
-
-    @abstractmethod
-    async def get_expired_users(self, cutoff: datetime) -> list[UUID]:
-        """
-        Retrieve all user IDs that have a last_seen_at timestamp older than
-        the cutoff.
-        """
-        raise NotImplementedError(
-            "Method 'get_expired_users' not implemented in subclass"
         )

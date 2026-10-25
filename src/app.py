@@ -15,6 +15,10 @@ from slowapi.middleware import SlowAPIMiddleware
 from src.auth.routes.auth_router import auth_router
 from src.chat_session.routes.chat_session_router import chat_session_router
 from src.chatbot.routes.chatbot_router import chatbot_router
+from src.cleanup.expired_user_cleaner import (
+    ExpiredUserCleaner,
+    ExpiredUserCleanerConfig,
+)
 from src.config.configs import settings
 from src.config.logger import setup_logging
 from src.config.paths import PUBLIC_PATHS
@@ -74,11 +78,17 @@ async def lifespan(app: FastAPI):
         runner=runner,
         config=SweeperConfig(),
     )
+    cleaner = ExpiredUserCleaner(
+        session_manager=session_manager,
+        storage=get_object_storage(),
+        config=ExpiredUserCleanerConfig(),
+    )
 
     app.state.session_manager = session_manager
     app.state.ingestion_runner = runner
 
     sweeper.start()
+    cleaner.start()
 
     reranker = CrossEncoderReranker(
         CrossEncoderRerankerConfig(
@@ -93,6 +103,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        await cleaner.stop()
         await sweeper.stop()
         await runner.shutdown()
         await session_manager.disconnect()

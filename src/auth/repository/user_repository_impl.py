@@ -4,7 +4,7 @@ using SQLAlchemy for database interactions.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from uuid import UUID
 
 from sqlalchemy import select, delete, update, func
@@ -82,17 +82,6 @@ class UserRepositoryImpl(UserRepository, BaseRepository):
         # NOTE: last_seen_at value after this operation.
 
         await self._session.execute(statement)
-
-    @handle_sqlalchemy_exceptions(
-        message="An error occurred while retrieving expired users.",
-        error_code="USER_RETRIEVAL_ERROR",
-    )
-    @handle_database_unavailable_exceptions()
-    async def get_expired_users(self, cutoff: datetime) -> list[UUID]:
-        statement = select(User.id).where(User.last_seen_at < cutoff)
-
-        result = await self._session.execute(statement)
-        return list(result.scalars().all())
 
     async def _fetch_one(self, statement) -> User | None:
         """
