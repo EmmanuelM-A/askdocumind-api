@@ -72,7 +72,7 @@ class RequestSizeLimitMiddleware:
                 response = send_error_response(
                     message="Request body too large.",
                     status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                    error_code="REQUEST_TOO_LARGE",
+                    error_code="FILE_SIZE_LIMIT_EXCEEDED",
                 )
                 await response(scope, receive, send)
                 return
@@ -91,7 +91,7 @@ class RequestSizeLimitMiddleware:
                     )
                     raise ApiException(
                         message="Request body too large.",
-                        error_code="REQUEST_TOO_LARGE",
+                        error_code="FILE_SIZE_LIMIT_EXCEEDED",
                         status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                     )
             return message
