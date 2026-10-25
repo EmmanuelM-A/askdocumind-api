@@ -10,6 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config.configs import settings
 from src.database.session import DatabaseSessionManager
+from src.middleware.rate_limiter import limiter
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    """Stop rate limit counts leaking between tests."""
+    limiter.reset()
 
 
 @pytest_asyncio.fixture

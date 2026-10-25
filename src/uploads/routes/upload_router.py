@@ -13,6 +13,7 @@ from fastapi import (
 from starlette.responses import JSONResponse
 
 from src.database.utils import Pagination
+from src.middleware.rate_limiter import default_limit, uploads_limit
 from src.response.delivery import send_success_response
 from src.uploads.dependencies import get_upload_service, get_ingestion_runner
 from src.uploads.services.ingestion_service import IngestionRunner, build_job
@@ -22,10 +23,11 @@ upload_router = APIRouter(prefix="/uploads", tags=["Uploads"])
 
 
 @upload_router.post(
-    path="{chat_session_id}",
+    path="/{chat_session_id}",
     summary="Upload a file to a specific chat session",
     status_code=status.HTTP_202_ACCEPTED,
 )
+@uploads_limit
 async def upload_file(
     request: Request,
     chat_session_id: UUID,
@@ -53,10 +55,11 @@ async def upload_file(
 
 
 @upload_router.get(
-    path="{chat_session_id}",
+    path="/{chat_session_id}",
     summary="Get the list of uploaded files for a specific chat session",
     status_code=status.HTTP_200_OK,
 )
+@uploads_limit
 async def get_uploaded_files(
     request: Request,
     chat_session_id: UUID,
@@ -80,10 +83,11 @@ async def get_uploaded_files(
 
 
 @upload_router.get(
-    path="{chat_session_id}/{document_id}/status",
+    path="/{chat_session_id}/{document_id}/status",
     summary="Get the status of an uploaded file for a specific chat session",
     status_code=status.HTTP_200_OK,
 )
+@default_limit
 async def get_uploaded_file_status(
     request: Request,
     chat_session_id: UUID,
@@ -106,7 +110,12 @@ async def get_uploaded_file_status(
     )
 
 
-@upload_router.post("{chat_session_id}/{file_id}/reprocess", status_code=202)
+@upload_router.post(
+    path="/{chat_session_id}/{file_id}/reprocess",
+    summary="Reprocess an uploaded file for a specific chat session",
+    status_code=status.HTTP_202_ACCEPTED,
+)
+@uploads_limit
 async def reprocess(
     request: Request,
     chat_session_id: UUID,

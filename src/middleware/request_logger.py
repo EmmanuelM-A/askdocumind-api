@@ -7,6 +7,8 @@ import time
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from src.middleware.utils import get_route_path
+
 _logger = logging.getLogger(__name__)
 
 
@@ -20,7 +22,7 @@ class RequestLoggerMiddleware:
         self.exclude_paths = exclude_paths
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope["path"] in self.exclude_paths:
+        if scope["type"] != "http" or get_route_path(scope) in self.exclude_paths:
             await self.app(scope, receive, send)
             return
 

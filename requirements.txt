@@ -1,5 +1,7 @@
 # Web Framework
 fastapi==0.142.2
+slowapi==0.1.10
+limits==5.8.0
 
 # Database
 

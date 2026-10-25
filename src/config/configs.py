@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
+from limits import parse_many
 from pydantic import Field, model_validator, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -52,6 +53,27 @@ class _ServerSettings(_BaseSettings):
     MAX_CONCURRENT_REQUESTS: int = Field(default=10, ge=1, le=100)
     RATE_LIMIT_REQUESTS: int = Field(default=100, ge=1, le=10000)
     RATE_LIMIT_WINDOW_SECS: int = Field(default=60, ge=1, le=3600)
+    RATE_LIMIT_ENABLED: bool = Field(default=True)
+    RATE_LIMIT_STORAGE_URI: str = Field(default="memory://")
+
+    # Per route group limits, in the limits notation (e.g. "10/minute")
+    RATE_LIMIT_HEALTH_SERVER: str = Field(default="60/minute")
+    RATE_LIMIT_HEALTH_DB: str = Field(default="30/minute")
+    RATE_LIMIT_CHAT_SESSION: str = Field(default="10/minute")
+    RATE_LIMIT_UPLOADS: str = Field(default="5/minute")
+    RATE_LIMIT_CHATBOT: str = Field(default="10/minute")
+
+    @field_validator(
+        "RATE_LIMIT_HEALTH_SERVER",
+        "RATE_LIMIT_HEALTH_DB",
+        "RATE_LIMIT_CHAT_SESSION",
+        "RATE_LIMIT_UPLOADS",
+        "RATE_LIMIT_CHATBOT",
+    )
+    @classmethod
+    def validate_rate_limit(cls, value: str) -> str:
+        parse_many(value)
+        return value
 
 
 class _LoggingSettings(_BaseSettings):

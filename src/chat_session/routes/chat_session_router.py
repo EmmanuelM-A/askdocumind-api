@@ -7,6 +7,7 @@ from starlette.responses import JSONResponse
 from src.chat_session.dependencies import get_chat_session_service
 from src.chat_session.schemas.chat_session import CreateChatSession
 from src.chat_session.services.chat_session_service import ChatSessionService
+from src.middleware.rate_limiter import chat_session_limit
 from src.response.delivery import send_success_response
 
 chat_session_router = APIRouter(prefix="/chat-session", tags=["Chat Sessions"])
@@ -17,6 +18,7 @@ chat_session_router = APIRouter(prefix="/chat-session", tags=["Chat Sessions"])
     summary="Create a new chat session",
     status_code=status.HTTP_201_CREATED,
 )
+@chat_session_limit
 async def create_new_chat_session(
     request: Request,
     request_body: CreateChatSession,
@@ -43,6 +45,7 @@ async def create_new_chat_session(
     summary="Initialize a new chat session",
     status_code=status.HTTP_200_OK,
 )
+@chat_session_limit
 async def initialize_chat_session(
     request: Request,
     request_body: CreateChatSession,
@@ -69,6 +72,7 @@ async def initialize_chat_session(
     summary="Get chat session details",
     status_code=status.HTTP_200_OK,
 )
+@chat_session_limit
 async def get_chat_session(
     request: Request,
     chat_session_id: UUID,
@@ -95,6 +99,7 @@ async def get_chat_session(
     summary="Delete a chat session",
     status_code=status.HTTP_204_NO_CONTENT,
 )
+@chat_session_limit
 async def delete_chat_session(
     request: Request,
     chat_session_id: UUID,
@@ -120,6 +125,7 @@ async def delete_chat_session(
     summary="Get chat session messages",
     status_code=status.HTTP_200_OK,
 )
+@chat_session_limit
 async def get_chat_session_messages(
     request: Request,
     chat_session_id: UUID,

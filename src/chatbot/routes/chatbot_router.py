@@ -7,6 +7,7 @@ from starlette.responses import JSONResponse
 from src.chatbot.dependencies import get_chatbot_service
 from src.chatbot.schemas.chatbot import ChatRequest
 from src.chatbot.services.chatbot_service import ChatbotService
+from src.middleware.rate_limiter import chatbot_limit
 from src.response.delivery import send_success_response
 
 chatbot_router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
@@ -17,6 +18,7 @@ chatbot_router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
     summary="Ask a question about the chat session's documents",
     status_code=status.HTTP_200_OK,
 )
+@chatbot_limit
 async def ask_question(
     request: Request,
     chat_session_id: UUID,

@@ -39,6 +39,7 @@ from src.rag.services.rerank.cross_encoder_reranker import (
 )
 from src.rag.services.utils import RunGuard
 from src.uploads.dependencies import get_document_repository
+from src.uploads.routes.upload_router import upload_router
 from src.uploads.storage.dependencies import get_object_storage
 from src.uploads.services.ingestion_service import IngestionRunner
 from src.uploads.services.sweeper import Sweeper, SweeperConfig
@@ -104,7 +105,7 @@ def create_app() -> FastAPI:
     setup_logging()
 
     app = FastAPI(
-        title="RAG Microservice",
+        title="AskDocuMind API",
         lifespan=lifespan,
         redirect_slashes=False,
         root_path="/api",
@@ -135,6 +136,7 @@ def create_app() -> FastAPI:
     app.include_router(router=health_check_router)
     app.include_router(prefix="/v1", router=auth_router)
     app.include_router(prefix="/v1", router=chat_session_router)
+    app.include_router(prefix="/v1", router=upload_router)
     app.include_router(prefix="/v1", router=chatbot_router)
 
     # --- Exception Handlers ---

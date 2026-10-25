@@ -108,7 +108,7 @@ class AnonymousSessionMiddleware:
                 details=exc.error_details,
             )
 
-        scope.setdefault("state", {})["anonymous_user_id"] = payload.user_id
+        scope.setdefault("state", {})["user_id"] = payload.user_id
 
         _logger.debug("Anonymous session validated for user '%s'", payload.user_id)
 
