@@ -190,6 +190,7 @@ class _RAGSettings(_BaseSettings):
 
     # Web Search
     MAX_SEARCH_RESULTS: int = Field(default=10, le=30, ge=5)
+    MAX_WEB_RESULT_CHARS: int = Field(default=4000, ge=500, le=50000)
     USER_AGENT: str = Field(
         default="Mozilla/5.0 (Windows NT 10.0; Win64; x64)", min_length=10
     )
@@ -223,6 +224,12 @@ class _LLMSettings(_BaseSettings):
     )
     MAX_RETRIES: int = Field(default=3, ge=0, le=10, alias="LLM_MAX_RETRIES")
     MAX_OUTPUT_TOKENS: int = Field(default=1024, ge=1, le=16000)
+
+    # Answering
+    ANSWER_PROMPT_TEMPLATE: str = Field(
+        default=f"{_PROJECT_ROOT}/src/prompts/answer_prompt.yaml"
+    )
+    MAX_CONTEXT_CHARS: int = Field(default=40000, ge=1000, le=400000)
 
 
 # ------------------------------------------------------------------

@@ -18,8 +18,15 @@ class GetChunkEmbeddings(CamelCaseSerializer):
     configs: GetChunkEmbeddingsConfig
 
 
+class WebResult(BaseModel):
+
+    url: str
+    title: str
+    content: str
+
+
 class RetrievalResults(BaseModel):
 
     expanded_query: str
     chunks: list[ViewableChunkEmbedding]
-    additional: list[str]
+    additional: list[WebResult]

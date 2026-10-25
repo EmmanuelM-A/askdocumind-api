@@ -14,6 +14,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from src.auth.routes.auth_router import auth_router
 from src.chat_session.routes.chat_session_router import chat_session_router
+from src.chatbot.routes.chatbot_router import chatbot_router
 from src.config.configs import settings
 from src.config.logger import setup_logging
 from src.config.paths import PUBLIC_PATHS
@@ -134,6 +135,7 @@ def create_app() -> FastAPI:
     app.include_router(router=health_check_router)
     app.include_router(prefix="/v1", router=auth_router)
     app.include_router(prefix="/v1", router=chat_session_router)
+    app.include_router(prefix="/v1", router=chatbot_router)
 
     # --- Exception Handlers ---
     setup_exception_handlers(app)

@@ -19,6 +19,8 @@ from charset_normalizer import from_bytes
 from ddgs import DDGS
 
 from src.config.configs import settings
+from src.rag.schemas.retrieval import WebResult
+from src.rag.services.extract.extractors.html_extractor import html_to_text
 from src.rag.services.fallback.web_searcher import WebSearcher
 
 
@@ -38,6 +40,7 @@ class _Page:
 
 
 _NUM_RESULTS = settings.rag.MAX_SEARCH_RESULTS
+_MAX_RESULT_CHARS = settings.rag.MAX_WEB_RESULT_CHARS
 
 # Brave rejects queries longer than 400 characters.
 _MAX_QUERY_CHARS = 400
@@ -103,10 +106,10 @@ class BraveAPIWebSearcher(WebSearcher):
             "X-Subscription-Token": settings.web.BRAVE_API_KEY.get_secret_value(),
         }
 
-    async def search_web(self, query: str) -> list[str]:
+    async def search_web(self, query: str) -> list[WebResult]:
         """
-        Performs a web search using the Brave Search API and returns the content
-        of the search results as a list of strings, in result order.
+        Performs a web search using the Brave Search API and returns the text
+        of the search results with their URL and title, in result order.
         """
         results = await self._search_for_results_on_the_web_for(query)
 
@@ -117,7 +120,7 @@ class BraveAPIWebSearcher(WebSearcher):
         pages = await asyncio.gather(
             *(self._fetch_limited(result, semaphore) for result in results)
         )
-        contents = [page for page in pages if page]
+        contents = [page for page in pages if page is not None]
 
         _logger.debug(
             "Fetched content for %d/%d search results", len(contents), len(results)
@@ -125,7 +128,7 @@ class BraveAPIWebSearcher(WebSearcher):
 
         return contents
 
-    async def search_web_stream(self, query: str) -> AsyncIterable[str]:
+    async def search_web_stream(self, query: str) -> AsyncIterable[WebResult]:
         """
         Performs a web search using the Brave Search API and yields the content
         of the search results in result order. All pages download at the same
@@ -143,7 +146,7 @@ class BraveAPIWebSearcher(WebSearcher):
             for index, task in enumerate(tasks):
                 content = await task
 
-                if not content:
+                if content is None:
                     continue
 
                 _logger.debug(
@@ -290,9 +293,28 @@ class BraveAPIWebSearcher(WebSearcher):
 
     async def _fetch_limited(
         self, result: _SearchResult, semaphore: asyncio.Semaphore
-    ) -> str:
+    ) -> WebResult | None:
         async with semaphore:
-            return await self._fetch_web_content(result)
+            html = await self._fetch_web_content(result)
+
+        if not html:
+            return None
+
+        try:
+            # Parsing a large page takes a while, so it runs off the event loop.
+            text = await asyncio.to_thread(html_to_text, html)
+        except Exception as e:
+            _logger.debug("Could not read the text of '%s': %s", result.url, e)
+            return None
+
+        if not text:
+            return None
+
+        return WebResult(
+            url=result.url,
+            title=result.title,
+            content=text[:_MAX_RESULT_CHARS],
+        )
 
     async def _fetch_web_content(self, result: _SearchResult) -> str:
         """

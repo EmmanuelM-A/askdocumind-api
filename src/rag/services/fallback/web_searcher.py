@@ -5,6 +5,8 @@ Defines the WebSearcher interface for web search and content processing.
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterable
 
+from src.rag.schemas.retrieval import WebResult
+
 
 class WebSearcher(ABC):
     """
@@ -14,11 +16,11 @@ class WebSearcher(ABC):
     """
 
     @abstractmethod
-    async def search_web(self, query: str) -> list[str]:
+    async def search_web(self, query: str) -> list[WebResult]:
         """Return the web search content for a query."""
         raise NotImplementedError
 
     @abstractmethod
-    async def search_web_stream(self, query: str) -> AsyncIterable[str]:
+    async def search_web_stream(self, query: str) -> AsyncIterable[WebResult]:
         """Return the web search content for a query as an async iterable."""
         raise NotImplementedError

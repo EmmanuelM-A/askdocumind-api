@@ -152,6 +152,12 @@ def _blocks(soup: BeautifulSoup) -> Iterator[tuple[str, bool]]:
         yield from blocks
 
 
+def html_to_text(html: str) -> str:
+    """Return the readable text of an HTML page, one block per paragraph."""
+    soup = BeautifulSoup(html, "lxml")
+    return "\n\n".join(text for text, _ in _blocks(soup))
+
+
 class HtmlExtractor(Extractor):
     """Text extractor for HTML documents."""
 

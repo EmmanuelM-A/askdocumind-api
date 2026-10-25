@@ -496,10 +496,17 @@ class TestSearchFlow:
         monkeypatch.setattr(searcher, "_search_for_results_on_the_web_for", fake_search)
         monkeypatch.setattr(searcher, "_fetch_web_content", fake_fetch)
 
-        assert await searcher.search_web("query") == ["one", "three"]
-        assert [page async for page in searcher.search_web_stream("query")] == [
+        assert [r.content for r in await searcher.search_web("query")] == [
             "one",
             "three",
+        ]
+        assert [page.content async for page in searcher.search_web_stream("query")] == [
+            "one",
+            "three",
+        ]
+        assert [r.url for r in await searcher.search_web("query")] == [
+            "https://a.example/1",
+            "https://a.example/3",
         ]
 
     @pytest.mark.asyncio
@@ -553,7 +560,7 @@ class TestSearchFlow:
         monkeypatch.setattr(searcher, "_fetch_web_content", fake_fetch)
 
         stream = searcher.search_web_stream("query")
-        assert await stream.__anext__() == "first"
+        assert (await stream.__anext__()).content == "first"
         await stream.aclose()
 
         assert sorted(cancelled) == ["https://a.example/1", "https://a.example/2"]

@@ -5,7 +5,11 @@ from src.auth.repository.user_repository import UserRepository
 from src.chat_session.repository.chat_session_repository import ChatSessionRepository
 from src.config.configs import settings
 from src.rag.repository.chunk_embedding_repository import ChunkEmbeddingRepository
-from src.rag.schemas.retrieval import GetChunkEmbeddings, RetrievalResults
+from src.rag.schemas.retrieval import (
+    GetChunkEmbeddings,
+    RetrievalResults,
+    WebResult,
+)
 from src.rag.services.embed.embedder import Embedder
 from src.rag.services.expand.query_expander import QueryExpander
 from src.rag.services.fallback.web_searcher import WebSearcher
@@ -62,7 +66,7 @@ class RetrieveChunkEmbeddingService(BaseService):
             len(relevant_chunks) < settings.rag.MIN_CHUNKS_NEEDED_FOR_WEB_SEARCH
         )
 
-        additional_results: list[str] = []
+        additional_results: list[WebResult] = []
 
         if web_search_needed and data.configs.web_search_enabled:
             _logger.info("Insufficient relevant chunks found, performing web search...")
