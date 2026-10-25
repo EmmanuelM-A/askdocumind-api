@@ -56,6 +56,7 @@ class ChatbotService:
             llm
             if llm is not None
             else ChatOpenAI(
+                api_key=settings.llm.OPENAI_API_KEY,
                 model=settings.llm.MODEL_NAME,
                 temperature=settings.llm.TEMPERATURE,
                 timeout=settings.llm.REQUEST_TIMEOUT_SECS,

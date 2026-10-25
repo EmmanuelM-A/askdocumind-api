@@ -379,6 +379,7 @@ class TestConstruction:
     def test_default_model_is_built_from_the_llm_settings(self):
         fake_settings = SimpleNamespace(
             llm=SimpleNamespace(
+                OPENAI_API_KEY="test-key",
                 MODEL_NAME="test-model",
                 TEMPERATURE=0.2,
                 REQUEST_TIMEOUT_SECS=15,
@@ -398,6 +399,7 @@ class TestConstruction:
             LangChainOpenAIQueryExpander(config)
 
         chat_openai.assert_called_once_with(
+            api_key="test-key",
             model="test-model",
             temperature=0.2,
             timeout=15,

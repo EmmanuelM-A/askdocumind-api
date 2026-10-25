@@ -70,6 +70,7 @@ class LangChainOpenAIEmbedder(Embedder):
     def __init__(self):
         try:
             self._model = OpenAIEmbeddings(
+                api_key=settings.llm.OPENAI_API_KEY,
                 model=settings.rag.EMBEDDING_MODEL,
                 timeout=settings.rag.EMBEDDING_REQUEST_TIMEOUT_SECS,
                 max_retries=settings.rag.EMBEDDING_MAX_RETRIES,

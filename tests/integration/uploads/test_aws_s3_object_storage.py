@@ -19,7 +19,7 @@ from fastapi import HTTPException
 from src.config.configs import settings
 from src.uploads.storage.aws_s3_object_storage import AWSS3ObjectStorage
 
-REGION = settings.uploads.S3_REGION.get_secret_value()
+REGION = settings.uploads.S3_REGION
 MOCK_BUCKET = "mock-bucket"
 BAD_KEYS = ["", "/abs", "a//b", "../x", "a/./b", "a/../b", "a\\b", "a\x00b", "a/"]
 BAD_PREFIXES = ["", "/", "..", "a/../b", "a//b"]
@@ -28,7 +28,7 @@ BAD_PREFIXES = ["", "/", "..", "a/../b", "a//b"]
 def make_client():
     return boto3.client(
         "s3",
-        endpoint_url=settings.uploads.S3_ENDPOINT_URL.get_secret_value(),
+        endpoint_url=settings.uploads.S3_ENDPOINT_URL,
         aws_access_key_id=settings.uploads.S3_ACCESS_KEY_ID.get_secret_value(),
         aws_secret_access_key=settings.uploads.S3_SECRET_ACCESS_KEY.get_secret_value(),
         region_name=REGION,

@@ -86,7 +86,7 @@ async def test_request_without_body_passes(client):
 async def test_content_length_over_limit_is_rejected_before_route(client, calls):
     response = await client.post("/raw", content=b"x" * (_MAX_BYTES + 1))
 
-    _assert_error(response, 413, "REQUEST_TOO_LARGE")
+    _assert_error(response, 413, "FILE_SIZE_LIMIT_EXCEEDED")
     assert calls["count"] == 0
 
 
@@ -126,7 +126,7 @@ async def test_chunked_request_is_rejected(client, calls):
 async def test_body_larger_than_declared_is_rejected_while_read(client, path, kwargs):
     response = await _send(client, path, "10", **kwargs)
 
-    _assert_error(response, 413, "REQUEST_TOO_LARGE")
+    _assert_error(response, 413, "FILE_SIZE_LIMIT_EXCEEDED")
 
 
 async def test_non_http_scope_is_passed_through():

@@ -42,7 +42,7 @@ async def _read_from(file: UploadFile) -> tuple[bytes, int, str]:
     """
     hasher, buffer = hashlib.sha256(), bytearray()
 
-    while block := await file.read(size=settings.uploads.BLOCK_SIZE_TO_READ_BYTES):
+    while block := await file.read(size=settings.rag.READ_BLOCK_BYTES):
         if len(buffer) + len(block) > _MAX_FILE_SIZE_BYTES:
             raise content_too_large_error(
                 message="The file provided is too large.",
@@ -109,7 +109,7 @@ class UploadService:
 
         docs_uploaded_so_far = await self._document_repository.count(chat_session_id)
 
-        if docs_uploaded_so_far >= settings.uploads.MAX_DOCUMENTS_PER_SESSION:
+        if docs_uploaded_so_far >= settings.uploads.MAX_DOCS_PER_SESSION:
             raise unprocessable_content_error(
                 message="The maximum number of documents for this session has "
                 "been reached.",

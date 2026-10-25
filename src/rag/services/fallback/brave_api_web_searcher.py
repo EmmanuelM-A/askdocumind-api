@@ -39,8 +39,8 @@ class _Page:
     text: str | None = None
 
 
-_NUM_RESULTS = settings.rag.MAX_SEARCH_RESULTS
-_MAX_RESULT_CHARS = settings.rag.MAX_WEB_RESULT_CHARS
+_NUM_RESULTS = settings.web.MAX_SEARCH_RESULTS
+_MAX_RESULT_CHARS = settings.web.MAX_WEB_RESULT_CHARS
 
 # Brave rejects queries longer than 400 characters.
 _MAX_QUERY_CHARS = 400

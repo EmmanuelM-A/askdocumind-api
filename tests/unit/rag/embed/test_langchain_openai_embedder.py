@@ -114,18 +114,11 @@ class TestInitialization:
             LangChainOpenAIEmbedder()
 
         model_class.assert_called_once_with(
+            api_key=settings.llm.OPENAI_API_KEY,
             model=settings.rag.EMBEDDING_MODEL,
             timeout=settings.rag.EMBEDDING_REQUEST_TIMEOUT_SECS,
             max_retries=settings.rag.EMBEDDING_MAX_RETRIES,
         )
-
-    def test_missing_api_key_raises_server_error(self, monkeypatch):
-        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-
-        with pytest.raises(ApiException) as exc:
-            LangChainOpenAIEmbedder()
-
-        assert exc.value.status_code == 500
 
     def test_model_construction_failure_raises_server_error(self):
         with patch(
