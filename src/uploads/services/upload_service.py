@@ -225,8 +225,6 @@ class UploadService:
                 error_code="DOCUMENT_NOT_FOUND",
             )
 
-        # NOTE: Add explicit chunk deletion if needed
-
         await to_thread(self._object_storage.delete, document.object_key)
         await self._document_repository.delete(document_id)
 

@@ -13,7 +13,6 @@ from src.rag.repository.chunk_embedding_repository_impl import (
     ChunkEmbeddingRepositoryImpl,
 )
 from src.rag.services.chunk.factory import ChunkerBuildConfig, ChunkerFactory
-from src.rag.services.delete import DeleteChunkEmbeddingService
 from src.rag.services.embed.embedder import Embedder
 from src.rag.services.embed.langchain_openai_embedder import LangChainOpenAIEmbedder
 from src.rag.services.expand.langchain_openai_expander import (
@@ -157,25 +156,4 @@ def get_rag_retrieval_service(
         chunk_embedding_repository=chunk_embedding_repository,
         chat_session_repository=chat_session_repository,
         user_repository=user_repository,
-    )
-
-
-def get_rag_deletion_service(
-    chunk_embedding_repository: Annotated[
-        ChunkEmbeddingRepository, Depends(get_chunk_embedding_repository)
-    ],
-    document_repository: Annotated[
-        DocumentRepository, Depends(get_document_repository)
-    ],
-    chat_session_repository: Annotated[
-        ChatSessionRepository, Depends(get_chat_session_repository)
-    ],
-) -> DeleteChunkEmbeddingService:
-    """
-    Provide a DeleteChunkEmbeddingService instance for the current request.
-    """
-    return DeleteChunkEmbeddingService(
-        chunk_embedding_repo=chunk_embedding_repository,
-        document_repository=document_repository,
-        chat_session_repository=chat_session_repository,
     )
