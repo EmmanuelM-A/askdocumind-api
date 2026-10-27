@@ -44,11 +44,6 @@ def setup_logging() -> None:
         "version": 1,
         "disable_existing_loggers": False,
         "formatters": {
-            "console": {
-                "()": ColorFormatter,
-                "fmt": settings.logging.LOG_FORMAT,
-                "datefmt": settings.logging.DATE_FORMAT,
-            },
             "file": {
                 "()": ColorFormatter,
                 "format": settings.logging.LOG_FORMAT,
@@ -56,11 +51,6 @@ def setup_logging() -> None:
             },
         },
         "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "stream": "ext://sys.stdout",
-                "formatter": "console",
-            },
             "app_file": {
                 "class": "logging.handlers.RotatingFileHandler",
                 "filename": str(log_dir / "app.log"),
@@ -81,7 +71,7 @@ def setup_logging() -> None:
         },
         "root": {
             "level": settings.logging.LOG_LEVEL.upper(),
-            "handlers": ["console", "app_file", "error_file"],
+            "handlers": ["app_file", "error_file"],
         },
     }
 
