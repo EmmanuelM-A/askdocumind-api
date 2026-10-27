@@ -284,6 +284,7 @@ class _RAGSettings(_BaseSettings):
     # Chunkers
     STREAM_FLUSH_CHARS: int = Field(default=20000, ge=7500, le=40000)
     PROCESSING_BATCH_SIZE: int = Field(default=100, ge=1, le=1000)
+    MIN_CONTENT_LENGTH: int = Field(default=150, ge=100, le=1000)
 
     # Extraction, also used to read uploaded files
     READ_BLOCK_BYTES: int = Field(default=8192, ge=1024, le=65536)

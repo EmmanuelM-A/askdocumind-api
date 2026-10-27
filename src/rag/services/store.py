@@ -113,7 +113,7 @@ class StoreChunkEmbeddingService:
                     message="No extractable text found.",
                     error_code="NO_CONTENT",
                 )
-            if total_chars < settings.storage.MIN_CONTENT_LENGTH:
+            if total_chars < settings.rag.MIN_CONTENT_LENGTH:
                 raise unprocessable_content_error(
                     message="The file has too little text.",
                     error_code="CONTENT_TOO_SHORT",

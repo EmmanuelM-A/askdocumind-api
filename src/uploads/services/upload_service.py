@@ -51,11 +51,11 @@ async def _read_from(file: UploadFile) -> tuple[bytes, int, str]:
         buffer += block
         hasher.update(block)
 
-        if not buffer:
-            raise unprocessable_content_error(
-                message="The file provided is empty.",
-                error_code="EMPTY_FILE",
-            )
+    if not buffer:
+        raise unprocessable_content_error(
+            message="The file provided is empty.",
+            error_code="EMPTY_FILE",
+        )
 
     return bytes(buffer), len(buffer), hasher.hexdigest()
 
@@ -127,6 +127,7 @@ class UploadService:
                 object_key=key,
                 content_type=file.content_type,
                 size_bytes=0,
+                checksum="",
             )
         )
 
