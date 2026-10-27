@@ -13,6 +13,7 @@ from src.rag.services.report.status_reporter import (
 )
 from src.uploads.domain.document import DocumentStatus
 from src.uploads.repository.document_repository import DocumentRepository
+from src.uploads.repository.document_repository_impl import DocumentRepositoryImpl
 
 _logger = logging.getLogger(__name__)
 
@@ -48,13 +49,8 @@ class DocumentStatusReporter(StatusReporter):
     status of documents.
     """
 
-    def __init__(
-        self,
-        session_manager: DatabaseSessionManager,
-        repository_factory: DocumentRepositoryFactory,
-    ) -> None:
+    def __init__(self, session_manager: DatabaseSessionManager) -> None:
         self._session_manager = session_manager
-        self._repository_factory = repository_factory
 
     async def report(
         self,
@@ -66,7 +62,7 @@ class DocumentStatusReporter(StatusReporter):
 
         try:
             async with self._session_manager.get_session() as session:
-                repository = self._repository_factory(session)
+                repository = DocumentRepositoryImpl(session)
                 transitioned = await repository.transition_document_status(
                     document_id=document_id,
                     from_statuses=_ALLOWED_FROM[status],

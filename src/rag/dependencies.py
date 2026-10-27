@@ -7,7 +7,8 @@ from src.auth.repository.user_repository import UserRepository
 from src.chat_session.dependencies import get_chat_session_repository
 from src.chat_session.repository.chat_session_repository import ChatSessionRepository
 from src.config.configs import settings
-from src.database.dependencies import DbSession
+from src.database.dependencies import DbSession, get_session_manager
+from src.database.session import DatabaseSessionManager
 from src.rag.repository.chunk_embedding_repository import ChunkEmbeddingRepository
 from src.rag.repository.chunk_embedding_repository_impl import (
     ChunkEmbeddingRepositoryImpl,
@@ -31,9 +32,7 @@ from src.rag.services.rerank.reranker import Reranker
 from src.rag.services.retrieve import RetrieveChunkEmbeddingService
 from src.rag.services.store import StoreChunkEmbeddingService
 from src.shared.prompts import load_prompt_from
-from src.uploads.dependencies import get_document_repository
 from src.uploads.storage.dependencies import get_object_storage
-from src.uploads.repository.document_repository import DocumentRepository
 from src.uploads.storage.object_storage import ObjectStorage
 
 
@@ -80,14 +79,12 @@ def get_chunker_factory() -> ChunkerFactory:
 
 
 def get_status_reporter(
-    document_repository: Annotated[
-        DocumentRepository, Depends(get_document_repository)
-    ],
+    session_manager: Annotated[DatabaseSessionManager, Depends(get_session_manager)],
 ) -> StatusReporter:
     """
     Provide a StatusReporter instance for the current request.
     """
-    return DocumentStatusReporter(document_repository)
+    return DocumentStatusReporter(session_manager)
 
 
 def get_rag_storage_service(
