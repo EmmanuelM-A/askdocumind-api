@@ -492,9 +492,7 @@ class TestSearchBySimilarity:
 
         assert [c.id for c in result] == [second[0].id, first[0].id]
 
-    async def test_excludes_other_chat_sessions(
-        self, repo, session, completed_parents
-    ):
+    async def test_excludes_other_chat_sessions(self, repo, session, completed_parents):
         chat_session_id, document_id = completed_parents
         other_chat_session, other_document = await _completed_parents(session)
         mine = await _seed_similar(repo, chat_session_id, document_id, [0.6])
@@ -529,9 +527,7 @@ class TestSearchBySimilarity:
         chat_session_id, document_id = completed_parents
         other_chat_session, other_document = await _completed_parents(session)
         await _seed_similar(repo, other_chat_session, other_document, [0.99] * 200)
-        mine = await _seed_similar(
-            repo, chat_session_id, document_id, [0.5, 0.6, 0.7]
-        )
+        mine = await _seed_similar(repo, chat_session_id, document_id, [0.5, 0.6, 0.7])
 
         result = await repo.search_by_similarity(chat_session_id, QUERY, 0.0, 10)
 

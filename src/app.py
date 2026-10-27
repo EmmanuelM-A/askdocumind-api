@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from src.auth.routes.auth_router import auth_router
@@ -28,6 +29,7 @@ from src.exceptions.handlers import setup_exception_handlers
 from src.health.router import health_check_router
 from src.middleware.anonymous_sessions import AnonymousSessionMiddleware
 from src.middleware.concurrent_request_limit import ConcurrentRequestLimitMiddleware
+from src.middleware.rate_limiter import limiter, rate_limit_exceeded_handler
 from src.middleware.request_logger import RequestLoggerMiddleware
 from src.middleware.request_size_limit import RequestSizeLimitMiddleware
 from src.rag.dependencies import (
@@ -122,6 +124,9 @@ def create_app() -> FastAPI:
         root_path="/api",
     )
 
+    # SlowAPI's middleware and route decorators read the limiter from here
+    app.state.limiter = limiter
+
     # --- Middleware ---
     app.add_middleware(SlowAPIMiddleware)
     app.add_middleware(
@@ -152,5 +157,6 @@ def create_app() -> FastAPI:
 
     # --- Exception Handlers ---
     setup_exception_handlers(app)
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
     return app
