@@ -2,10 +2,15 @@
 fastapi==0.142.2
 slowapi==0.1.10
 limits==5.8.0
+uvicorn==0.54.0
 
 # Database
+sqlalchemy[asyncio]
+asyncpg==0.32.0
+pgvector==0.5.1
 
 # Migrations
+alembic==1.20.0
 
 # Configs & Validation
 pydantic==2.13.5
@@ -13,25 +18,29 @@ pydantic-settings==2.15.0
 python-dotenv==1.2.4
 
 # Testing
+pytest==9.1.1
+pytest-asyncio
+pytest-cov==7.0.0
 
 # Bussiness Logic
-
-sqlalchemy
 pyjwt
 fastapi-pagination
+boto3
 mypy-boto3-s3
 tree-sitter-language-pack
 tree-sitter
 spacy
 langchain-openai
 httpx
+requests
+ddgs
 charset-normalizer
 pymupdf
+python-docx
 langchain-core
 sentence-transformers
 anyio
 pyyaml
-pytest-asyncio
 openai
 lxml
 beautifulsoup4
