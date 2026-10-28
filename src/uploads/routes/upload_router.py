@@ -16,6 +16,7 @@ from src.database.utils import Pagination
 from src.middleware.rate_limiter import default_limit, uploads_limit
 from src.response.delivery import send_success_response
 from src.uploads.dependencies import get_upload_service, get_ingestion_runner
+from src.uploads.schemas.upload import DeleteUploadedFilesRequest
 from src.uploads.services.ingestion_service import IngestionRunner, build_job
 from src.uploads.services.upload_service import UploadService
 
@@ -130,3 +131,60 @@ async def reprocess(
     )
     runner.start(build_job(document))
     return document.viewable()
+
+
+@upload_router.delete(
+    path="/{chat_session_id}/{file_id}",
+    summary="Delete an uploaded file from a specific chat session",
+    status_code=status.HTTP_200_OK,
+)
+@default_limit
+async def delete_uploaded_file(
+    request: Request,
+    chat_session_id: UUID,
+    file_id: UUID,
+    upload_service: Annotated[UploadService, Depends(get_upload_service)],
+) -> JSONResponse:
+    """
+    Delete an uploaded file and its stored content. Deleting a file that no
+    longer exists succeeds.
+    """
+    await upload_service.delete_uploaded_file(
+        chat_session_id=chat_session_id,
+        user_id=request.state.user_id,
+        document_id=file_id,
+    )
+
+    return send_success_response(
+        message="Uploaded file deleted successfully.",
+        status_code=status.HTTP_200_OK,
+    )
+
+
+@upload_router.post(
+    path="/{chat_session_id}/batch-delete",
+    summary="Delete several uploaded files from a specific chat session",
+    status_code=status.HTTP_200_OK,
+)
+@default_limit
+async def delete_uploaded_files(
+    request: Request,
+    chat_session_id: UUID,
+    request_body: DeleteUploadedFilesRequest,
+    upload_service: Annotated[UploadService, Depends(get_upload_service)],
+) -> JSONResponse:
+    """
+    Delete several uploaded files at once. Ids that are not in the chat
+    session are skipped, and the response says how many were deleted.
+    """
+    deleted = await upload_service.delete_uploaded_files(
+        chat_session_id=chat_session_id,
+        user_id=request.state.user_id,
+        document_ids=request_body.file_ids,
+    )
+
+    return send_success_response(
+        message="Uploaded files deleted successfully.",
+        status_code=status.HTTP_200_OK,
+        data={"deletedCount": deleted},
+    )

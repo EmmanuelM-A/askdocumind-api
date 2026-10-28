@@ -310,7 +310,7 @@ class TestDeleteUploadedFile:
 
 
 class TestDeleteUploadedFiles:
-    async def test_removes_session_files_and_leaves_others(
+    async def test_removes_listed_files_and_skips_the_rest(
         self, service, session, object_storage, owner
     ):
         user_id, chat_session_id = owner
@@ -318,15 +318,22 @@ class TestDeleteUploadedFiles:
             await _stored(session, object_storage, chat_session_id, f"{i}.txt")
             for i in range(2)
         ]
+        unlisted = await _stored(session, object_storage, chat_session_id, "keep.txt")
         other_user, other_session = await _new_owner(session)
-        survivor = await _stored(session, object_storage, other_session)
+        foreign = await _stored(session, object_storage, other_session)
 
-        deleted = await service.delete_uploaded_files(chat_session_id, user_id)
+        deleted = await service.delete_uploaded_files(
+            chat_session_id,
+            user_id,
+            [d.id for d in doomed] + [foreign.id, uuid.uuid4()],
+        )
 
         assert deleted == 2
-        assert await _document_count(session, chat_session_id) == 0
+        assert await _document_count(session, chat_session_id) == 1
         assert not any(object_storage.exists(d.object_key) for d in doomed)
-        assert object_storage.exists(survivor.object_key) is True
+        assert object_storage.exists(unlisted.object_key) is True
+        assert await _row(session, foreign.id) is not None
+        assert object_storage.exists(foreign.object_key) is True
 
 
 class TestReprocessUploadedFile:
