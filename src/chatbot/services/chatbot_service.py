@@ -8,13 +8,7 @@ from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 
-from src.chatbot.schemas.chatbot import (
-    ChatbotResponse,
-    ChatRequest,
-    DocumentSource,
-    Source,
-    WebSource,
-)
+from src.chatbot.schemas.chatbot import ChatbotResponse, ChatRequest
 from src.config.configs import settings
 from src.exceptions import server_error
 from src.rag.schemas.retrieval import GetChunkEmbeddings, RetrievalResults
@@ -31,9 +25,6 @@ _NO_CONTEXT_ANSWER = (
 # The prompt treats everything inside these tags as data. Text that contains
 # them could close a wrapper early, so they are removed from the inputs.
 _WRAPPER_TAG = re.compile(r"</?(?:sources?|question)\b[^>]*>", re.IGNORECASE)
-
-# Citations such as [1], [2][4] and [1, 3].
-_CITATION = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 
 
 class LLMConfig(BaseModel):
@@ -101,32 +92,28 @@ class ChatbotService:
                 cause=e,
             ) from e
 
-        return ChatbotResponse(answer=answer, sources=_cited_sources(answer, sources))
+        return ChatbotResponse(answer=answer, sources=sources)
 
 
-def _build_context(results: RetrievalResults) -> tuple[str, list[Source]]:
+def _build_context(results: RetrievalResults) -> tuple[str, list[str]]:
     """
-    Number the document chunks and then the web results in rank order, and
-    stop once the next one would go over the context budget. The position of
-    a source in the returned list matches its id in the context.
+    Add the document chunks and then the web results in rank order, and stop
+    once the next one would go over the context budget. Returns the context
+    and the names of the sources in it, without duplicates.
     """
-    entries: list[tuple[Source, str]] = [
-        (
-            DocumentSource(document_id=chunk.document_id, chunk_index=chunk.chunk_index),
-            chunk.chunk_text,
-        )
-        for chunk in results.chunks
+    entries: list[tuple[str, str, str]] = [
+        ("document", chunk.document_name, chunk.chunk_text) for chunk in results.chunks
     ]
     entries.extend(
-        (WebSource(url=result.url, title=result.title), result.content)
+        ("web", result.title or result.url, result.content)
         for result in results.additional
     )
 
     blocks: list[str] = []
-    sources: list[Source] = []
+    sources: dict[str, None] = {}
     budget = settings.llm.MAX_CONTEXT_CHARS
 
-    for source, text in entries:
+    for source_type, name, text in entries:
         text = _WRAPPER_TAG.sub("", text).strip()
 
         if not text:
@@ -136,17 +123,7 @@ def _build_context(results: RetrievalResults) -> tuple[str, list[Source]]:
             break
 
         budget -= len(text)
-        sources.append(source)
-        blocks.append(
-            f'<source id="{len(sources)}" type="{source.type}">\n{text}\n</source>'
-        )
+        sources[name] = None
+        blocks.append(f'<source type="{source_type}">\n{text}\n</source>')
 
-    return "\n\n".join(blocks), sources
-
-
-def _cited_sources(answer: str, sources: list[Source]) -> list[Source]:
-    """Keep only the sources the answer cites, in id order."""
-    cited = {
-        int(number) for group in _CITATION.findall(answer) for number in group.split(",")
-    }
-    return [source for index, source in enumerate(sources, start=1) if index in cited]
+    return "\n\n".join(blocks), list(sources)

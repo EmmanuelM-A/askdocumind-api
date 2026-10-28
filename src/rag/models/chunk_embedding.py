@@ -72,11 +72,15 @@ class ChunkEmbedding(Base):
     )
 
     def viewable(self) -> ViewableChunkEmbedding:
-        """Return a viewable representation of the chunk embedding."""
+        """
+        Return a viewable representation of the chunk embedding. The document
+        must already be loaded, as it is by search_by_similarity.
+        """
 
         return ViewableChunkEmbedding(
             id=self.id,
             document_id=self.document_id,
+            document_name=self.document.original_filename,
             chat_session_id=self.chat_session_id,
             chunk_index=self.chunk_index,
             chunk_text=self.chunk_text,

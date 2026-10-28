@@ -2,6 +2,7 @@ from uuid import UUID
 
 from sqlalchemy import select, delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import contains_eager
 
 from src.database.utils import BaseRepository
 from src.exceptions.decorators import (
@@ -103,6 +104,9 @@ class ChunkEmbeddingRepositoryImpl(ChunkEmbeddingRepository, BaseRepository):
         result = await self._session.execute(
             select(ChunkEmbedding)
             .join(Document, Document.id == ChunkEmbedding.document_id)
+            # Fill chunk.document from the join so its filename can be read
+            # without a lazy load, which async sessions do not allow.
+            .options(contains_eager(ChunkEmbedding.document))
             .where(
                 ChunkEmbedding.chat_session_id == chat_session_id,
                 Document.status == DocumentStatus.COMPLETED,

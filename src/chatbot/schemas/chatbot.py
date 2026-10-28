@@ -1,6 +1,3 @@
-from typing import Annotated, Literal
-from uuid import UUID
-
 from pydantic import Field
 
 from src.rag.schemas.retrieval import GetChunkEmbeddingsConfig
@@ -12,21 +9,7 @@ class ChatRequest(CamelCaseSerializer):
     configs: GetChunkEmbeddingsConfig = Field(default_factory=GetChunkEmbeddingsConfig)
 
 
-class DocumentSource(CamelCaseSerializer):
-    type: Literal["document"] = "document"
-    document_id: UUID
-    chunk_index: int
-
-
-class WebSource(CamelCaseSerializer):
-    type: Literal["web"] = "web"
-    url: str
-    title: str
-
-
-Source = Annotated[DocumentSource | WebSource, Field(discriminator="type")]
-
-
 class ChatbotResponse(CamelCaseSerializer):
     answer: str
-    sources: list[Source]
+    # Document filenames and web page titles, without duplicates.
+    sources: list[str]
