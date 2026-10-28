@@ -2,7 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, status, Request, Depends
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 
 from src.chat_session.dependencies import get_chat_session_service
 from src.chat_session.schemas.chat_session import CreateChatSession
@@ -106,17 +106,12 @@ async def delete_chat_session(
     chat_session_service: Annotated[
         ChatSessionService, Depends(get_chat_session_service)
     ],
-) -> JSONResponse:
+) -> None:
     """
     Delete a specific chat session by its ID.
     """
     await chat_session_service.delete_chat_session(
         user_id=request.state.user_id, chat_session_id=chat_session_id
-    )
-
-    return send_success_response(
-        message="Chat session was deleted successfully.",
-        status_code=status.HTTP_204_NO_CONTENT,
     )
 
 
