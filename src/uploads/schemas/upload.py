@@ -11,3 +11,7 @@ class DeleteUploadedFilesRequest(CamelCaseSerializer):
     file_ids: list[UUID] = Field(
         min_length=1, max_length=settings.uploads.MAX_DOCS_PER_SESSION
     )
+
+
+class UploadFileRequest(CamelCaseSerializer):
+    file: UploadFile = Field(description="The file to be uploaded.")
