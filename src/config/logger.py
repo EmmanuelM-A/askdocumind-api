@@ -33,6 +33,15 @@ class ColorFormatter(logging.Formatter):
         return f"{color}{message}{self.RESET}"
 
 
+class _BelowWarningFilter(logging.Filter):
+    """
+    Lets through only records below WARNING, so app.log holds DEBUG and INFO.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.levelno < logging.WARNING
+
+
 def setup_logging() -> None:
     """
     Configure logging for the whole application. Call once at startup.
@@ -50,6 +59,9 @@ def setup_logging() -> None:
                 "datefmt": settings.logging.DATE_FORMAT,
             },
         },
+        "filters": {
+            "below_warning": {"()": _BelowWarningFilter},
+        },
         "handlers": {
             "app_file": {
                 "class": "logging.handlers.RotatingFileHandler",
@@ -57,6 +69,7 @@ def setup_logging() -> None:
                 "maxBytes": 10_000_000,
                 "backupCount": 5,
                 "encoding": "utf-8",
+                "filters": ["below_warning"],
                 "formatter": "file",
             },
             "error_file": {

@@ -49,8 +49,13 @@ class DocumentStatusReporter(StatusReporter):
     status of documents.
     """
 
-    def __init__(self, session_manager: DatabaseSessionManager) -> None:
+    def __init__(
+        self,
+        session_manager: DatabaseSessionManager,
+        repository_factory: DocumentRepositoryFactory = DocumentRepositoryImpl,
+    ) -> None:
         self._session_manager = session_manager
+        self._repository_factory = repository_factory
 
     async def report(
         self,
@@ -62,7 +67,7 @@ class DocumentStatusReporter(StatusReporter):
 
         try:
             async with self._session_manager.get_session() as session:
-                repository = DocumentRepositoryImpl(session)
+                repository = self._repository_factory(session)
                 transitioned = await repository.transition_document_status(
                     document_id=document_id,
                     from_statuses=_ALLOWED_FROM[status],

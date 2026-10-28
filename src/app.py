@@ -23,7 +23,6 @@ from src.cleanup.expired_user_cleaner import (
 from src.config.configs import settings
 from src.config.logger import setup_logging
 from src.config.paths import PUBLIC_PATHS
-from src.database.dependencies import DbSession
 from src.database.session import DatabaseSessionManager
 from src.exceptions.handlers import setup_exception_handlers
 from src.health.router import health_check_router
@@ -44,7 +43,6 @@ from src.rag.services.rerank.cross_encoder_reranker import (
     CrossEncoderRerankerConfig,
 )
 from src.rag.services.utils import RunGuard
-from src.uploads.dependencies import get_document_repository
 from src.uploads.routes.upload_router import upload_router
 from src.uploads.storage.dependencies import get_object_storage
 from src.uploads.services.ingestion_service import IngestionRunner
@@ -70,7 +68,7 @@ async def lifespan(app: FastAPI):
         chunker_factory=get_chunker_factory(),
         extraction=get_extraction_service(get_downloader_service(get_object_storage())),
         embedder=get_embedder(),
-        status_reporter=get_status_reporter(get_document_repository(DbSession)),
+        status_reporter=get_status_reporter(session_manager),
         guard=RunGuard(),
         max_concurrent=settings.uploads.MAX_CONCURRENT_UPLOADS,
     )
@@ -122,6 +120,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
         redirect_slashes=False,
         root_path="/api",
+        docs_url="/docs",
     )
 
     # SlowAPI's middleware and route decorators read the limiter from here
@@ -139,7 +138,8 @@ def create_app() -> FastAPI:
         max_concurrent_requests=settings.server.MAX_CONCURRENT_REQUESTS,
         exclude_paths=PUBLIC_PATHS,
     )
-    app.add_middleware(RequestLoggerMiddleware, exclude_paths=PUBLIC_PATHS)
+    if settings.server.ENV == "production":
+        app.add_middleware(RequestLoggerMiddleware, exclude_paths=PUBLIC_PATHS)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.server.CORS_ORIGINS,
