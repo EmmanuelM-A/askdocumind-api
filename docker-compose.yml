@@ -13,7 +13,10 @@ services:
     restart: always
 
   minio:
-    image: minio/minio
+    # minio/minio is no longer on Docker Hub. Chainguard's build runs as a
+    # non-root user that cannot write to the volume, so run it as root.
+    image: cgr.dev/chainguard/minio:latest
+    user: "0"
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
