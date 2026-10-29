@@ -5,7 +5,7 @@
 import importlib
 import pkgutil
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 import pytest_asyncio
@@ -54,7 +54,7 @@ def _dummy(column):
         dict: {},
         list: [],
         uuid.UUID: uuid.uuid4(),
-        datetime: datetime.now(timezone.utc),
+        datetime: datetime.now(UTC),
     }
     return values[python_type] if python_type in values else python_type()
 
@@ -104,7 +104,7 @@ async def make_document(manager, created):
     async def _make(status, **overrides):
         values = dict(overrides)
         if "updated_at" in DOCS.c and "updated_at" not in values:
-            values["updated_at"] = datetime.now(timezone.utc) - timedelta(days=1)
+            values["updated_at"] = datetime.now(UTC) - timedelta(days=1)
         async with manager.get_session() as session:
             row = await _insert(session, DOCS, created, status=status, **values)
         return row["id"]
@@ -159,7 +159,7 @@ class TestTransitions:
         await reporter.report(document_id, ProcessingStatus.PROCESSING)
 
         updated_at = (await read(document_id))["updated_at"]
-        assert updated_at > datetime.now(timezone.utc) - timedelta(hours=12)
+        assert updated_at > datetime.now(UTC) - timedelta(hours=12)
 
     async def test_full_success_lifecycle(self, reporter, make_document, read):
         document_id = await make_document(DocumentStatus.UPLOADED)

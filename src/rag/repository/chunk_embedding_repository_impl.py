@@ -1,14 +1,14 @@
 from uuid import UUID
 
-from sqlalchemy import select, delete, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import contains_eager
 
 from src.database.utils import BaseRepository
 from src.exceptions.decorators import (
+    handle_database_integrity_exceptions,
     handle_database_unavailable_exceptions,
     handle_sqlalchemy_exceptions,
-    handle_database_integrity_exceptions,
 )
 from src.rag.models.chunk_embedding import ChunkEmbedding
 from src.rag.repository.chunk_embedding_repository import ChunkEmbeddingRepository

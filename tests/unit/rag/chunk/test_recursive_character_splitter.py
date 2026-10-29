@@ -23,7 +23,7 @@ def source_id():
 
 
 def make_config(**overrides) -> RecursiveCharChunkerConfig:
-    defaults = dict(chunk_size=10, chunk_overlap=0, min_chunk_size=0)
+    defaults = {"chunk_size": 10, "chunk_overlap": 0, "min_chunk_size": 0}
     defaults.update(overrides)
     return RecursiveCharChunkerConfig(**defaults)
 

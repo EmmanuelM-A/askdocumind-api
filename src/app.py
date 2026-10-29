@@ -33,9 +33,9 @@ from src.middleware.request_logger import RequestLoggerMiddleware
 from src.middleware.request_size_limit import RequestSizeLimitMiddleware
 from src.rag.dependencies import (
     get_chunker_factory,
-    get_extraction_service,
     get_downloader_service,
     get_embedder,
+    get_extraction_service,
     get_status_reporter,
 )
 from src.rag.services.rerank.cross_encoder_reranker import (
@@ -44,9 +44,9 @@ from src.rag.services.rerank.cross_encoder_reranker import (
 )
 from src.rag.services.utils import RunGuard
 from src.uploads.routes.upload_router import upload_router
-from src.uploads.storage.dependencies import get_object_storage
 from src.uploads.services.ingestion_service import IngestionRunner
 from src.uploads.services.sweeper import Sweeper, SweeperConfig
+from src.uploads.storage.dependencies import get_object_storage
 
 
 @asynccontextmanager

@@ -114,7 +114,7 @@ class TestCoreBehavior:
         self, tmp_path, settings
     ):
         settings.rag.READ_BLOCK_BYTES = 3
-        path = write(tmp_path, "aéb€c🙂d".encode("utf-8"))
+        path = write(tmp_path, "aéb€c🙂d".encode())
 
         assert extract(path)[0].text == "aéb€c🙂d"
 
@@ -127,7 +127,7 @@ class TestCoreBehavior:
 class TestEncoding:
 
     def test_utf8_is_read_without_calling_the_detector(self, tmp_path):
-        path = write(tmp_path, "héllo wörld 日本語".encode("utf-8"))
+        path = write(tmp_path, "héllo wörld 日本語".encode())
 
         with patch(f"{MODULE}.from_path", side_effect=AssertionError("not needed")):
             assert extract(path)[0].text == "héllo wörld 日本語"

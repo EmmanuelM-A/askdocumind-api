@@ -9,7 +9,7 @@ from src.auth.models.user import User
 from src.auth.repository.user_repository import UserRepository
 from src.chat_session.models.chat_session import ChatSession
 from src.chat_session.repository.chat_session_repository import ChatSessionRepository
-from src.exceptions import not_found_error, forbidden_error
+from src.exceptions import forbidden_error, not_found_error
 
 _logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class BaseService:
         user = await self._user_repository.get_by_id(user_id)
         if user is None:
             raise not_found_error(
-                message=f"The user with provided id does not exist",
+                message="The user with provided id does not exist",
                 error_code="USER_NOT_FOUND",
             )
         _logger.debug("The user '%s' exists in the system.", user_id)

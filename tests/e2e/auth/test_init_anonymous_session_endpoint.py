@@ -3,7 +3,7 @@ End-to-end tests for the /auth/anonymous/init endpoint.
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from http.cookies import SimpleCookie
 from unittest.mock import AsyncMock, patch
 
@@ -67,7 +67,7 @@ def _encode(payload, secret=None):
 
 
 def _payload(user_id=None, iat_offset=0, exp_offset=3600):
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.now(UTC).timestamp()
     return {
         "user_id": str(user_id or uuid.uuid4()),
         "iat": now + iat_offset,
@@ -198,7 +198,7 @@ class TestExistingSession:
         assert second.json()["data"]["id"] == first.json()["data"]["id"]
 
     async def test_stale_last_seen_is_refreshed(self, auth_client, repo, session):
-        stale = datetime.now(timezone.utc) - timedelta(
+        stale = datetime.now(UTC) - timedelta(
             minutes=settings.auth.UPDATE_LAST_SEEN_FREQ_MINS + 60
         )
         user, token = await _existing_user_with_token(repo, last_seen_at=stale)

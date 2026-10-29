@@ -4,7 +4,7 @@ from uuid import UUID
 
 from src.auth.repository.user_repository import UserRepository
 from src.chat_session.models.chat_session import ChatSession
-from src.chat_session.models.mapper import ViewableChatSession, ViewableChatMessage
+from src.chat_session.models.mapper import ViewableChatMessage, ViewableChatSession
 from src.chat_session.repository.chat_message_repository import (
     ChatMessageRepository,
     ChatMessageSearchFilter,
@@ -65,8 +65,8 @@ class ChatSessionService(BaseService):
             )
 
         _logger.debug(
-            f"The user '%s' has not exceeding the maximum number of chat "
-            f"sessions allowed. Proceeding..."
+            "The user '%s' has not exceeding the maximum number of chat "
+            "sessions allowed. Proceeding..."
         )
 
         entity = ChatSession(user_id=user_id, title=data.title)

@@ -11,8 +11,8 @@ from pydantic import ValidationError
 from src.exceptions.base import ApiException
 from src.rag.services.chunk.chunker import Chunk, Chunker
 from src.rag.services.chunk.structure_aware import (
-    StructureAwareChunkerConfig,
     StructureAwareChunker,
+    StructureAwareChunkerConfig,
 )
 from src.rag.services.extract.extractors.extractor import Segment
 
@@ -45,7 +45,7 @@ def fallback_chunker():
 
 
 def make_config(**overrides) -> StructureAwareChunkerConfig:
-    defaults = dict(chunk_size=1000, chunk_overlap=0, min_chunk_size=0)
+    defaults = {"chunk_size": 1000, "chunk_overlap": 0, "min_chunk_size": 0}
     defaults.update(overrides)
     return StructureAwareChunkerConfig(**defaults)
 

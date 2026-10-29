@@ -7,15 +7,15 @@ classes.
 
 import asyncio
 import logging
-from typing import Callable
+from collections.abc import Callable
 from uuid import UUID
 
-from pydantic import ConfigDict, Field, BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from tree_sitter import Node
 from tree_sitter_language_pack import get_parser
 
 from src.exceptions import server_error
-from src.rag.services.chunk.chunker import Chunker, Chunk
+from src.rag.services.chunk.chunker import Chunk, Chunker
 from src.rag.services.chunk.utils import merge_undersized_chunks
 
 _logger = logging.getLogger(__name__)

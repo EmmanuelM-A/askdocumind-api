@@ -26,7 +26,7 @@ def source_id():
 
 
 def make_config(**overrides) -> SentenceChunkerConfig:
-    defaults = dict(chunk_size=100, chunk_overlap=0, min_chunk_size=0)
+    defaults = {"chunk_size": 100, "chunk_overlap": 0, "min_chunk_size": 0}
     defaults.update(overrides)
     return SentenceChunkerConfig(**defaults)
 

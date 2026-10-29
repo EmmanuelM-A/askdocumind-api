@@ -261,7 +261,7 @@ class TestGetUploadedFileStatus:
         self, service, session, object_storage, owner
     ):
         user_id, chat_session_id = owner
-        other_user, other_session = await _new_owner(session)
+        _, other_session = await _new_owner(session)
         foreign = await _stored(session, object_storage, other_session)
 
         for document_id in (uuid.uuid4(), foreign.id):
@@ -298,7 +298,7 @@ class TestDeleteUploadedFile:
         self, service, session, object_storage, owner
     ):
         user_id, chat_session_id = owner
-        other_user, other_session = await _new_owner(session)
+        _, other_session = await _new_owner(session)
         foreign = await _stored(session, object_storage, other_session)
 
         with pytest.raises(ApiException) as exc:
@@ -319,7 +319,7 @@ class TestDeleteUploadedFiles:
             for i in range(2)
         ]
         unlisted = await _stored(session, object_storage, chat_session_id, "keep.txt")
-        other_user, other_session = await _new_owner(session)
+        _, other_session = await _new_owner(session)
         foreign = await _stored(session, object_storage, other_session)
 
         deleted = await service.delete_uploaded_files(
@@ -383,7 +383,7 @@ class TestReprocessUploadedFile:
         self, service, session, object_storage, owner
     ):
         user_id, chat_session_id = owner
-        other_user, other_session = await _new_owner(session)
+        _, other_session = await _new_owner(session)
         foreign = await _stored(session, object_storage, other_session)
 
         with pytest.raises(ApiException) as exc:

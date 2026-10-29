@@ -14,7 +14,7 @@ fallback result instead.
 import asyncio
 import socket
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from typing import ClassVar
 
 import pytest
 import requests
@@ -102,7 +102,7 @@ def make_ddgs(results=None, error=None):
     """Build a fake DDGS class. Its calls land in the class attribute calls."""
 
     class FakeDDGS:
-        calls = []
+        calls: ClassVar[list] = []
 
         def text(self, query, max_results):
             FakeDDGS.calls.append((query, max_results))

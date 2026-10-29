@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi_pagination import Page
-from sqlalchemy import Select, delete, select, func
+from sqlalchemy import Select, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.chat_session.models.chat_message import ChatMessage
@@ -10,8 +10,7 @@ from src.chat_session.repository.chat_message_repository import (
     ChatMessageRepository,
     ChatMessageSearchFilter,
 )
-from src.database.utils import Pagination
-from src.database.utils import BaseRepository
+from src.database.utils import BaseRepository, Pagination
 from src.exceptions import database_error
 
 

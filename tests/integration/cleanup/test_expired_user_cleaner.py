@@ -7,7 +7,7 @@ far later, are never inside the cutoff.
 """
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -29,7 +29,7 @@ from src.uploads.storage.object_storage import ObjectStorage
 
 pytestmark = pytest.mark.asyncio
 
-_CUTOFF = datetime(2000, 1, 1, tzinfo=timezone.utc)
+_CUTOFF = datetime(2000, 1, 1, tzinfo=UTC)
 _EXPIRED = _CUTOFF - timedelta(days=365)
 _ACTIVE = _CUTOFF + timedelta(days=365)
 
@@ -39,7 +39,7 @@ def _config(**overrides) -> ExpiredUserCleanerConfig:
         hours=settings.auth.ANONYMOUS_TOKEN_TTL_HOURS,
         minutes=settings.auth.UPDATE_LAST_SEEN_FREQ_MINS,
     )
-    grace = datetime.now(timezone.utc) - _CUTOFF - inactive_for
+    grace = datetime.now(UTC) - _CUTOFF - inactive_for
     return ExpiredUserCleanerConfig(
         grace_seconds=int(grace.total_seconds()), **overrides
     )
@@ -173,7 +173,7 @@ async def test_failed_file_delete_does_not_stop_cleanup(
 async def test_cutoff_waits_for_token_expiry_and_grace(manager, storage):
     cleaner = ExpiredUserCleaner(manager, storage, ExpiredUserCleanerConfig())
     expected = (
-        datetime.now(timezone.utc)
+        datetime.now(UTC)
         - timedelta(hours=settings.auth.ANONYMOUS_TOKEN_TTL_HOURS)
         - timedelta(minutes=settings.auth.UPDATE_LAST_SEEN_FREQ_MINS)
         - timedelta(seconds=ExpiredUserCleanerConfig().grace_seconds)

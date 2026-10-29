@@ -12,8 +12,8 @@ from src.rag.services.chunk.code_aware import (
     CodeAwareChunkerConfig,
 )
 from src.rag.services.chunk.recursive_character_splitter import (
-    RecursiveCharChunkerConfig,
     RecursiveCharacterSplittingChunker,
+    RecursiveCharChunkerConfig,
 )
 from src.rag.services.chunk.sentence_based import (
     SentenceBasedChunker,

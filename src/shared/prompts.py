@@ -21,7 +21,7 @@ def load_prompt_from(path: str | Path) -> ChatPromptTemplate:
             prompt_data: Any = yaml.safe_load(file)
 
         if not isinstance(prompt_data, dict):
-            raise ValueError("The prompt YAML must be a dictionary")
+            raise TypeError("The prompt YAML must be a dictionary")
 
         system_prompt = prompt_data.get("system", None)
         user_prompt = prompt_data.get("user", None)

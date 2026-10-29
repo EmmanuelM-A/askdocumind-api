@@ -14,16 +14,16 @@ import re
 from dataclasses import dataclass
 from uuid import UUID
 
-from pydantic import Field, field_validator, ConfigDict
+from pydantic import ConfigDict, Field, field_validator
 
 from src.exceptions import server_error
-from src.rag.services.chunk.chunker import ChunkerConfig, Chunker, Chunk
+from src.rag.services.chunk.chunker import Chunk, Chunker, ChunkerConfig
 
 
 class StructureAwareChunkerConfig(ChunkerConfig):
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
-    fallback_chunker: "Chunker | None" = Field(default=None)
+    fallback_chunker: Chunker | None = Field(default=None)
     header_levels: list[str] = Field(default_factory=lambda: ["#", "##", "###"])
 
     @field_validator("header_levels")
@@ -156,7 +156,7 @@ class StructureAwareChunker(Chunker):
 
             stripped = line_without_newline.lstrip()
 
-            if stripped.startswith("```") or stripped.startswith("~~~"):
+            if stripped.startswith(("```", "~~~")):
                 fence = stripped[:3]
 
                 if not in_code_block:

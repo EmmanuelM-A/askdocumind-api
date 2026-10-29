@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 from pathlib import Path
 
-from bs4 import BeautifulSoup, Tag, NavigableString
+from bs4 import BeautifulSoup, NavigableString, Tag
 
 from src.exceptions import unprocessable_content_error
 from src.rag.services.extract.extractors.extractor import (

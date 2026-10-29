@@ -16,8 +16,8 @@ from src.rag.services.report.document_status_reporter import DocumentStatusRepor
 from src.rag.services.report.status_reporter import (
     ProcessingStatus,
     StatusConflict,
-    StatusReportFailed,
     StatusReporter,
+    StatusReportFailed,
 )
 from src.uploads.domain.document import DocumentStatus
 from src.uploads.repository.document_repository import DocumentRepository

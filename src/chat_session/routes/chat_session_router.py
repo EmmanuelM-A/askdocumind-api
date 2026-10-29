@@ -1,8 +1,8 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, status, Request, Depends
-from starlette.responses import JSONResponse, Response
+from fastapi import APIRouter, Depends, Request, status
+from starlette.responses import JSONResponse
 
 from src.chat_session.dependencies import get_chat_session_service
 from src.chat_session.schemas.chat_session import CreateChatSession

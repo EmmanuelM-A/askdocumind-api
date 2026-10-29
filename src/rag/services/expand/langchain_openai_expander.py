@@ -9,7 +9,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 
 from src.config.configs import settings
-from src.exceptions import unprocessable_content_error, server_error
+from src.exceptions import server_error, unprocessable_content_error
 from src.rag.services.expand.query_expander import QueryExpander
 
 _logger = logging.getLogger(__name__)

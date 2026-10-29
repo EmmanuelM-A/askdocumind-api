@@ -3,11 +3,11 @@ Integration tests for the AnonymousUserService class.
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
-import pytest
 import jwt
+import pytest
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.dml import Update
@@ -129,7 +129,7 @@ class TestExistingUser:
         _assert_refreshed(returned_token, token, user.id)
 
     async def test_stale_last_seen_is_refreshed(self, service, repo, session):
-        stale = datetime.now(timezone.utc) - timedelta(
+        stale = datetime.now(UTC) - timedelta(
             minutes=settings.auth.UPDATE_LAST_SEEN_FREQ_MINS + 60
         )
         user, token = await _existing_user_with_token(repo, last_seen_at=stale)
@@ -147,7 +147,7 @@ class TestExistingUser:
         assert await _last_seen(session, user.id) == before
 
     async def test_other_users_are_untouched(self, service, repo, session):
-        stale = datetime.now(timezone.utc) - timedelta(
+        stale = datetime.now(UTC) - timedelta(
             minutes=settings.auth.UPDATE_LAST_SEEN_FREQ_MINS + 60
         )
         _, token = await _existing_user_with_token(repo, last_seen_at=stale)
@@ -182,7 +182,7 @@ class TestTokenForDeletedUser:
         token = create_anonymous_token(uuid.uuid4())
         before = await _count_users(session)
 
-        viewable, new_token = await service.init_anonymous_user(token)
+        _, new_token = await service.init_anonymous_user(token)
 
         assert await _count_users(session) == before + 1
         assert new_token != token
@@ -194,7 +194,7 @@ def _encode(payload, secret=None):
 
 
 def _payload(user_id=None, iat_offset=0, exp_offset=3600):
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.now(UTC).timestamp()
     return {
         "user_id": str(user_id or uuid.uuid4()),
         "iat": now + iat_offset,

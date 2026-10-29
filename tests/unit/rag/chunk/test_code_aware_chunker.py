@@ -6,7 +6,9 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 
+from src.exceptions import ApiException
 from src.rag.services.chunk.chunker import Chunk, Chunker
 from src.rag.services.chunk.code_aware import (
     CodeAwareChunker,
@@ -306,7 +308,7 @@ class TestFallback:
             "src.rag.services.chunk.code_aware.get_parser",
             side_effect=RuntimeError("boom"),
         ):
-            with pytest.raises(Exception):
+            with pytest.raises(ApiException):
                 await chunker.chunk(SIMPLE_SOURCE, source_id)
 
     @pytest.mark.asyncio
@@ -483,13 +485,13 @@ class TestChunkStream:
 class TestConfigValidation:
 
     def test_error_threshold_above_one_is_rejected(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             CodeAwareChunkerConfig(error_threshold=1.5)
 
     def test_error_threshold_below_zero_is_rejected(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             CodeAwareChunkerConfig(error_threshold=-0.1)
 
     def test_max_lines_per_chunk_zero_is_rejected(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             CodeAwareChunkerConfig(max_lines_per_chunk=0)

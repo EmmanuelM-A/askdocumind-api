@@ -7,7 +7,7 @@ their rows before 2000 so real rows can never fall inside the cutoff.
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -29,7 +29,7 @@ from src.uploads.repository.document_repository_impl import DocumentRepositoryIm
 pytestmark = pytest.mark.asyncio
 
 _INTERNAL_ERROR = status.HTTP_500_INTERNAL_SERVER_ERROR
-_CUTOFF = datetime(2000, 1, 1, tzinfo=timezone.utc)
+_CUTOFF = datetime(2000, 1, 1, tzinfo=UTC)
 
 
 def _document(chat_session_id, filename=None, **overrides):
@@ -140,7 +140,7 @@ class TestListByCriteria:
     async def test_returns_session_documents_newest_first(
         self, repo, session, chat_session_id
     ):
-        base = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        base = datetime(2024, 1, 1, tzinfo=UTC)
         oldest = await _add(repo, chat_session_id, created_at=base)
         newest = await _add(repo, chat_session_id, created_at=base + timedelta(days=2))
         tied = [
@@ -195,7 +195,7 @@ class TestListByCriteria:
 
 class TestListByCriteriaPaginated:
     async def test_returns_requested_page_with_total(self, repo, chat_session_id):
-        base = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        base = datetime(2024, 1, 1, tzinfo=UTC)
         documents = [
             await _add(repo, chat_session_id, created_at=base + timedelta(days=i))
             for i in range(5)
@@ -308,7 +308,7 @@ class TestTransitionDocumentStatus:
     async def test_transitions_from_allowed_status_and_bumps_updated_at(
         self, repo, session, chat_session_id
     ):
-        old = datetime(1999, 1, 1, tzinfo=timezone.utc)
+        old = datetime(1999, 1, 1, tzinfo=UTC)
         document = await _add(
             repo, chat_session_id, status=DocumentStatus.PROCESSING, updated_at=old
         )
@@ -350,7 +350,7 @@ class TestListStaleDocuments:
         self, repo, chat_session_id
     ):
         def at(year, month=1):
-            return datetime(year, month, 1, tzinfo=timezone.utc)
+            return datetime(year, month, 1, tzinfo=UTC)
 
         processing = DocumentStatus.PROCESSING
         oldest = await _add(

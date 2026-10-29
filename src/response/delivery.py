@@ -3,14 +3,15 @@ Responsible for creating and sending standardized API responses for both
 successful and failed requests.
 """
 
-from datetime import datetime, timezone
-from typing import Dict, TypeVar, Generic, Mapping
+from collections.abc import Mapping
+from datetime import UTC, datetime
+from typing import Generic, TypeVar
 
 from fastapi.responses import JSONResponse
 from pydantic import Field
 
-from src.shared.utils import CamelCaseSerializer
 from src.response.models import ErrorInfo
+from src.shared.utils import CamelCaseSerializer
 
 T = TypeVar("T")
 
@@ -23,7 +24,7 @@ class _SuccessResponse(CamelCaseSerializer, Generic[T]):
     )
 
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="The timestamp of the response.",
     )
 
@@ -42,7 +43,7 @@ class _ErrorResponse(CamelCaseSerializer):
     )
 
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
         description="The timestamp of the response.",
     )
 
@@ -68,7 +69,7 @@ def send_error_response(
     message: str,
     status_code: int,
     error_code: str,
-    details: Dict[str, str] | None = None,
+    details: dict[str, str] | None = None,
     stack_trace: str | None = None,
     headers: Mapping[str, str] | None = None,
 ) -> JSONResponse:

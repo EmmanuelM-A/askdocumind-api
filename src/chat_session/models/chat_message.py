@@ -1,12 +1,13 @@
 import uuid
 from datetime import datetime
+from typing import Any, ClassVar
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.chat_session.models.chat_session import ChatSession
 from src.chat_session.domain.chat import ChatMessageRole
+from src.chat_session.models.chat_session import ChatSession
 from src.chat_session.models.mapper import ViewableChatMessage
 from src.database.orm_base import Base
 
@@ -15,7 +16,7 @@ class ChatMessage(Base):
     """Model representing a chat message."""
 
     __tablename__ = "chat_messages"
-    __mapper_args__ = {"eager_defaults": True}
+    __mapper_args__: ClassVar[dict[str, Any]] = {"eager_defaults": True}
 
     # Columns
     id: Mapped[uuid.UUID] = mapped_column(

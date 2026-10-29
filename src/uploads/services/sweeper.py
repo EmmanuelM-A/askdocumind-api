@@ -2,13 +2,12 @@ import asyncio
 import contextlib
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from src.database.session import DatabaseSessionManager
 from src.rag.repository.chunk_embedding_repository_impl import (
     ChunkEmbeddingRepositoryImpl,
 )
-
 from src.uploads.domain.document import DocumentStatus
 from src.uploads.models.document import Document
 from src.uploads.repository.document_repository import DocumentRepository
@@ -162,7 +161,7 @@ class Sweeper:
         status: DocumentStatus,
         older_than_seconds: int,
     ) -> list[Document]:
-        cutoff = datetime.now(timezone.utc) - timedelta(seconds=older_than_seconds)
+        cutoff = datetime.now(UTC) - timedelta(seconds=older_than_seconds)
 
         return await repository.list_stale_documents(
             status, cutoff, self._config.batch_limit

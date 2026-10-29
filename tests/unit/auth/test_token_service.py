@@ -1,6 +1,6 @@
 import base64
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
@@ -58,7 +58,7 @@ def make_token(user_id):
         drop: tuple[str, ...] = (),
         **overrides,
     ) -> str:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "user_id": str(user_id),
             "iat": now.timestamp(),
@@ -112,9 +112,9 @@ def test_create_expiry_matches_configured_ttl(user_id, ttl_hours):
 
 
 def test_create_sets_issued_at_to_current_time(user_id):
-    before = datetime.now(timezone.utc).timestamp()
+    before = datetime.now(UTC).timestamp()
     token = create_anonymous_token(user_id)
-    after = datetime.now(timezone.utc).timestamp()
+    after = datetime.now(UTC).timestamp()
 
     claims = jwt.decode(token, SECRET, algorithms=["HS256"])
 

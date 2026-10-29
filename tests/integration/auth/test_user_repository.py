@@ -3,7 +3,7 @@ Integration tests for the User Repository.
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -69,7 +69,7 @@ class TestCreate:
         assert await _exists(session, user_id)
 
     async def test_explicit_last_seen_is_stored(self, repo, session):
-        last_seen = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        last_seen = datetime(2024, 1, 1, tzinfo=UTC)
         user = await _add_user(repo, last_seen_at=last_seen)
         assert await _last_seen(session, user.id) == last_seen
 
@@ -191,7 +191,7 @@ class TestUpdateLastSeen:
     async def test_updates_only_when_older_than_frequency(
         self, repo, session, age_mins, freq_mins, should_update
     ):
-        old = datetime.now(timezone.utc) - timedelta(minutes=age_mins)
+        old = datetime.now(UTC) - timedelta(minutes=age_mins)
         user = await _add_user(repo, last_seen_at=old)
 
         await repo.update_last_seen(user.id, freq_mins)
@@ -214,7 +214,7 @@ class TestUpdateLastSeen:
         assert await repo.update_last_seen(uuid.uuid4(), 5) is None
 
     async def test_other_users_are_untouched(self, repo, session):
-        old = datetime.now(timezone.utc) - timedelta(hours=3)
+        old = datetime.now(UTC) - timedelta(hours=3)
         target = await _add_user(repo, last_seen_at=old)
         other = await _add_user(repo, last_seen_at=old)
 
@@ -224,7 +224,7 @@ class TestUpdateLastSeen:
         assert await _last_seen(session, other.id) == old
 
     async def test_created_at_is_not_modified(self, repo, session):
-        old = datetime.now(timezone.utc) - timedelta(hours=3)
+        old = datetime.now(UTC) - timedelta(hours=3)
         user = await _add_user(repo, last_seen_at=old)
         await session.refresh(user)
         created_before = user.created_at
@@ -237,7 +237,7 @@ class TestUpdateLastSeen:
         assert result.scalar_one() == created_before
 
     async def test_repeated_calls_within_window_keep_first_update(self, repo, session):
-        old = datetime.now(timezone.utc) - timedelta(hours=3)
+        old = datetime.now(UTC) - timedelta(hours=3)
         user = await _add_user(repo, last_seen_at=old)
 
         await repo.update_last_seen(user.id, 30)
@@ -253,7 +253,7 @@ class TestUpdateLastSeen:
         assert exc.value.status_code == _INTERNAL_ERROR
 
     async def test_loaded_user_stays_readable_after_update(self, repo):
-        old = datetime.now(timezone.utc) - timedelta(hours=3)
+        old = datetime.now(UTC) - timedelta(hours=3)
         user = await _add_user(repo, last_seen_at=old)
         loaded = await repo.get_by_id(user.id)
 

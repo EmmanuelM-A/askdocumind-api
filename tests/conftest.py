@@ -3,7 +3,7 @@ Global fixtures for pytest.
 """
 
 import uuid
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import boto3
 import pytest

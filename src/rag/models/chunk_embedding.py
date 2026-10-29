@@ -5,12 +5,12 @@ from typing import TYPE_CHECKING
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     DateTime,
+    ForeignKey,
     Index,
     Integer,
     Text,
     UniqueConstraint,
     func,
-    ForeignKey,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship

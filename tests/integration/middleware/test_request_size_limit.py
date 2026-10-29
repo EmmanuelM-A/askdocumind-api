@@ -2,6 +2,7 @@
 Integration tests for the RequestSizeLimitMiddleware.
 """
 
+from typing import Annotated
 from unittest.mock import AsyncMock
 
 import pytest
@@ -37,7 +38,7 @@ async def client(monkeypatch, calls):
         return {"size": len(await request.body())}
 
     @app.post("/upload")
-    async def upload(file: UploadFile = File(...)):
+    async def upload(file: Annotated[UploadFile, File()]):
         calls["count"] += 1
         return {"size": len(await file.read())}
 

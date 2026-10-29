@@ -10,7 +10,6 @@ from docx.text.paragraph import Paragraph
 from lxml.etree import LxmlError
 
 from src.exceptions import unprocessable_content_error
-
 from src.rag.services.extract.extractors.extractor import (
     Extractor,
     Segment,

@@ -1,5 +1,6 @@
 from typing import Annotated
 
+from fastapi import Request
 from fastapi.params import Depends
 
 from src.auth.dependencies import get_user_repository
@@ -13,7 +14,6 @@ from src.uploads.services.ingestion_service import IngestionRunner
 from src.uploads.services.upload_service import UploadService
 from src.uploads.storage.dependencies import get_object_storage
 from src.uploads.storage.object_storage import ObjectStorage
-from fastapi import Request
 
 
 def get_document_repository(session: DbSession) -> DocumentRepository:

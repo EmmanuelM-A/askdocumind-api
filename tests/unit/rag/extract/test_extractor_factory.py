@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-import src.config.configs as configs
+from src.config import configs
 from src.exceptions.base import ApiException
 from src.rag.services.extract.extractors import factory as factory_module
 from src.rag.services.extract.extractors.docx_extractor import DocxExtractor

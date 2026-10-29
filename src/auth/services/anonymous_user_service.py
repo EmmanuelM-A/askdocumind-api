@@ -5,8 +5,8 @@ from src.auth.models.mapper import ViewableUser
 from src.auth.models.user import User
 from src.auth.repository.user_repository import UserRepository
 from src.auth.services.token_service import (
-    decode_anonymous_token,
     create_anonymous_token,
+    decode_anonymous_token,
 )
 from src.config.configs import settings
 

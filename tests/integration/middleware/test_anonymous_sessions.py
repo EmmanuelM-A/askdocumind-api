@@ -3,7 +3,7 @@ Integration tests for the AnonymousSessionMiddleware.
 """
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import jwt
@@ -66,7 +66,7 @@ def _cookie_header(token):
 
 
 def _encode(user_id, exp_offset=3600, secret=None):
-    now = datetime.now(timezone.utc).timestamp()
+    now = datetime.now(UTC).timestamp()
     payload = {"user_id": str(user_id), "iat": now, "exp": now + exp_offset}
     key = secret or settings.auth.ANONYMOUS_TOKEN_SECRET.get_secret_value()
     return jwt.encode(payload, key=key, algorithm="HS256")
@@ -107,7 +107,7 @@ async def test_valid_cookie_passes_user_id_to_downstream(client, user):
 
 
 async def test_stale_last_seen_is_refreshed(client, manager, user):
-    stale = datetime.now(timezone.utc) - timedelta(
+    stale = datetime.now(UTC) - timedelta(
         minutes=settings.auth.UPDATE_LAST_SEEN_FREQ_MINS + 1
     )
     await _set_last_seen(manager, user.id, stale)
@@ -121,7 +121,7 @@ async def test_stale_last_seen_is_refreshed(client, manager, user):
 
 
 async def test_recent_last_seen_is_not_refreshed(client, manager, user):
-    recent = datetime.now(timezone.utc) - timedelta(seconds=30)
+    recent = datetime.now(UTC) - timedelta(seconds=30)
     await _set_last_seen(manager, user.id, recent)
 
     response = await client.get(

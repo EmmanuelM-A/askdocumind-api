@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from src.cleanup.expired_user_repository import ExpiredUserRepository
@@ -87,7 +87,7 @@ class ExpiredUserCleaner:
             minutes=settings.auth.UPDATE_LAST_SEEN_FREQ_MINS,
             seconds=self._config.grace_seconds,
         )
-        return datetime.now(timezone.utc) - inactive_for
+        return datetime.now(UTC) - inactive_for
 
     # ------------------------ Helpers ------------------------
 

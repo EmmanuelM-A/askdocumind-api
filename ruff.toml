@@ -1,0 +1,15 @@
+# Uses ruff's default rule set, which changes between releases. The ruff
+# version is pinned in requirements-dev.txt so CI and local runs agree.
+target-version = "py312"
+
+[lint]
+ignore = [
+    # Broad excepts are deliberate around third-party calls (OpenAI, Brave,
+    # PDF parsing), whose libraries raise a wide range of exception types
+    "BLE001",
+    # Nested with blocks read more clearly than one long combined statement
+    "SIM117",
+    # PEP 695 generics: TypeVar is kept, including for the pydantic response models
+    "UP046",
+    "UP047",
+]

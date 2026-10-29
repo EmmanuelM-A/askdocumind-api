@@ -7,7 +7,7 @@ import logging
 from datetime import timedelta
 from uuid import UUID
 
-from sqlalchemy import select, delete, update, func
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.models.user import User

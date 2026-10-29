@@ -1,17 +1,4 @@
-from typing import List
-
 from langchain_openai import OpenAIEmbeddings
-
-from src.config.configs import settings
-from src.exceptions import (
-    server_error,
-    bad_request_error,
-    service_unavailable_error,
-    ApiException,
-)
-from src.rag.services.chunk.chunker import Chunk
-from src.rag.services.embed.embedder import Embedder
-
 from openai import (
     APIConnectionError,
     APIStatusError,
@@ -22,6 +9,16 @@ from openai import (
     RateLimitError,
     UnprocessableEntityError,
 )
+
+from src.config.configs import settings
+from src.exceptions import (
+    ApiException,
+    bad_request_error,
+    server_error,
+    service_unavailable_error,
+)
+from src.rag.services.chunk.chunker import Chunk
+from src.rag.services.embed.embedder import Embedder
 
 
 def _handle_openai_exception(
@@ -82,7 +79,7 @@ class LangChainOpenAIEmbedder(Embedder):
                 cause=e,
             )
 
-    async def embed_chunks(self, chunks: List[Chunk]) -> List[List[float]]:
+    async def embed_chunks(self, chunks: list[Chunk]) -> list[list[float]]:
         if not chunks:
             return []
 
@@ -96,7 +93,7 @@ class LangChainOpenAIEmbedder(Embedder):
                 exception=e,
             )
 
-    async def embed_query(self, query: str) -> List[float]:
+    async def embed_query(self, query: str) -> list[float]:
         if not query or not query.strip():
             raise bad_request_error(
                 message="Cannot embed an empty query string.",

@@ -2,7 +2,7 @@
 Shared helper functions used across chunker implementations.
 """
 
-from typing import Callable
+from collections.abc import Callable
 
 from src.rag.services.chunk.chunker import Chunk
 

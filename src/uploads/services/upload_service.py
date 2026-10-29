@@ -12,12 +12,12 @@ from src.chat_session.repository.chat_session_repository import ChatSessionRepos
 from src.config.configs import settings
 from src.database.utils import Pagination
 from src.exceptions import (
+    conflict_error,
+    content_too_large_error,
+    forbidden_error,
+    not_found_error,
     unprocessable_content_error,
     unsupported_media_type_error,
-    content_too_large_error,
-    conflict_error,
-    not_found_error,
-    forbidden_error,
 )
 from src.uploads.domain.document import DocumentStatus
 from src.uploads.models.document import Document
@@ -143,9 +143,9 @@ class UploadService:
                     message="The file provided has not been uploaded.",
                     error_code="UPLOAD_FAILED",
                 )
-        except Exception as exc:
+        except Exception:
             await self._discard_file(document_id, key)
-            raise exc
+            raise
 
         created = await self._document_repository.get_by_id(document_id)
 

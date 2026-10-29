@@ -4,8 +4,6 @@ Each function raises an ApiException with a specific HTTP status code and
 consistent structure for error handling across the API.
 """
 
-from typing import Dict
-
 from fastapi import status
 
 from src.exceptions.base import ApiException
@@ -14,7 +12,7 @@ from src.exceptions.base import ApiException
 def bad_request_error(
     message: str,
     error_code: str = "BAD_REQUEST",
-    error_details: Dict[str, str] | None = None,
+    error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
 ) -> ApiException:
@@ -32,7 +30,7 @@ def bad_request_error(
 def unauthorized_error(
     message: str,
     error_code: str = "UNAUTHORIZED",
-    error_details: Dict[str, str] | None = None,
+    error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
 ) -> ApiException:
@@ -50,7 +48,7 @@ def unauthorized_error(
 def forbidden_error(
     message: str,
     error_code: str = "FORBIDDEN",
-    error_details: Dict[str, str] | None = None,
+    error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
 ) -> ApiException:
@@ -68,7 +66,7 @@ def forbidden_error(
 def not_found_error(
     message: str,
     error_code: str = "NOT_FOUND",
-    error_details: Dict[str, str] | None = None,
+    error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
 ) -> ApiException:
@@ -86,7 +84,7 @@ def not_found_error(
 def conflict_error(
     message: str,
     error_code: str = "CONFLICT",
-    error_details: Dict[str, str] | None = None,
+    error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
 ) -> ApiException:
@@ -104,7 +102,7 @@ def conflict_error(
 def unprocessable_content_error(
     message: str,
     error_code: str = "UNPROCESSABLE_CONTENT",
-    error_details: Dict[str, str] | None = None,
+    error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
 ) -> ApiException:
@@ -122,7 +120,7 @@ def unprocessable_content_error(
 def database_error(
     message: str,
     error_code: str = "DATABASE_ERROR",
-    error_details: Dict[str, str] | None = None,
+    error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
 ) -> ApiException:
@@ -140,7 +138,7 @@ def database_error(
 def server_error(
     message: str,
     error_code: str = "SERVER_ERROR",
-    error_details: Dict[str, str] | None = None,
+    error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
 ) -> ApiException:
@@ -158,7 +156,7 @@ def server_error(
 def object_storage_error(
     message: str,
     error_code: str = "OBJECT_STORAGE_ERROR",
-    error_details: Dict[str, str] | None = None,
+    error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
 ) -> ApiException:
@@ -177,7 +175,7 @@ def object_storage_error(
 def service_unavailable_error(
     message: str,
     error_code: str = "SERVICE_UNAVAILABLE",
-    error_details: Dict[str, str] | None = None,
+    error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
 ) -> ApiException:
@@ -195,7 +193,7 @@ def service_unavailable_error(
 def validation_error(
     message: str,
     error_code: str = "VALIDATION_ERROR",
-    error_details: Dict[str, str] | None = None,
+    error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
 ) -> ApiException:
@@ -213,7 +211,7 @@ def validation_error(
 def content_too_large_error(
     message: str,
     error_code: str = "CONTENT_TOO_LARGE",
-    error_details: Dict[str, str] | None = None,
+    error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
 ) -> ApiException:
@@ -231,7 +229,7 @@ def content_too_large_error(
 def unsupported_media_type_error(
     message: str,
     error_code: str = "UNSUPPORTED_MEDIA_TYPE",
-    error_details: Dict[str, str] | None = None,
+    error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
 ) -> ApiException:

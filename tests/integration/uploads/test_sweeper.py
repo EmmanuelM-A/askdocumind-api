@@ -10,7 +10,7 @@ running a real ingestion.
 
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -26,12 +26,12 @@ from src.uploads.services.sweeper import Sweeper, SweeperConfig
 
 pytestmark = pytest.mark.asyncio
 
-_EXPIRED = datetime(1999, 1, 1, tzinfo=timezone.utc)
-_RETRYABLE = datetime(2000, 6, 1, tzinfo=timezone.utc)
+_EXPIRED = datetime(1999, 1, 1, tzinfo=UTC)
+_RETRYABLE = datetime(2000, 6, 1, tzinfo=UTC)
 
 
 def _seconds_since(year):
-    elapsed = datetime.now(timezone.utc) - datetime(year, 1, 1, tzinfo=timezone.utc)
+    elapsed = datetime.now(UTC) - datetime(year, 1, 1, tzinfo=UTC)
     return int(elapsed.total_seconds())
 
 

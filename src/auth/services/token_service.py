@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import jwt
@@ -14,7 +14,7 @@ def create_anonymous_token(user_id: UUID) -> str:
     """
     Generate a JWT token for an anonymous user.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     payload = AnonymousTokenPayload(
         user_id=user_id,

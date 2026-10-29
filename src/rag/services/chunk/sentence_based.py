@@ -9,7 +9,7 @@ import spacy
 from pydantic import Field
 from spacy.language import Language
 
-from src.rag.services.chunk.chunker import ChunkerConfig, Chunker, Chunk
+from src.rag.services.chunk.chunker import Chunk, Chunker, ChunkerConfig
 from src.rag.services.chunk.utils import merge_undersized_chunks
 
 

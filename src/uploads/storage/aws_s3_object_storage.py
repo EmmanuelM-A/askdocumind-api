@@ -14,8 +14,8 @@ if TYPE_CHECKING:
 
 from src.uploads.storage.object_storage import (
     ObjectStorage,
-    validate_key,
     normalize_prefix,
+    validate_key,
 )
 
 _MISSING_CODES = {"NoSuchKey", "404", "NotFound"}

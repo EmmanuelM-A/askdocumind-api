@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import List
 
 from src.rag.services.chunk.chunker import Chunk
 
@@ -11,7 +10,7 @@ class Embedder(ABC):
     """
 
     @abstractmethod
-    async def embed_chunks(self, chunks: List[Chunk]) -> List[List[float]]:
+    async def embed_chunks(self, chunks: list[Chunk]) -> list[list[float]]:
         """
         Embed a list of chunks and return their embeddings.
 
@@ -21,7 +20,7 @@ class Embedder(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def embed_query(self, query: str) -> List[float]:
+    async def embed_query(self, query: str) -> list[float]:
         """
         Embed a query string and return its embedding.
 

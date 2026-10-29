@@ -1,13 +1,12 @@
 from uuid import UUID
 
 from fastapi_pagination import Page
-from sqlalchemy import select, func, delete
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.chat_session.models.chat_session import ChatSession
 from src.chat_session.repository.chat_session_repository import ChatSessionRepository
-from src.database.utils import Pagination
-from src.database.utils import BaseRepository
+from src.database.utils import BaseRepository, Pagination
 from src.exceptions import database_error
 
 

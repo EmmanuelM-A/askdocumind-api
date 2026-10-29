@@ -1,9 +1,9 @@
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar
 from uuid import uuid4
 
-from sqlalchemy import Text, UUID, ForeignKey, DateTime, func
+from sqlalchemy import UUID, DateTime, ForeignKey, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.chat_session.models.mapper import ViewableChatSession
@@ -18,7 +18,7 @@ class ChatSession(Base):
     """Model representing a chat session."""
 
     __tablename__ = "chat_sessions"
-    __mapper_args__ = {"eager_defaults": True}
+    __mapper_args__: ClassVar[dict[str, Any]] = {"eager_defaults": True}
 
     # Columns
     id: Mapped[uuid.UUID] = mapped_column(

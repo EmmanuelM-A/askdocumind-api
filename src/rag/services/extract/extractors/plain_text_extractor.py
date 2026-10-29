@@ -14,7 +14,7 @@ from src.rag.services.extract.extractors.extractor import (
 
 # Control bytes that do not appear in text (tab, newline, form feed and
 # carriage return are allowed). A high share of them means a binary file.
-_CONTROL_BYTES = bytes(range(0x00, 0x09)) + bytes(range(0x0E, 0x20))
+_CONTROL_BYTES = bytes(range(0x09)) + bytes(range(0x0E, 0x20))
 _MAX_CONTROL_RATIO = 0.05
 
 

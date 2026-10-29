@@ -4,11 +4,10 @@ Integration tests for ChunkEmbeddingRepositoryImpl.
 
 import datetime as dt
 import importlib
-from math import sqrt
-
 import pkgutil
 import uuid
 from decimal import Decimal
+from math import sqrt
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -17,7 +16,6 @@ import sqlalchemy as sa
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.exc import TimeoutError as SATimeoutError
-
 
 from src.config.configs import settings
 from src.database.orm_base import Base
@@ -62,7 +60,7 @@ def _dummy(column):
         list: [],
         Decimal: Decimal(1),
         uuid.UUID: uuid.uuid4(),
-        dt.datetime: dt.datetime.now(dt.timezone.utc),
+        dt.datetime: dt.datetime.now(dt.UTC),
         dt.date: dt.date.today(),
     }
     return values[python_type] if python_type in values else python_type()

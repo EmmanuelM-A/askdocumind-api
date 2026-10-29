@@ -5,16 +5,16 @@ from typing import TypeVar
 from uuid import UUID
 
 from src.config.configs import settings
-from src.exceptions import unprocessable_content_error, ApiException
+from src.exceptions import ApiException, unprocessable_content_error
 from src.rag.models.chunk_embedding import ChunkEmbedding
 from src.rag.repository.chunk_embedding_repository import ChunkEmbeddingRepository
 from src.rag.services.chunk.factory import ChunkerFactory
 from src.rag.services.embed.embedder import Embedder
 from src.rag.services.extract.extraction import Extraction
 from src.rag.services.report.status_reporter import (
-    StatusReporter,
     ProcessingStatus,
     StatusConflict,
+    StatusReporter,
     StatusReportFailed,
 )
 from src.rag.services.utils import StorageJob

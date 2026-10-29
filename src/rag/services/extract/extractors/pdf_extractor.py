@@ -5,7 +5,6 @@ from pathlib import Path
 import pymupdf
 
 from src.exceptions import unprocessable_content_error
-
 from src.rag.services.extract.extractors.extractor import Extractor, Segment
 
 _logger = logging.getLogger(__name__)

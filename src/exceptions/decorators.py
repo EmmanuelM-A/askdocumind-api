@@ -18,10 +18,10 @@ from collections.abc import Awaitable, Callable
 from typing import ParamSpec, TypeVar
 
 from sqlalchemy.exc import (
-    OperationalError,
-    TimeoutError,
     IntegrityError,
+    OperationalError,
     SQLAlchemyError,
+    TimeoutError,
 )
 
 from src.exceptions import conflict_error, database_error, service_unavailable_error

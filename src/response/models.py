@@ -3,8 +3,6 @@ This module defines Pydantic models for API response structures, including
 error information.
 """
 
-from typing import Dict
-
 from pydantic import Field
 
 from src.shared.utils import CamelCaseSerializer
@@ -15,7 +13,7 @@ class ErrorInfo(CamelCaseSerializer):
 
     code: str = Field(description="Error code representing the type of error.")
 
-    details: Dict[str, str] | None = Field(
+    details: dict[str, str] | None = Field(
         default=None, description="Optional additional details about the error."
     )
 

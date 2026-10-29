@@ -19,8 +19,8 @@ from src.uploads.domain.document import DocumentStatus
 from src.uploads.models.mapper import ViewableDocument
 
 if TYPE_CHECKING:
-    from src.rag.models.chunk_embedding import ChunkEmbedding
     from src.chat_session.models.chat_session import ChatSession
+    from src.rag.models.chunk_embedding import ChunkEmbedding
 
 
 class Document(Base):
