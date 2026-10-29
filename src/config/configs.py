@@ -9,7 +9,7 @@ from typing import Literal, Self
 
 from dotenv import load_dotenv
 from limits import parse_many
-from pydantic import Field, model_validator, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -67,6 +67,8 @@ class _ServerSettings(_BaseSettings):
     ENV: Literal["development", "staging", "production", "test"] = Field(
         default="development"
     )
+    # 0.0.0.0 is needed inside a container, so the port can be reached from outside
+    HOST: str = Field(default="127.0.0.1", min_length=1)
     PORT: int = Field(default=5001, ge=1, le=65535)
     CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000"], min_length=1)
     MAX_CONCURRENCY: int = Field(

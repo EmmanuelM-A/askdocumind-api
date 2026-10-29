@@ -3,6 +3,7 @@ fastapi==0.142.2
 slowapi==0.1.10
 limits==5.8.0
 uvicorn==0.54.0
+python-multipart==0.0.32
 
 # Database
 sqlalchemy[asyncio]

@@ -11,7 +11,8 @@ app = create_app()
 
 if __name__ == "__main__":
     uvicorn.run(
-        f"src.server:app",
+        "src.server:app",
+        host=settings.server.HOST,
         port=settings.server.PORT,
         reload=(settings.server.ENV == "development"),
         limit_concurrency=settings.server.MAX_CONCURRENCY,
