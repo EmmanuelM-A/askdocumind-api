@@ -195,6 +195,16 @@ class _AuthSettings(_BaseSettings):
         return _require_secret("ANONYMOUS_TOKEN_SECRET", value, min_length=32)
 
 
+class _ChatSessionSettings(_BaseSettings):
+    """
+    Chat session configuration settings for the AskDocuMind API application.
+    """
+
+    model_config = _DEFAULT_MODEL_CONFIG
+
+    MAX_CHATS_PER_USER: int = Field(default=5, ge=1, le=100)
+
+
 class _UploadSettings(_BaseSettings):
     """
     Upload configuration settings for the AskDocuMind API application.
@@ -406,6 +416,7 @@ class _Settings(BaseSettings):
     logging: _LoggingSettings = _LoggingSettings()
     database: _DatabaseSettings = _DatabaseSettings()
     auth: _AuthSettings = _AuthSettings()
+    chat_session: _ChatSessionSettings = _ChatSessionSettings()
     uploads: _UploadSettings = _UploadSettings()
     rag: _RAGSettings = _RAGSettings()
     web: _WebSearchSettings = _WebSearchSettings()
