@@ -1,38 +1,95 @@
 """
-Root conftest — ensures required environment variables are set before any test
-module imports src.config.configs (which validates required fields on load).
-
-Load order (highest wins):
-  1. System environment variables
-  2. .env file values (real credentials for integration tests)
-  3. Test defaults below (safe fallbacks so unit tests can import settings)
+Global fixtures for pytest.
 """
 
-import os
-from pathlib import Path
+import uuid
+from collections.abc import AsyncGenerator
 
-from dotenv import load_dotenv
+import boto3
+import pytest
+import pytest_asyncio
+from botocore.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-# Pull in real credentials from .env without overriding anything already in the
-# process environment. Integration tests then pick up the real DATABASE_URL etc.
-_env_file = Path(__file__).parent.parent / ".env"
-if _env_file.exists():
-    load_dotenv(_env_file, override=False)
+from src.config.configs import settings
+from src.database.session import DatabaseSessionManager
+from src.middleware.rate_limiter import limiter
+from src.uploads.storage.aws_s3_object_storage import AWSS3ObjectStorage
 
-# Fallback test defaults — only applied when the key is still unset after .env.
-os.environ.setdefault("ENV", "test")
-os.environ.setdefault("PORT", "8000")
-os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test_db")
-os.environ.setdefault("USER_SESSION_SECRET", "test-secret-key-not-for-production")
-os.environ.setdefault("USER_CLEANUP_ENABLED", "false")
-os.environ.setdefault("SEARCH_API_KEY", "test-search-api-key")
-os.environ.setdefault("SEARCH_ENGINE_ID", "test-search-engine-id")
-os.environ.setdefault("CORS_ORIGINS", '["http://localhost:3000"]')
-os.environ.setdefault("OPENAI_LLM_MODEL_NAME", "gpt-4o")
-os.environ.setdefault("OPENAI_EMBEDDING_MODEL_NAME", "text-embedding-3-small")
 
-# Force-disabled (not setdefault): .env has a real SENTRY_DSN, which would
-# otherwise make every test run send real spans/error events to the live
-# Sentry project. src.api.app._init_sentry() skips sentry_sdk.init()
-# entirely when SENTRY_DSN is falsy.
-os.environ["SENTRY_DSN"] = ""
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    """Stop rate limit counts leaking between tests."""
+    limiter.reset()
+
+
+@pytest_asyncio.fixture
+async def manager():
+    url = settings.database.DATABASE_URL.get_secret_value()
+
+    if not url:
+        pytest.skip("DATABASE_URL is not set")
+
+    session_manager = DatabaseSessionManager(url)
+
+    yield session_manager
+
+    await session_manager.disconnect()
+
+
+@pytest_asyncio.fixture
+async def session(manager) -> AsyncGenerator[AsyncSession]:
+    async with manager.engine.connect() as conn:
+        outer = await conn.begin()
+        async with AsyncSession(
+            bind=conn,
+            expire_on_commit=False,
+            autoflush=False,
+            join_transaction_mode="create_savepoint",
+        ) as db_session:
+            yield db_session
+        await outer.rollback()
+
+
+@pytest.fixture(scope="session")
+def _s3():
+    """A throwaway bucket, emptied and removed at the end of the run."""
+    client = boto3.client(
+        "s3",
+        endpoint_url=settings.uploads.S3_ENDPOINT_URL,
+        aws_access_key_id=settings.uploads.S3_ACCESS_KEY_ID.get_secret_value(),
+        aws_secret_access_key=settings.uploads.S3_SECRET_ACCESS_KEY.get_secret_value(),
+        region_name=settings.uploads.S3_REGION,
+        config=Config(
+            signature_version="s3v4",
+            s3={"addressing_style": "path"},
+            connect_timeout=3,
+            retries={"max_attempts": 1},
+        ),
+    )
+    bucket = f"askdocumind-test-{uuid.uuid4().hex[:12]}"
+    try:
+        kwargs = {"Bucket": bucket}
+        if settings.uploads.S3_REGION != "us-east-1":
+            kwargs["CreateBucketConfiguration"] = {
+                "LocationConstraint": settings.uploads.S3_REGION
+            }
+        client.create_bucket(**kwargs)
+    except (ClientError, BotoCoreError) as e:
+        pytest.skip(f"S3 endpoint is not available: {e}")
+
+    yield client, bucket
+
+    paginator = client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=bucket):
+        objects = [{"Key": item["Key"]} for item in page.get("Contents", [])]
+        if objects:
+            client.delete_objects(Bucket=bucket, Delete={"Objects": objects})
+    client.delete_bucket(Bucket=bucket)
+
+
+@pytest.fixture
+def object_storage(_s3):
+    client, bucket = _s3
+    return AWSS3ObjectStorage(client, bucket)

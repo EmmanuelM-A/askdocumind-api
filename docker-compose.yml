@@ -1,31 +1,34 @@
 services:
   database:
     image: pgvector/pgvector:pg16
-    container_name: ask_docu_mind_postgres
+    container_name: askdocumind_postgres
     environment:
-      POSTGRES_USER: ask_docu_mind
+      POSTGRES_USER: askdocumind
       POSTGRES_PASSWORD: secret
-      POSTGRES_DB: ask_docu_mind_postgres
+      POSTGRES_DB: askdocumind_db
     ports:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     restart: always
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: ask_docu_mind_pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@example.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+  minio:
+    # minio/minio is no longer on Docker Hub. Chainguard's build runs as a
+    # non-root user that cannot write to the volume, so run it as root.
+    image: cgr.dev/chainguard/minio:latest
+    user: "0"
+    command: server /data --console-address ":9001"
     ports:
-      - "8080:80"
+      - "9000:9000"
+      - "9001:9001"
+    container_name: askdocumind_minio
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: secretpassword
     volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    depends_on:
-      - database
-    restart: unless-stopped
+      - minio_data:/data
+    restart: always
 
 volumes:
   db_data:
-  pgadmin_data:
+  minio_data:

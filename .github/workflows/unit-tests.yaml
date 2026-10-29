@@ -22,17 +22,20 @@ jobs:
 
     env:
       PYTHONPATH: .
-      # Required config values so settings import does not fail in tests
+      # Required config values so settings import does not fail in tests.
+      # Unit tests never reach these services, so placeholders are enough.
       ENV: development
-      HOST: "0.0.0.0"
       PORT: "5000"
       DATABASE_URL: postgresql+asyncpg://ask_docu_mind:secret@localhost:5432/ask_docu_mind_postgres
-      USER_SESSION_SECRET: test-user-session-secret
-      ANON_SESSION_TTL_HOURS: "24"
-      IS_WEB_SEARCH_ENABLED: "false"
+      ANONYMOUS_TOKEN_SECRET: ci-anonymous-token-secret-32-chars-min
+      ANONYMOUS_TOKEN_TTL_HOURS: "1"
+      S3_ACCESS_KEY_ID: unused
+      S3_SECRET_ACCESS_KEY: unused
+      S3_BUCKET_NAME: askdocumind-uploads
+      OPENAI_API_KEY: unused
+      BRAVE_API_KEY: unused
       LLM_MODEL_NAME: gpt-4o-mini
-      EMBEDDING_MODEL_NAME: text-embedding-3-small
-      LLM_TEMPERATURE: "0.7"
+      EMBEDDING_MODEL: text-embedding-3-small
 
     steps:
       - name: Checkout
@@ -50,20 +53,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # CPU-only torch + torchvision, installed together first from their
-          # own index so they don't get resolved together with the default
-          # PyPI index (avoids "resolution-too-deep" from combining two
-          # indices' full catalogs) — and so they come from the same matched
-          # build pair, avoiding an ABI mismatch between them.
+          # CPU-only torch + torchvision first, from their own index, so
+          # sentence-transformers doesn't pull the much larger CUDA build.
           uv pip install --system --index-url https://download.pytorch.org/whl/cpu torch==2.12.1 torchvision==0.27.1
           uv pip install --system -r requirements.txt
 
       - name: Run unit tests
-        # --cov-fail-under is a regression floor, not a target: tests/unit only
-        # exercises pure logic by design (repositories/DB/storage are covered by
-        # tests/integration and tests/e2e instead), so this number is intentionally
-        # well below "whole app" coverage. Raise it if coverage improves; don't
-        # read it as the project's real test coverage.
         run: |
           pytest -q tests/unit --junitxml=unit-test-results.xml \
             --cov=src --cov-report=term-missing --cov-fail-under=35

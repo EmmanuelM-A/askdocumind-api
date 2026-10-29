@@ -1,0 +1,30 @@
+from abc import ABC, abstractmethod
+
+from src.rag.services.chunk.chunker import Chunk
+
+
+class Embedder(ABC):
+    """
+    Defines the interface for the embedding service, which is responsible for
+    converting text chunks into vector representations (embeddings).
+    """
+
+    @abstractmethod
+    async def embed_chunks(self, chunks: list[Chunk]) -> list[list[float]]:
+        """
+        Embed a list of chunks and return their embeddings.
+
+        :param chunks: A list of Chunk objects to embed.
+        :return: A list of embeddings, where each embedding is a list of floats.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def embed_query(self, query: str) -> list[float]:
+        """
+        Embed a query string and return its embedding.
+
+        :param query: The query string to embed.
+        :return: The embedding of the query as a list of floats.
+        """
+        raise NotImplementedError
