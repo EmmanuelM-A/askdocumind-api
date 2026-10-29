@@ -5,6 +5,7 @@ Manages the SQLAlchemy async engine and session lifecycle.
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import NullPool
 
 from src.config.configs import settings
 from src.exceptions import database_error
@@ -27,14 +29,20 @@ class DatabaseSessionManager:
     """
 
     def __init__(self, database_url: str) -> None:
+        if settings.database.DB_USE_NULL_POOL:
+            # No idle connections are kept, so the pool settings don't apply
+            pool_options: dict[str, Any] = {"poolclass": NullPool}
+        else:
+            pool_options = {
+                "pool_pre_ping": settings.database.DB_IS_POOL_PRE_PING_ENABLED,
+                "pool_size": settings.database.DB_POOL_SIZE,
+                "max_overflow": settings.database.DB_MAX_OVERFLOW,
+                "pool_timeout": settings.database.DB_POOL_TIMEOUT_SECS,
+                "pool_recycle": 1800,
+            }
+
         self.engine: AsyncEngine = create_async_engine(
-            database_url,
-            echo=settings.database.DB_ECHO,
-            pool_pre_ping=settings.database.DB_IS_POOL_PRE_PING_ENABLED,
-            pool_size=settings.database.DB_POOL_SIZE,
-            max_overflow=settings.database.DB_MAX_OVERFLOW,
-            pool_timeout=settings.database.DB_POOL_TIMEOUT_SECS,
-            pool_recycle=1800,
+            database_url, echo=settings.database.DB_ECHO, **pool_options
         )
         self.session_maker: async_sessionmaker[AsyncSession] = async_sessionmaker(
             bind=self.engine, expire_on_commit=False, autoflush=False

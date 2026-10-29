@@ -17,6 +17,7 @@ from src.chat_session.repository.chat_session_repository_impl import (
     ChatSessionRepositoryImpl,
 )
 from src.chat_session.schemas.chat_session import CreateChatSession
+from src.config.configs import settings
 from src.database.session import DatabaseSessionManager
 from src.exceptions import unprocessable_content_error
 from src.rag.repository.chunk_embedding_repository_impl import (
@@ -27,9 +28,6 @@ from src.uploads.repository.document_repository_impl import DocumentRepositoryIm
 from src.uploads.storage.object_storage import ObjectStorage
 
 _logger = logging.getLogger(__name__)
-
-# TODO: add to .env and configs
-_MAX_CHATS_PER_USER = 5  # Maximum number of chat sessions allowed per user
 
 
 class ChatSessionService(BaseService):
@@ -58,15 +56,16 @@ class ChatSessionService(BaseService):
 
         total_chats = await self._chat_session_repository.count(user_id)
 
-        if total_chats >= _MAX_CHATS_PER_USER:
+        if total_chats >= settings.chat_session.MAX_CHATS_PER_USER:
             raise unprocessable_content_error(
                 message="The user has reached the maximum number of chat sessions allowed.",
                 error_code="MAX_CHAT_SESSIONS_REACHED",
             )
 
         _logger.debug(
-            "The user '%s' has not exceeding the maximum number of chat "
-            "sessions allowed. Proceeding..."
+            "The user '%s' has not exceeded the maximum number of chat "
+            "sessions allowed. Proceeding...",
+            user_id,
         )
 
         entity = ChatSession(user_id=user_id, title=data.title)

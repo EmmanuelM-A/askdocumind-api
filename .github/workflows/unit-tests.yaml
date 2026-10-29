@@ -56,7 +56,7 @@ jobs:
           # CPU-only torch + torchvision first, from their own index, so
           # sentence-transformers doesn't pull the much larger CUDA build.
           uv pip install --system --index-url https://download.pytorch.org/whl/cpu torch==2.12.1 torchvision==0.27.1
-          uv pip install --system -r requirements.txt
+          uv pip install --system -r requirements.txt -r requirements-reranker.txt
 
       - name: Run unit tests
         run: |
