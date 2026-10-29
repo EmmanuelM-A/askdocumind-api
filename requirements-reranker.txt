@@ -1,0 +1,4 @@
+# Optional: the cross-encoder reranker (RERANKER_ENABLED=true).
+# It pulls in torch, which adds about 450 MB of memory at runtime.
+# Install CPU-only torch first (see the Dockerfile and workflows).
+sentence-transformers

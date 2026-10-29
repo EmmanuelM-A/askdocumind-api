@@ -38,10 +38,8 @@ from src.rag.dependencies import (
     get_extraction_service,
     get_status_reporter,
 )
-from src.rag.services.rerank.cross_encoder_reranker import (
-    CrossEncoderReranker,
-    CrossEncoderRerankerConfig,
-)
+from src.rag.services.rerank.passthrough_reranker import PassthroughReranker
+from src.rag.services.rerank.reranker import Reranker
 from src.rag.services.utils import RunGuard
 from src.uploads.routes.upload_router import upload_router
 from src.uploads.services.ingestion_service import IngestionRunner
@@ -76,12 +74,14 @@ async def lifespan(app: FastAPI):
         session_manager=session_manager,
         storage=get_object_storage(),
         runner=runner,
-        config=SweeperConfig(),
+        config=SweeperConfig(interval_seconds=settings.uploads.SWEEPER_INTERVAL_SECS),
     )
     cleaner = ExpiredUserCleaner(
         session_manager=session_manager,
         storage=get_object_storage(),
-        config=ExpiredUserCleanerConfig(),
+        config=ExpiredUserCleanerConfig(
+            interval_seconds=settings.auth.EXPIRED_USER_CLEANUP_INTERVAL_SECS
+        ),
     )
 
     app.state.session_manager = session_manager
@@ -90,14 +90,25 @@ async def lifespan(app: FastAPI):
     sweeper.start()
     cleaner.start()
 
-    reranker = CrossEncoderReranker(
-        CrossEncoderRerankerConfig(
-            model_name=settings.rag.RERANKER_MODEL_NAME,
-            max_length=settings.rag.RERANKER_MAX_LENGTH,
-            batch_size=settings.rag.RERANKER_BATCH_SIZE,
+    reranker: Reranker
+    if settings.rag.RERANKER_ENABLED:
+        # Imported here so torch is only loaded when reranking is on
+        from src.rag.services.rerank.cross_encoder_reranker import (
+            CrossEncoderReranker,
+            CrossEncoderRerankerConfig,
         )
-    )
-    await reranker.warm_up()
+
+        cross_encoder = CrossEncoderReranker(
+            CrossEncoderRerankerConfig(
+                model_name=settings.rag.RERANKER_MODEL_NAME,
+                max_length=settings.rag.RERANKER_MAX_LENGTH,
+                batch_size=settings.rag.RERANKER_BATCH_SIZE,
+            )
+        )
+        await cross_encoder.warm_up()
+        reranker = cross_encoder
+    else:
+        reranker = PassthroughReranker()
     app.state.reranker = reranker
 
     try:

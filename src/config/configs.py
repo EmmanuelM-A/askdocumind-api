@@ -154,6 +154,9 @@ class _DatabaseSettings(_BaseSettings):
     DB_MAX_OVERFLOW: int = Field(default=5, ge=0, le=50)
     DB_POOL_TIMEOUT_SECS: int = Field(default=30, ge=1, le=300)
     DB_IS_POOL_PRE_PING_ENABLED: bool = Field(default=True)
+    # Open a new connection per session instead of keeping idle ones, so a
+    # host that sleeps idle services (e.g. Railway Serverless) can sleep
+    DB_USE_NULL_POOL: bool = Field(default=False)
 
     @field_validator("DATABASE_URL")
     @classmethod
@@ -187,6 +190,7 @@ class _AuthSettings(_BaseSettings):
         default="anonymous_session", pattern=r"^[A-Za-z0-9_-]+$"
     )
     UPDATE_LAST_SEEN_FREQ_MINS: int = Field(default=5, ge=1, le=60)
+    EXPIRED_USER_CLEANUP_INTERVAL_SECS: int = Field(default=900, ge=60, le=86400)
 
     @field_validator("ANONYMOUS_TOKEN_SECRET")
     @classmethod
@@ -245,6 +249,7 @@ class _UploadSettings(_BaseSettings):
     )
     MAX_FILE_SIZE_MB: int = Field(default=10, ge=1, le=50)
     MAX_CONCURRENT_UPLOADS: int = Field(default=5, ge=1, le=20)
+    SWEEPER_INTERVAL_SECS: int = Field(default=60, ge=10, le=86400)
 
     @field_validator("S3_ENDPOINT_URL")
     @classmethod
@@ -308,7 +313,9 @@ class _RAGSettings(_BaseSettings):
         default=f"{_PROJECT_ROOT}/src/prompts/expand_query_prompt.yaml"
     )
 
-    # Reranking
+    # Reranking. Disabling it skips loading torch and the model (~430 MB of
+    # memory), and chunks keep their similarity order.
+    RERANKER_ENABLED: bool = Field(default=True)
     RERANKER_MODEL_NAME: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2")
     RERANKER_MAX_LENGTH: int = Field(default=256, ge=50, le=512)
     RERANKER_BATCH_SIZE: int = Field(default=32, ge=1, le=128)

@@ -8,6 +8,7 @@ on:
       - "alembic/**"
       - "requirements.txt"
       - "requirements-dev.txt"
+      - "requirements-reranker.txt"
       - "ruff.toml"
       - "pytest.ini"
       - ".github/workflows/**"

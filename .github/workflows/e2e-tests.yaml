@@ -97,7 +97,7 @@ jobs:
           # indices' full catalogs) — and so they come from the same matched
           # build pair, avoiding an ABI mismatch between them.
           uv pip install --system --index-url https://download.pytorch.org/whl/cpu torch==2.12.1 torchvision==0.27.1
-          uv pip install --system -r requirements.txt
+          uv pip install --system -r requirements.txt -r requirements-reranker.txt
 
       - name: Run DB migrations
         run: alembic upgrade head

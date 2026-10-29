@@ -39,7 +39,6 @@ charset-normalizer
 pymupdf
 python-docx
 langchain-core
-sentence-transformers
 anyio
 pyyaml
 openai
