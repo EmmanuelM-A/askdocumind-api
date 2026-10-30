@@ -7,9 +7,6 @@ on:
         required: false
         type: string
         default: "3.12"
-    secrets:
-      OPENAI_API_KEY:
-        required: true
   workflow_dispatch:
 
 permissions:
@@ -52,8 +49,8 @@ jobs:
       S3_SECRET_ACCESS_KEY: minio-secret
       S3_REGION: us-east-1
       S3_BUCKET_NAME: askdocumind-uploads
-      # Real key - the query-expansion integration tests hit the actual OpenAI API, no mocking
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      # The tests never call OpenAI: embedders and models are faked
+      OPENAI_API_KEY: unused
       # Web search is only covered by mocked unit tests
       BRAVE_API_KEY: unused
       LLM_MODEL_NAME: gpt-4o-mini
@@ -67,12 +64,15 @@ jobs:
       # "server /data" command MinIO needs. minio/minio is no longer on
       # Docker Hub, so this uses Chainguard's build. It runs as root because
       # the image's non-root user cannot write to /data.
+      # Chainguard's free images only publish `latest`, so the image is pinned
+      # by digest. To update it, use the digest from
+      # `docker buildx imagetools inspect cgr.dev/chainguard/minio:latest`.
       - name: Start MinIO
         run: |
           docker run -d --name minio -p 9000:9000 --user 0 \
             -e MINIO_ROOT_USER="$S3_ACCESS_KEY_ID" \
             -e MINIO_ROOT_PASSWORD="$S3_SECRET_ACCESS_KEY" \
-            cgr.dev/chainguard/minio:latest server /data
+            cgr.dev/chainguard/minio:latest@sha256:3b6e40c30ecd5cea627e382ff0b82ca841f58c52294578787043ee80c8ef7c82 server /data
           for _ in $(seq 1 30); do
             curl -sf http://localhost:9000/minio/health/live && exit 0
             sleep 2

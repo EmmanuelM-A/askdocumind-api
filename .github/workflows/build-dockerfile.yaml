@@ -48,8 +48,6 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Write container env file
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           cat > ci.env <<EOF
           ENV=production
@@ -60,7 +58,7 @@ jobs:
           S3_ACCESS_KEY_ID=unused
           S3_SECRET_ACCESS_KEY=unused
           S3_BUCKET_NAME=askdocumind-uploads
-          OPENAI_API_KEY=$OPENAI_API_KEY
+          OPENAI_API_KEY=unused
           BRAVE_API_KEY=unused
           EOF
 

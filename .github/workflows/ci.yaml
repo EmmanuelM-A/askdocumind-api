@@ -58,7 +58,6 @@ jobs:
     uses: ./.github/workflows/integration-tests.yaml
     with:
       python-version: "3.12"
-    secrets: inherit
 
   e2e-tests:
     name: E2E Tests
@@ -70,10 +69,8 @@ jobs:
     uses: ./.github/workflows/e2e-tests.yaml
     with:
       python-version: "3.12"
-    secrets: inherit
 
   docker-build:
     name: Docker Build
     needs: unit-tests
     uses: ./.github/workflows/build-dockerfile.yaml
-    secrets: inherit
