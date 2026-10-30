@@ -3,4 +3,4 @@ black>=26.10.0
 
 # Linting & Type Checking
 ruff==0.17.3
-mypy
+mypy==2.4.1

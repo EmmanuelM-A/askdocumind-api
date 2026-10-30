@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import math
-from typing import Annotated
+from typing import Annotated, SupportsFloat
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from sentence_transformers import CrossEncoder
@@ -26,7 +26,7 @@ class CrossEncoderRerankerConfig(BaseModel):
     batch_size: int = Field(default=32, gt=0)
 
 
-def _sort_key(score: object) -> float:
+def _sort_key(score: SupportsFloat) -> float:
     """Sort NaN scores last, because NaN breaks the ordering of a sort."""
     value = float(score)
     return float("-inf") if math.isnan(value) else value

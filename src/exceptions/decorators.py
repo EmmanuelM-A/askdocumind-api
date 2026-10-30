@@ -14,8 +14,8 @@ handled appropriately before falling back to more general exception handler.
 """
 
 import functools
-from collections.abc import Awaitable, Callable
-from typing import ParamSpec, TypeVar
+from collections.abc import Callable, Coroutine
+from typing import Any, ParamSpec, TypeVar
 
 from sqlalchemy.exc import (
     IntegrityError,
@@ -29,12 +29,14 @@ from src.exceptions import conflict_error, database_error, service_unavailable_e
 P = ParamSpec("P")
 R = TypeVar("R")
 
+_AsyncFn = Callable[P, Coroutine[Any, Any, R]]
+
 
 def handle_database_unavailable_exceptions(
     error_details: dict[str, str] | None = None,
     headers: dict | None = None,
-) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
-    def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
+) -> Callable[[_AsyncFn[P, R]], _AsyncFn[P, R]]:
+    def decorator(func: _AsyncFn[P, R]) -> _AsyncFn[P, R]:
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             try:
@@ -59,8 +61,8 @@ def handle_database_integrity_exceptions(
     error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
-) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
-    def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
+) -> Callable[[_AsyncFn[P, R]], _AsyncFn[P, R]]:
+    def decorator(func: _AsyncFn[P, R]) -> _AsyncFn[P, R]:
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             try:
@@ -85,8 +87,8 @@ def handle_sqlalchemy_exceptions(
     error_details: dict[str, str] | None = None,
     cause: BaseException | None = None,
     headers: dict | None = None,
-) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
-    def decorator(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
+) -> Callable[[_AsyncFn[P, R]], _AsyncFn[P, R]]:
+    def decorator(func: _AsyncFn[P, R]) -> _AsyncFn[P, R]:
         @functools.wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             try:

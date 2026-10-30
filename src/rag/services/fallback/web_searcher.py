@@ -21,6 +21,6 @@ class WebSearcher(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def search_web_stream(self, query: str) -> AsyncIterable[WebResult]:
+    def search_web_stream(self, query: str) -> AsyncIterable[WebResult]:
         """Return the web search content for a query as an async iterable."""
         raise NotImplementedError
