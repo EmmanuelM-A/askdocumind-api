@@ -233,7 +233,6 @@ async def test_every_api_route_has_a_rate_limit(module, router_name):
     overrides = {
         "/uploads/{chat_session_id}/{document_id}/status": DEFAULT_LIMIT,
         "/uploads/{chat_session_id}/{file_id}": DEFAULT_LIMIT,
-        "/uploads/{chat_session_id}/batch-delete": DEFAULT_LIMIT,
     }
 
     for route in router.routes:

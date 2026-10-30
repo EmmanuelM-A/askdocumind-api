@@ -229,24 +229,18 @@ class UploadService:
         await to_thread(self._object_storage.delete, document.object_key)
         await self._document_repository.delete(document_id)
 
-    async def delete_uploaded_files(
-        self, chat_session_id: UUID, user_id: UUID, document_ids: list[UUID]
+    async def delete_all_uploaded_files(
+        self, chat_session_id: UUID, user_id: UUID
     ) -> int:
         """
-        Delete the given documents that belong to the chat session. Ids that
-        are unknown or belong to another chat session are skipped. Returns
-        the number of documents deleted.
+        Delete every document in the chat session, with its stored file.
+        Returns the number of documents deleted.
         """
         await self._verify_existence_and_ownership(chat_session_id, user_id)
 
-        wanted = set(document_ids)
-        documents = [
-            document
-            for document in await self._document_repository.list_by_criteria(
-                chat_session_id
-            )
-            if document.id in wanted
-        ]
+        # Delete the listed ids rather than everything in the session, so a
+        # file uploaded meanwhile doesn't lose its row and keep its file
+        documents = await self._document_repository.list_by_criteria(chat_session_id)
 
         deleted = await self._document_repository.delete_many(
             [document.id for document in documents]
