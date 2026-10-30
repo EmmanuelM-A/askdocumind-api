@@ -24,14 +24,13 @@ def test_only_the_relative_root_is_listed_by_default(monkeypatch):
     assert _served_servers() == [{"url": "/api"}]
 
 
-def test_public_url_is_listed_after_the_relative_root(monkeypatch):
+def test_public_url_replaces_the_relative_root(monkeypatch):
     monkeypatch.setattr(
         settings.server, "API_PUBLIC_URL", "https://api.askdocumind.com/api"
     )
     monkeypatch.setattr(settings.server, "ENV", "production")
 
     assert _served_servers() == [
-        {"url": "/api"},
         {"url": "https://api.askdocumind.com/api", "description": "Production"},
     ]
 
