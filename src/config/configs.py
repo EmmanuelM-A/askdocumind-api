@@ -4,13 +4,15 @@ Each configuration class handles a specific domain of settings.
 """
 
 import codecs
+import importlib.util
+import json
 from pathlib import Path
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
 from dotenv import load_dotenv
 from limits import parse_many
 from pydantic import Field, SecretStr, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _ENV_FILE = _PROJECT_ROOT / ".env"
@@ -38,6 +40,10 @@ def _require_secret(name: str, value: SecretStr, min_length: int = 1) -> SecretS
     if len(value.get_secret_value().strip()) < min_length:
         raise ValueError(f"{name} must be at least {min_length} characters.")
     return value
+
+
+def _is_installed(package: str) -> bool:
+    return importlib.util.find_spec(package) is not None
 
 
 def _require_file(name: str, value: str) -> str:
@@ -70,7 +76,10 @@ class _ServerSettings(_BaseSettings):
     # 0.0.0.0 is needed inside a container, so the port can be reached from outside
     HOST: str = Field(default="127.0.0.1", min_length=1)
     PORT: int = Field(default=5001, ge=1, le=65535)
-    CORS_ORIGINS: list[str] = Field(default=["http://localhost:3000"], min_length=1)
+    # A JSON array or a comma-separated list, parsed in parse_cors_origins
+    CORS_ORIGINS: Annotated[list[str], NoDecode] = Field(
+        default=["http://localhost:3000"], min_length=1
+    )
     MAX_CONCURRENCY: int = Field(
         default=50, ge=1, le=500, validation_alias="SERVER_MAX_CONCURRENCY"
     )
@@ -88,6 +97,23 @@ class _ServerSettings(_BaseSettings):
     RATE_LIMIT_CHAT_SESSION: str = Field(default="10/minute")
     RATE_LIMIT_UPLOADS: str = Field(default="5/minute")
     RATE_LIMIT_CHATBOT: str = Field(default="10/minute")
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        text = value.strip()
+        if text.startswith("["):
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    "CORS_ORIGINS starts with '[' but isn't valid JSON. Use "
+                    '["https://a.com","https://b.com"] or '
+                    "https://a.com,https://b.com"
+                ) from e
+        return [origin for origin in text.split(",") if origin.strip()]
 
     @field_validator("CORS_ORIGINS")
     @classmethod
@@ -314,8 +340,9 @@ class _RAGSettings(_BaseSettings):
     )
 
     # Reranking. Disabling it skips loading torch and the model (~430 MB of
-    # memory), and chunks keep their similarity order.
-    RERANKER_ENABLED: bool = Field(default=True)
+    # memory), and chunks keep their similarity order. Unset or empty means
+    # on only if sentence-transformers is installed (resolved below).
+    RERANKER_ENABLED: bool | None = Field(default=None, validate_default=True)
     RERANKER_MODEL_NAME: str = Field(default="cross-encoder/ms-marco-MiniLM-L-6-v2")
     RERANKER_MAX_LENGTH: int = Field(default=256, ge=50, le=512)
     RERANKER_BATCH_SIZE: int = Field(default=32, ge=1, le=128)
@@ -348,6 +375,20 @@ class _RAGSettings(_BaseSettings):
                 f"EMBEDDING_DIMENSIONS is {self.EMBEDDING_DIMENSIONS}."
             )
         return self
+
+    @field_validator("RERANKER_ENABLED")
+    @classmethod
+    def resolve_reranker_enabled(cls, value: bool | None) -> bool:
+        installed = _is_installed("sentence_transformers")
+        if value is None:
+            return installed
+        if value and not installed:
+            raise ValueError(
+                "RERANKER_ENABLED is true but sentence-transformers isn't "
+                "installed. Rebuild the image with WITH_RERANKER=true, or set "
+                "RERANKER_ENABLED=false."
+            )
+        return value
 
 
 class _WebSearchSettings(_BaseSettings):
