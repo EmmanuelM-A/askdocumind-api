@@ -15,7 +15,7 @@ from src.database.utils import Pagination
 from src.middleware.rate_limiter import default_limit, uploads_limit
 from src.response.delivery import send_success_response
 from src.uploads.dependencies import get_ingestion_runner, get_upload_service
-from src.uploads.schemas.upload import DeleteUploadedFilesRequest, UploadFileRequest
+from src.uploads.schemas.upload import UploadFileRequest
 from src.uploads.services.ingestion_service import IngestionRunner, build_job
 from src.uploads.services.upload_service import UploadService
 
@@ -160,26 +160,24 @@ async def delete_uploaded_file(
     )
 
 
-@upload_router.post(
-    path="/{chat_session_id}/batch-delete",
-    summary="Delete several uploaded files from a specific chat session",
+@upload_router.delete(
+    path="/{chat_session_id}",
+    summary="Delete all uploaded files from a specific chat session",
     status_code=status.HTTP_200_OK,
 )
-@default_limit
-async def delete_uploaded_files(
+@uploads_limit
+async def delete_all_uploaded_files(
     request: Request,
     chat_session_id: UUID,
-    request_body: DeleteUploadedFilesRequest,
     upload_service: Annotated[UploadService, Depends(get_upload_service)],
 ) -> JSONResponse:
     """
-    Delete several uploaded files at once. Ids that are not in the chat
-    session are skipped, and the response says how many were deleted.
+    Delete every uploaded file in the chat session. The chat session itself
+    is kept, and the response says how many files were deleted.
     """
-    deleted = await upload_service.delete_uploaded_files(
+    deleted = await upload_service.delete_all_uploaded_files(
         chat_session_id=chat_session_id,
         user_id=request.state.user_id,
-        document_ids=request_body.file_ids,
     )
 
     return send_success_response(
