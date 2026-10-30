@@ -76,6 +76,9 @@ class _ServerSettings(_BaseSettings):
     # 0.0.0.0 is needed inside a container, so the port can be reached from outside
     HOST: str = Field(default="127.0.0.1", min_length=1)
     PORT: int = Field(default=5001, ge=1, le=65535)
+    # Full base URL listed in the OpenAPI servers, e.g.
+    # https://api.askdocumind.com/api. Unset leaves only the relative /api.
+    API_PUBLIC_URL: str | None = Field(default=None)
     # A JSON array or a comma-separated list, parsed in parse_cors_origins
     CORS_ORIGINS: Annotated[list[str], NoDecode] = Field(
         default=["http://localhost:3000"], min_length=1
@@ -127,6 +130,16 @@ class _ServerSettings(_BaseSettings):
             if not origin.startswith(("http://", "https://")):
                 raise ValueError(f"CORS origin must start with http(s)://: {origin}")
         return origins
+
+    @field_validator("API_PUBLIC_URL")
+    @classmethod
+    def validate_api_public_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        url = value.strip().rstrip("/")
+        if not url.startswith(("http://", "https://")):
+            raise ValueError(f"API_PUBLIC_URL must start with http(s)://: {url}")
+        return url
 
     @field_validator(
         "RATE_LIMIT_HEALTH_SERVER",

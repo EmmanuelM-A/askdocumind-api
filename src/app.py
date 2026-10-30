@@ -126,12 +126,24 @@ def create_app() -> FastAPI:
     """
     setup_logging()
 
+    # FastAPI keeps the relative root_path server first, so the docs still
+    # call whichever host serves them
+    servers = None
+    if settings.server.API_PUBLIC_URL:
+        servers = [
+            {
+                "url": settings.server.API_PUBLIC_URL,
+                "description": settings.server.ENV.capitalize(),
+            }
+        ]
+
     app = FastAPI(
         title="AskDocuMind API",
         lifespan=lifespan,
         redirect_slashes=False,
         root_path="/api",
         docs_url="/docs",
+        servers=servers,
     )
 
     # SlowAPI's middleware and route decorators read the limiter from here
