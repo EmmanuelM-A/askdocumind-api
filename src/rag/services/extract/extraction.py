@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 
 from src.rag.services.extract.extractors.extractor import Segment
 from src.rag.services.extract.extractors.factory import ExtractorFactory
@@ -17,7 +17,7 @@ class Extraction:
         self._downloader = downloader
         self._factory = factory
 
-    async def stream(self, job: StorageJob) -> AsyncIterator[Segment]:
+    async def stream(self, job: StorageJob) -> AsyncGenerator[Segment, None]:
         """
         Streams segments of text extracted from the file specified in the job.
 

@@ -3,7 +3,7 @@ This module defines the contract for all chunker classes.
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncIterable, AsyncIterator, Callable
+from collections.abc import AsyncGenerator, AsyncIterable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
@@ -69,7 +69,7 @@ class Chunker(ABC):
 
     async def chunk_stream(
         self, stream: AsyncIterable[Segment], source_id: UUID
-    ) -> AsyncIterator[Chunk]:
+    ) -> AsyncGenerator[Chunk, None]:
         """
         Chunk a stream of segments, yielding chunks as they become ready.
 

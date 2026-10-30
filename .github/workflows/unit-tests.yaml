@@ -59,9 +59,11 @@ jobs:
           uv pip install --system -r requirements.txt -r requirements-reranker.txt
 
       - name: Run unit tests
+        # Coverage was 75% when the floor was set. Raise it as coverage grows,
+        # keeping a few points of margin for differences between machines.
         run: |
           pytest -q tests/unit --junitxml=unit-test-results.xml \
-            --cov=src --cov-report=term-missing --cov-fail-under=35
+            --cov=src --cov-report=term-missing --cov-fail-under=72
 
       - name: Upload unit test report
         if: always()

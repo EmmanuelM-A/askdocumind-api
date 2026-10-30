@@ -1,5 +1,5 @@
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import aclosing
 from typing import TypeVar
 from uuid import UUID
@@ -26,7 +26,9 @@ T = TypeVar("T")
 _GENERIC_ERROR_MESSAGE = "PROCESSING_ERROR: The file could not be processed."
 
 
-async def _batch_items(items: AsyncIterator[T], size: int) -> AsyncIterator[list[T]]:
+async def _batch_items(
+    items: AsyncIterator[T], size: int
+) -> AsyncGenerator[list[T], None]:
     """
     Groups items from an asynchronous iterator into batches of a specified size.
     """

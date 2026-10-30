@@ -1,259 +1,148 @@
 # AskDocuMind API
 
-## Quick Links
+Upload your documents and ask questions about them. AskDocuMind finds the
+relevant passages and answers from them, naming the files it used.
 
-- [Live demo](https://askdocumind.com)
-- [Overview](#overview)
-- [Problem](#problem)
-- [Solution](#solution)
-- [Features](#features)
-- [Technology Stack](#technology-stack)
-- [How to Setup](#how-to-setup)
-- [Environment Variables Reference](#environment-variables-reference)
-- [Deployment](#deployment)
-- [Project Structure](#project-structure)
-- [API Documentation](#api-documentation)
+**[Try the live demo](https://askdocumind.com)** ·
+**[Browse the API docs](https://api.askdocumind.com/api/docs)**
 
-## Overview
-
-AskDocuMind allows users to upload PDF, DOCX, TXT, or Markdown files and immediately start asking natural-language questions about their content. The backend handles document ingestion, vector embedding, semantic search, and LLM-powered response generation.
-
-For the purposes of the demo, no user registration is required, activity is fully tracked within an anonymous user session (cookie sessions).
-
-When the document context is insufficient, the system can optionally fall back to a live web search (via Brave Search API) to supplement the answer.
-
-**Live demo:** [askdocumind.com](https://askdocumind.com)
-
-## Problem
-
-Long documents bury the one answer you actually need. Finding it usually means re-reading pages you've already seen, guessing the exact phrasing `Ctrl+F` needs to match, or scanning page by page hoping to spot the right paragraph — all before you can even trust that what you found is complete or current.
-
-## Solution
-
-AskDocuMind answers questions directly from a document's content instead of a bare LLM guess. Retrieval-Augmented Generation (RAG) embeds the document, retrieves only the chunks relevant to the question, and generates an answer grounded in — and citing — those chunks. No document match means the system says so rather than fabricating an answer, with an optional live web search fallback when the documents themselves don't have it. No sign-up is required: identity is a short-lived anonymous session, so there's no friction between landing on the page and asking a question.
+This repository is the backend API. No sign-up is needed: each visitor gets an
+anonymous session that expires after an hour, and their files are then deleted.
 
 ## Features
 
-- **Document upload**: PDF, DOCX, TXT, and Markdown, CSV, HTML files up to 0.5 MB each
-- **Context-aware chunking**: Documents are parsed and chunked with Docling's hybrid chunker, which splits on document structure and token limits rather than fixed-size windows
-- **RAG pipeline**: Chunks are embedded and stored as vectors in PostgreSQL via pgvector
-- **Semantic search**: Cosine similarity retrieval finds the most relevant chunks for each query
-- **Reranking**: A cross-encoder model rescoring component for improving retrieved-chunk relevance
-- **Query expansion**: Vague or short queries are rewritten by the LLM into fuller, more searchable questions before retrieval
-- **LLM responses**: GPT-powered answers grounded in document context, with prompt injection protection
-- **Web search fallback**: Optional Brave Search integration supplements answers when documents lack the information
-- **Anonymous sessions**: No sign-up required; sessions are cookie-based and automatically cleaned up after TTL expiry
-- **Rate limiting**: Per-user request limits on all endpoints via SlowAPI
-- **File validation**: MIME type checking, magic byte validation, size limits, and duplicate detection
-- **Structured error responses**: Consistent JSON error shape across all endpoints
-- **Health endpoints**: API and database health checks for uptime monitoring
+- Upload PDF, Word (`.docx`), text, Markdown, HTML and code files, up to 10 MB
+  each and 10 per chat.
+- Ask questions in plain language and get answers based only on your files,
+  with the names of the files used.
+- Optionally search the web when your files don't have the answer.
+- Keep up to 5 separate chats, each with its own files.
 
-## Technology Stack
+## How it works
 
-| Layer | Technology | Purpose |
-| --- | --- | --- |
-| API framework | FastAPI 0.118 | Async REST API |
-| Database | PostgreSQL 16 + pgvector | Document storage and vector search |
-| ORM | SQLAlchemy 2 (async) | Database models and queries |
-| Migrations | Alembic | Schema versioning |
-| LLM | OpenAI GPT-3.5-turbo / GPT-4o-mini | Response generation |
-| Embeddings | OpenAI text-embedding-3-small | Semantic vector creation |
-| LLM orchestration | LangChain | RAG chain construction |
-| Document parsing & chunking | Docling | Context-aware text extraction and chunking |
-| Reranking | Cross-encoder (sentence-transformers) | Rescoring retrieved chunks for relevance |
-| Web search | Brave Search API | Optional live search fallback |
-| Rate limiting | SlowAPI | Per-user request throttling |
-| Session auth | HMAC-signed rotating token in HttpOnly cookies | Anonymous user sessions |
-| File storage | Local filesystem / AWS S3 | Document file storage |
-| Deployment | Docker + Railway | Container hosting |
-| Error tracking | Sentry | Production error monitoring |
+1. **Upload.** The file is stored in S3-compatible storage and processed in
+   the background: its text is extracted, split into chunks, and each chunk is
+   turned into an embedding (a vector that captures its meaning).
+2. **Search.** When you ask a question, it is rewritten into a fuller search
+   query, embedded the same way, and compared with your chunks in PostgreSQL
+   using pgvector. The best matches can be reranked by a second model.
+3. **Answer.** The top chunks, plus web results if you asked for them, are
+   given to the language model, which answers from them only.
 
-## How to Setup
+## Tech stack
 
-### Prerequisites
+- **API:** Python 3.12, FastAPI
+- **Database:** PostgreSQL with pgvector, SQLAlchemy and Alembic
+- **AI:** OpenAI `gpt-4o-mini` and `text-embedding-3-small` through LangChain,
+  with an optional cross-encoder reranker
+- **Storage:** S3-compatible object storage (MinIO locally)
+- **Web search:** Brave Search
+- **Hosting:** Docker on Railway, with a Neon database
 
-- Python 3.11+
-- Docker and Docker Compose
-- An OpenAI API key
+## Run it locally
 
-### 1. Clone the repository
+You need Python 3.12, Docker, and an OpenAI API key.
+
+1. Clone the repository and install the dependencies:
+
+   ```bash
+   git clone https://github.com/EmmanuelM-A/askdocumind-api.git
+   cd askdocumind-api
+   python -m venv .venv
+   source .venv/bin/activate      # Windows: .venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+2. Start PostgreSQL and MinIO:
+
+   ```bash
+   docker compose up -d
+   ```
+
+3. Create the upload bucket. Open the MinIO console at
+   <http://localhost:9001>, sign in with `admin` / `secretpassword`, and create
+   a bucket called `askdocumind-uploads`.
+
+4. Create your `.env` file and add your OpenAI key to it:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+5. Create the database tables, then start the API:
+
+   ```bash
+   alembic upgrade head
+   python -m src.server
+   ```
+
+The API runs at <http://localhost:5001>, with interactive docs at
+<http://localhost:5001/api/docs>.
+
+The cross-encoder reranker is optional and adds about 450 MB of memory. To use
+it, install CPU-only `torch` and then `requirements-reranker.txt`, as the
+`Dockerfile` does.
+
+## Configuration
+
+Settings are read from environment variables or `.env`. These are required:
+
+| Variable | What it is |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string, using the `postgresql+asyncpg://` driver |
+| `ANONYMOUS_TOKEN_SECRET` | Random string of at least 32 characters that signs session cookies |
+| `OPENAI_API_KEY` | OpenAI API key |
+| `BRAVE_API_KEY` | Brave Search API key. Any value works if you don't use web search |
+| `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Object storage credentials |
+| `S3_BUCKET_NAME` | Bucket that stores uploaded files |
+| `S3_ENDPOINT_URL` | Object storage URL. Leave unset for AWS S3 |
+
+Everything else has a sensible default. All settings, with their defaults
+and limits, are in [`src/config/configs.py`](src/config/configs.py). Common
+ones to change are `ENV` (`development` or `production`), `CORS_ORIGINS` (the
+frontend URLs allowed to call the API) and `LOG_LEVEL`.
+
+## API overview
+
+All routes are under `/api`. The [API docs](https://api.askdocumind.com/api/docs)
+list every request and response.
+
+| Route | What it does |
+| --- | --- |
+| `POST /v1/auth/anonymous/init` | Start an anonymous session (sets the session cookie) |
+| `POST /v1/chat-session/init` | Get your latest chat, or create one |
+| `POST /v1/chat-session` | Create a new chat |
+| `GET` / `DELETE /v1/chat-session/{id}` | Get or delete a chat |
+| `POST /v1/uploads/{chat_id}` | Upload a file to a chat |
+| `GET /v1/uploads/{chat_id}` | List a chat's files |
+| `POST /v1/chatbot/{chat_id}/ask` | Ask a question about a chat's files |
+| `GET /health/server`, `GET /health/db` | Health checks |
+
+## Tests
 
 ```bash
-git clone https://github.com/EmmanuelM-A/askdocumind-api.git
-cd askdocumind-api
+pip install -r requirements-dev.txt
+pytest tests/unit
 ```
 
-### 2. Create a virtual environment
-
-```bash
-python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# macOS / Linux
-source venv/bin/activate
-```
-
-### 3. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Set up environment variables
-
-Copy the env examples from `.env.example` into your `.env` file in the project root and fill in the required values:
-
-```bash
-cp .env.example .env
-```
-
-### 5. Start the database
-
-```bash
-docker-compose up -d
-```
-
-This starts a PostgreSQL 16 + pgvector container on port 5432.
-
-### 6. Run database migrations
-
-```bash
-alembic upgrade head
-```
-
-### 7. Start the API
-
-```bash
-uvicorn src.api.server:app --host localhost --port 5000 --reload
-
-# OR Run this
-python -m src.api.server
-```
-
-The API is now available at `http://localhost:5000`. Interactive docs are at `http://localhost:5000/api/docs`.
-
-## Environment Variables Reference
-
-| Variable | Required | Default | Description |
-| --- | --- | --- | --- |
-| `ENV` | Yes | — | `development` or `production` |
-| `PORT` | Yes | — | Port the server listens on |
-| `DATABASE_URL` | Yes | — | PostgreSQL connection string |
-| `USER_SESSION_SECRET` | Yes | — | Secret used to sign session JWTs |
-| `OPENAI_API_KEY` | Yes | — | OpenAI API key |
-| `OPENAI_LLM_MODEL_NAME` | Yes | — | GPT model name (e.g. `gpt-3.5-turbo`) |
-| `OPENAI_EMBEDDING_MODEL_NAME` | Yes | — | Embedding model name |
-| `CORS_ORIGINS` | Yes | — | JSON array of allowed origins |
-| `IS_WEB_SEARCH_ENABLED` | No | `false` | Enable Brave Search fallback |
-| `BRAVE_SEARCH_API_KEY` | If web search enabled | — | Brave Search API key |
-| `MAX_FILE_SIZE_MB` | No | `0.5` | Max size per uploaded file |
-| `MAX_DOCUMENTS_PER_CHAT` | No | `10` | Max documents per session |
-| `RETRIEVAL_TOP_K` | No | `5` | Number of chunks retrieved per query |
-| `SIMILARITY_THRESHOLD` | No | `0.4` | Minimum cosine similarity score |
-| `LLM_MAX_OUTPUT_TOKENS` | No | `1024` | Max tokens in LLM response |
-| `MAX_WEB_SEARCHES_PER_SESSION` | No | `3` | Web search calls per session |
-| `LOG_LEVEL` | No | `DEBUG` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
-| `LOG_TO` | No | `FILE` | `CONSOLE`, `FILE`, or `BOTH` |
-| `SENTRY_DSN` | No | — | Sentry DSN for error tracking |
-| `RATE_LIMIT_REQUESTS` | No | `100` | Global request cap per `RATE_LIMIT_WINDOW`, keyed by IP |
-| `RATE_LIMIT_WINDOW` | No | `60` | Window (seconds) for `RATE_LIMIT_REQUESTS` |
-| `MAX_CHAT_QUERIES_PER_MINUTE` | No | `10` | Chat query cap per anonymous session |
-| `MAX_UPLOAD_REQUESTS_PER_MINUTE` | No | `5` | Document upload cap per anonymous session |
-| `MAX_SESSION_REQUESTS_PER_MINUTE` | No | `10` | Chat-session mutation cap per anonymous session |
-| `MAX_CONCURRENT_REQUESTS` | No | `50` | Max in-flight requests before returning `503` |
-| `HF_TOKEN` | No | — | Hugging Face token (model downloads for reranking) |
-| `DB_POOL_SIZE` | No | — | SQLAlchemy connection pool size |
-| `DB_MAX_OVERFLOW` | No | — | SQLAlchemy pool overflow allowance |
-| `DB_POOL_TIMEOUT_SECS` | No | — | Seconds to wait for a pooled connection before erroring |
+The integration and end-to-end tests also need the Docker services from
+step 2 running: `pytest tests/integration tests/e2e`. No test calls OpenAI or
+Brave Search, so running them is free.
 
 ## Deployment
 
-The backend is deployed on **Railway** with a PostgreSQL database add-on. The frontend is deployed on **Vercel**. DNS and CDN are managed through **Cloudflare**.
+The API is deployed as a Docker image on Railway.
 
-### Production environment variables
+- **Build:** `docker build .` builds the full image. Add
+  `--build-arg WITH_RERANKER=false` for a smaller image without the reranker.
+- **Migrate:** run `alembic upgrade head` before each new version takes
+  traffic. On Railway, this is the Pre-deploy Command.
+- **Health check:** use `/api/health/server`.
+- **One instance only.** Background jobs and rate limits are kept in memory,
+  so running more than one instance can process the same upload twice.
+- **Rolling back:** redeploy the previous deployment. If the bad release ran
+  a migration, run `alembic downgrade -1` first.
 
-Set these in your Railway service's environment settings:
+## License
 
-```env
-ENV=production
-DATABASE_URL=<railway-postgres-url>
-USER_SESSION_SECRET=<strong-random-secret>
-OPENAI_API_KEY=<your-key>
-OPENAI_LLM_MODEL_NAME=gpt-4o-mini
-OPENAI_EMBEDDING_MODEL_NAME=text-embedding-3-small
-CORS_ORIGINS=["https://yourdomain.com","https://www.yourdomain.com"]
-ANON_SESSION_COOKIE_SAMESITE=none
-ANON_SESSION_COOKIE_DOMAIN=api.yourdomain.com
-LOG_TO=CONSOLE
-LOG_LEVEL=INFO
-SENTRY_DSN=<your-sentry-dsn>
-```
-
-### Docker
-
-A `Dockerfile` is included. To build and run manually:
-
-```bash
-docker build -t askdocumind-api .
-docker run -p 5000:5000 --env-file .env askdocumind-api
-```
-
-## Project Structure
-
-```text
-docuchat-backend/
-├── src/
-│   ├── api/
-│   │   ├── controllers/        # Request handling and response assembly
-│   │   ├── middleware/         # CORS, session auth, rate limit, request size
-│   │   ├── routes/             # FastAPI route definitions
-│   │   ├── services/           # Business logic (auth, uploads, chat sessions)
-│   │   └── utils/              # Cookie manager, response builders, session manager
-│   ├── components/
-│   │   ├── chatbot/            # RAGChatbot and QueryHandler
-│   │   ├── ingestion/          # Document text extraction and chunking
-│   │   ├── prompts/            # Prompt template loader
-│   │   └── retrieval/          # Embedder, VectorProcessor, WebSearcher
-│   ├── config/
-│   │   └── configs.py          # All settings via pydantic-settings
-│   ├── database/
-│   │   ├── models.py           # SQLAlchemy ORM models
-│   │   ├── connection.py       # Async engine and session factory
-│   │   └── repository/         # Repository pattern (interfaces + SQLAlchemy impl)
-│   ├── errors/                 # Custom exception types
-│   └── logger/                 # BaseLogger and formatters
-├── data/
-│   └── prompts/                # YAML prompt templates
-├── alembic/                    # Database migration scripts
-├── logs/                       # Runtime log files (gitignored)
-├── docker-compose.yml
-├── Dockerfile
-└── requirements.txt
-```
-
-## API Documentation
-
-Interactive API documentation is available at `/api/docs` when the server is running.
-
-Key endpoint groups:
-
-| Prefix | Description |
-| --- | --- |
-| `POST /api/auth/anonymous` | Bootstrap an anonymous user session and receive a session cookie |
-| `POST /api/sessions/init` | Create or retrieve the current chat session |
-| `POST /api/documents/upload` | Upload one or more documents for the session |
-| `GET /api/documents` | List documents in the current session |
-| `POST /api/chatbot/query` | Submit a query and receive a RAG-generated answer |
-| `GET /api/health/api` | API liveness check |
-| `GET /api/health/db` | Database connectivity check |
-
-## Known Limitations
-
-- **One chat session per user**: Anonymous sessions support a single active chat. Multi-session support is a post-v1 roadmap item.
-- **No persistent accounts**: Sessions are anonymous and expire after 1 hour of inactivity. Uploaded documents are not retained across sessions.
-- **File size cap**: Individual files are limited to 0.5 MB and total upload per session is capped at 2 MB. Large documents should be split before uploading.
-- **Web search quota**: Brave Search free tier allows 2,000 requests/month. Per-session web search is capped at 3 calls to stay within quota.
-- **English-primary prompts**: The system prompt is written in English. The LLM will respond in the user's language, but prompt injection protection rules are English-only.
-- **In-memory web search counter**: The per-session web search limit resets on server restart.
+Proprietary. All rights reserved. See [LICENSE](LICENSE).

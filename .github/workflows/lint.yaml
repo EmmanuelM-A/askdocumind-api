@@ -45,11 +45,7 @@ jobs:
         run: |
           ruff check src tests
 
-      - name: Run mypy (advisory)
-        # Non-blocking for now: the codebase has ~39 pre-existing type errors.
-        # Remove `continue-on-error` once those are cleaned up, so this becomes a
-        # real gate instead of just surfacing new issues in the job log.
-        continue-on-error: true
+      - name: Run mypy
         run: |
           mypy src --ignore-missing-imports
 

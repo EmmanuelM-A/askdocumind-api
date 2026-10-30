@@ -5,6 +5,7 @@ Logging configuration for the AskDocuMind API application.
 import logging
 import logging.config
 from pathlib import Path
+from typing import Any
 
 from src.config.configs import settings
 
@@ -29,7 +30,7 @@ def setup_logging() -> None:
     log_dir = Path(__file__).resolve().parent.parent.parent / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    config = {
+    config: dict[str, Any] = {
         "version": 1,
         "disable_existing_loggers": False,
         "formatters": {

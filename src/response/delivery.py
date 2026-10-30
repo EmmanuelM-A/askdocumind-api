@@ -57,7 +57,7 @@ def send_success_response(
 ) -> JSONResponse:
     """Creates and sends a standardized success response."""
 
-    success_response_model = _SuccessResponse(message=message, data=data)
+    success_response_model = _SuccessResponse[T](message=message, data=data)
 
     return JSONResponse(
         status_code=status_code,
