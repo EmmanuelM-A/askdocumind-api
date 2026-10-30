@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from src.chat_session.domain.chat import ChatMessageRole
-from tests.e2e.chat_session.conftest import cookie_headers
+from tests.e2e.conftest import cookie_headers
 
 pytestmark = pytest.mark.asyncio
 

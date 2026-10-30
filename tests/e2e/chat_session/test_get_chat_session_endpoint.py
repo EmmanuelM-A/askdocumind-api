@@ -8,7 +8,7 @@ import pytest
 from limits import parse
 
 from src.config.configs import settings
-from tests.e2e.chat_session.conftest import cookie_headers
+from tests.e2e.conftest import cookie_headers
 
 pytestmark = pytest.mark.asyncio
 

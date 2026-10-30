@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from src.exceptions import object_storage_error
-from tests.e2e.chat_session.conftest import cookie_headers
+from tests.e2e.conftest import cookie_headers
 
 pytestmark = pytest.mark.asyncio
 
