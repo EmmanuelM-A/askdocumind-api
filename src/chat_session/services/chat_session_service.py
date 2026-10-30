@@ -25,6 +25,7 @@ from src.rag.repository.chunk_embedding_repository_impl import (
 )
 from src.shared.services import BaseService
 from src.uploads.repository.document_repository_impl import DocumentRepositoryImpl
+from src.uploads.storage.keys import chat_session_prefix
 from src.uploads.storage.object_storage import ObjectStorage
 
 _logger = logging.getLogger(__name__)
@@ -119,7 +120,7 @@ class ChatSessionService(BaseService):
         await self._verify_user_exists(user_id)
         await self._verify_user_owns_chat_session(user_id, chat_session_id)
 
-        prefix = f"{chat_session_id}/"
+        prefix = chat_session_prefix(chat_session_id)
 
         await asyncio.to_thread(self._object_storage.delete_prefix, prefix)
 

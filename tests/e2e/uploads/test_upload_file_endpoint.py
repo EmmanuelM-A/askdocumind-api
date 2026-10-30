@@ -55,6 +55,57 @@ class TestUpload:
         assert data["checksum"] == hashlib.sha256(CONTENT).hexdigest()
 
 
+class TestDuplicateFilename:
+    async def test_same_filename_in_same_session_is_a_conflict(
+        self, client, owner, object_storage, read_documents, runner
+    ):
+        first = await client.post(
+            _url(owner.chat_session_id), headers=owner.headers, files=_file()
+        )
+        assert first.status_code == 202
+
+        second = await client.post(
+            _url(owner.chat_session_id),
+            headers=owner.headers,
+            files=_file(data=b"different content"),
+        )
+
+        assert second.status_code == 409
+        assert second.json()["error"]["code"] == "DUPLICATE_FILENAME"
+        [document] = await read_documents(owner.chat_session_id)
+        assert object_storage.load(document.object_key) == CONTENT
+        runner.start.assert_called_once()
+
+    async def test_same_filename_in_another_session_is_allowed(
+        self, client, owner, make_owner
+    ):
+        other_session = await make_owner(user_id=owner.user_id)
+
+        first = await client.post(
+            _url(owner.chat_session_id), headers=owner.headers, files=_file()
+        )
+        second = await client.post(
+            _url(other_session.chat_session_id), headers=owner.headers, files=_file()
+        )
+
+        assert (first.status_code, second.status_code) == (202, 202)
+
+    async def test_filename_is_free_again_after_delete(self, client, owner):
+        first = await client.post(
+            _url(owner.chat_session_id), headers=owner.headers, files=_file()
+        )
+        await client.delete(
+            f"{_url(owner.chat_session_id)}/{first.json()['data']['id']}",
+            headers=owner.headers,
+        )
+
+        again = await client.post(
+            _url(owner.chat_session_id), headers=owner.headers, files=_file()
+        )
+
+        assert again.status_code == 202
+
+
 class TestRejectedFiles:
     @pytest.mark.parametrize(
         "upload, expected_status",

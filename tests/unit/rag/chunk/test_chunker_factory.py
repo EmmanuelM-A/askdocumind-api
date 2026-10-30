@@ -262,3 +262,45 @@ class TestConfigValidation:
     def test_overlap_equal_to_chunk_size_is_rejected(self):
         with pytest.raises(ValidationError):
             ChunkerBuildConfig(chunk_size=400, chunk_overlap=400)
+
+    def test_min_chunk_size_must_be_below_the_smallest_chunk_size(self):
+        with pytest.raises(ValidationError):
+            ChunkerBuildConfig(min_chunk_size=400)
+
+    def test_max_sentences_per_chunk_zero_is_rejected(self):
+        with pytest.raises(ValidationError):
+            ChunkerBuildConfig(max_sentences_per_chunk=0)
+
+
+# ---------------------------------------------------------------------------
+# Config values reach the chunkers
+# ---------------------------------------------------------------------------
+
+
+class TestConfigIsPassedOn:
+
+    def test_sentence_chunker_gets_min_size_and_sentence_limit(
+        self, mock_chunker_classes
+    ):
+        factory = make_factory(
+            mock_chunker_classes, min_chunk_size=250, max_sentences_per_chunk=8
+        )
+
+        factory.get_chunker(".txt")
+
+        config = mock_chunker_classes["sentence"].call_args.args[0]
+        assert config.min_chunk_size == 250
+        assert config.max_sentences_per_chunk == 8
+
+    def test_structure_and_default_chunkers_get_min_size(self, mock_chunker_classes):
+        factory = make_factory(mock_chunker_classes, min_chunk_size=250)
+
+        factory.get_chunker(".md")
+
+        structure = mock_chunker_classes["structure"].call_args.args[0]
+        default = mock_chunker_classes["rcs"].call_args.args[0]
+        assert structure.min_chunk_size == 250
+        assert default.min_chunk_size == 250
+
+    def test_default_min_chunk_size_merges_fragments(self):
+        assert ChunkerBuildConfig().min_chunk_size == 200

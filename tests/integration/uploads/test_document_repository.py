@@ -98,14 +98,15 @@ class TestCreate:
         assert created.created_at is not None
         assert (await _row(session, created.id)) is not None
 
-    async def test_duplicate_filename_in_same_chat_session_raises(
+    async def test_duplicate_filename_in_same_chat_session_is_a_conflict(
         self, repo, chat_session_id
     ):
         await _add(repo, chat_session_id, "same.pdf")
 
         with pytest.raises(ApiException) as exc:
             await _add(repo, chat_session_id, "same.pdf")
-        assert exc.value.status_code == _INTERNAL_ERROR
+        assert exc.value.status_code == 409
+        assert exc.value.error_code == "DUPLICATE_FILENAME"
 
     async def test_unknown_chat_session_raises(self, repo):
         with pytest.raises(ApiException) as exc:

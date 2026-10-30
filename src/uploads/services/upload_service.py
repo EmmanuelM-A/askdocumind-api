@@ -23,6 +23,7 @@ from src.uploads.domain.document import DocumentStatus
 from src.uploads.models.document import Document
 from src.uploads.models.mapper import ViewableDocument
 from src.uploads.repository.document_repository import DocumentRepository
+from src.uploads.storage.keys import document_object_key
 from src.uploads.storage.object_storage import ObjectStorage
 
 _logger = logging.getLogger(__name__)
@@ -117,7 +118,7 @@ class UploadService:
             )
 
         document_id = uuid4()
-        key = f"{chat_session_id}/{document_id}"  # TODO: Make a function for this -> to keep things consistent
+        key = document_object_key(chat_session_id, document_id)
 
         await self._document_repository.create(
             Document(
@@ -300,7 +301,15 @@ class UploadService:
                 error_code="INVALID_DOCUMENT_STATE",
             )
 
-        return document
+        reprocessed = await self._document_repository.get_by_id(document_id)
+
+        if reprocessed is None:
+            raise not_found_error(
+                message="The document provided does not exist.",
+                error_code="DOCUMENT_NOT_FOUND",
+            )
+
+        return reprocessed
 
     async def _verify_existence_and_ownership(
         self, chat_session_id: UUID, user_id: UUID

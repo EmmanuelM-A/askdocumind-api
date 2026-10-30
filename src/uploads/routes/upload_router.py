@@ -122,14 +122,23 @@ async def reprocess(
     file_id: UUID,
     upload_service: Annotated[UploadService, Depends(get_upload_service)],
     runner: Annotated[IngestionRunner, Depends(get_ingestion_runner)],
-):
+) -> JSONResponse:
+    """
+    Queue a failed file for processing again.
+    """
     document = await upload_service.reprocess_uploaded_file(
         chat_session_id=chat_session_id,
         user_id=request.state.user_id,
         document_id=file_id,
     )
+
     runner.start(build_job(document))
-    return document.viewable()
+
+    return send_success_response(
+        message="File queued for reprocessing.",
+        status_code=status.HTTP_202_ACCEPTED,
+        data=document.viewable(),
+    )
 
 
 @upload_router.delete(

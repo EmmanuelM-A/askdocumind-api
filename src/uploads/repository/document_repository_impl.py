@@ -5,11 +5,11 @@ from uuid import UUID
 
 from fastapi_pagination import Page
 from sqlalchemy import Select, delete, func, select, update
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.utils import BaseRepository, Pagination
-from src.exceptions import database_error
+from src.exceptions import conflict_error, database_error
 from src.uploads.domain.document import DocumentStatus
 from src.uploads.models.document import Document
 from src.uploads.repository.document_repository import (
@@ -50,6 +50,21 @@ class DocumentRepositoryImpl(BaseRepository, DocumentRepository):
             self._session.add(data)
             await self._session.flush()
             return data
+        except IntegrityError as e:
+            # Caught here rather than checked beforehand, so two uploads of
+            # the same file at once can't both get through
+            if "uq_document_chat_session_filename" in str(e.orig):
+                raise conflict_error(
+                    message="A file with this name has already been uploaded to "
+                    "this chat session.",
+                    error_code="DUPLICATE_FILENAME",
+                    cause=e,
+                ) from e
+            raise database_error(
+                message="An error occurred while creating a document.",
+                error_code="DOCUMENT_CREATION_ERROR",
+                cause=e,
+            ) from e
         except Exception as e:
             raise database_error(
                 message="An error occurred while creating a document.",
@@ -106,7 +121,13 @@ class DocumentRepositoryImpl(BaseRepository, DocumentRepository):
             ) from e
 
     async def get_by_id(self, document_id: UUID) -> Document | None:
-        statement = select(Document).where(Document.id == document_id)
+        # populate_existing refreshes a copy already in the session, which
+        # the status updates (synchronize_session=False) leave stale
+        statement = (
+            select(Document)
+            .where(Document.id == document_id)
+            .execution_options(populate_existing=True)
+        )
         try:
             result = await self._session.execute(statement)
             return result.scalar_one_or_none()

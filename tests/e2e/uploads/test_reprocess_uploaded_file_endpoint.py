@@ -39,6 +39,23 @@ class TestReprocess:
         runner.start.assert_called_once()
         assert runner.start.call_args.args[0].document_id == document.id
 
+    async def test_returns_the_standard_envelope_with_the_new_status(
+        self, client, owner, seed_document
+    ):
+        document = await seed_document(
+            owner.chat_session_id, status=DocumentStatus.FAILED
+        )
+
+        response = await client.post(
+            _url(owner.chat_session_id, document.id), headers=owner.headers
+        )
+
+        body = response.json()
+        assert body["success"] is True
+        assert body["data"]["id"] == str(document.id)
+        assert body["data"]["status"] == DocumentStatus.UPLOADED.value
+        assert body["data"]["errorMessage"] is None
+
     @pytest.mark.parametrize(
         "status", [s for s in DocumentStatus if s is not DocumentStatus.FAILED]
     )

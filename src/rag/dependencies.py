@@ -68,7 +68,13 @@ def get_embedder() -> Embedder:
     return LangChainOpenAIEmbedder()
 
 
-_chunker_build_config = ChunkerBuildConfig()  # TODO: Change later
+_chunker_build_config = ChunkerBuildConfig(
+    chunk_size=settings.rag.CHUNK_SIZE,
+    chunk_overlap=settings.rag.CHUNK_OVERLAP,
+    min_chunk_size=settings.rag.MIN_CHUNK_SIZE,
+    max_sentences_per_chunk=settings.rag.MAX_SENTENCES_PER_CHUNK,
+    code_max_lines_per_chunk=settings.rag.CODE_MAX_LINES_PER_CHUNK,
+)
 
 
 def get_chunker_factory() -> ChunkerFactory:
