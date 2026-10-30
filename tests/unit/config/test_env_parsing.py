@@ -93,3 +93,13 @@ def test_reranker_can_always_be_turned_off(monkeypatch, installed):
     monkeypatch.setattr(configs, "_is_installed", lambda _: installed)
 
     assert _RAGSettings().RERANKER_ENABLED is False
+
+
+def test_chunk_overlap_must_be_smaller_than_chunk_size(monkeypatch):
+    monkeypatch.setenv("CHUNK_SIZE", "500")
+    monkeypatch.setenv("CHUNK_OVERLAP", "499")
+    assert _RAGSettings().CHUNK_OVERLAP == 499
+
+    monkeypatch.setenv("CHUNK_OVERLAP", "500")
+    with pytest.raises(ValidationError, match="CHUNK_OVERLAP"):
+        _RAGSettings()

@@ -68,6 +68,10 @@ class ChunkerBuildConfig(BaseModel):
 
     chunk_size: int = Field(ge=400, lt=2000, default=1500)
     chunk_overlap: int = Field(ge=0, lt=500, default=150)
+    # Chunks shorter than this are merged into a neighbour, never dropped, so
+    # stray headings and one-line fragments don't become their own embedding
+    min_chunk_size: int = Field(ge=0, lt=400, default=200)
+    max_sentences_per_chunk: int = Field(ge=1, le=50, default=5)
     code_max_lines_per_chunk: int = Field(ge=1, default=200)
 
     @model_validator(mode="after")
@@ -89,7 +93,7 @@ class ChunkerFactory:
             RecursiveCharChunkerConfig(
                 chunk_size=self._config.chunk_size,
                 chunk_overlap=self._config.chunk_overlap,
-                min_chunk_size=0,  # TODO: Review this value!
+                min_chunk_size=self._config.min_chunk_size,
             )
         )
 
@@ -147,7 +151,7 @@ class ChunkerFactory:
                     chunk_size=self._config.chunk_size,
                     chunk_overlap=self._config.chunk_overlap,
                     fallback_chunker=self._default_chunker,
-                    min_chunk_size=0,  # TODO: Choose a better value later!
+                    min_chunk_size=self._config.min_chunk_size,
                     header_levels=["#", "##", "###", "####"],
                 )
             )
@@ -157,9 +161,8 @@ class ChunkerFactory:
                 SentenceChunkerConfig(
                     chunk_size=self._config.chunk_size,
                     chunk_overlap=self._config.chunk_overlap,
-                    min_chunk_size=0,  # TODO: Choose a better value later!
-                    max_sentences_per_chunk=5,
-                    # TODO: Choose a better value later!
+                    min_chunk_size=self._config.min_chunk_size,
+                    max_sentences_per_chunk=self._config.max_sentences_per_chunk,
                 )
             )
 

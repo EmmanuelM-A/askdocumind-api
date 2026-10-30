@@ -12,6 +12,7 @@ from uuid import UUID
 from src.cleanup.expired_user_repository import ExpiredUserRepository
 from src.config.configs import settings
 from src.database.session import DatabaseSessionManager
+from src.uploads.storage.keys import chat_session_prefix
 from src.uploads.storage.object_storage import ObjectStorage
 
 _logger = logging.getLogger(__name__)
@@ -114,7 +115,7 @@ class ExpiredUserCleaner:
         for chat_session_id in chat_session_ids:
             try:
                 await asyncio.to_thread(
-                    self._storage.delete_prefix, f"{chat_session_id}/"
+                    self._storage.delete_prefix, chat_session_prefix(chat_session_id)
                 )
             except Exception:
                 _logger.exception(

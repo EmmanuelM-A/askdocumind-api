@@ -337,7 +337,13 @@ class _RAGSettings(_BaseSettings):
     EMBEDDING_REQUEST_TIMEOUT_SECS: int = Field(default=30, ge=1, le=300)
     EMBEDDING_MAX_RETRIES: int = Field(default=3, ge=0, le=10)
 
-    # Chunkers
+    # Chunkers. Chunks below MIN_CHUNK_SIZE characters are merged into a
+    # neighbour, never dropped.
+    CHUNK_SIZE: int = Field(default=1500, ge=400, lt=2000)
+    CHUNK_OVERLAP: int = Field(default=150, ge=0, lt=500)
+    MIN_CHUNK_SIZE: int = Field(default=200, ge=0, lt=400)
+    MAX_SENTENCES_PER_CHUNK: int = Field(default=5, ge=1, le=50)
+    CODE_MAX_LINES_PER_CHUNK: int = Field(default=200, ge=1, le=2000)
     STREAM_FLUSH_CHARS: int = Field(default=20000, ge=7500, le=40000)
     PROCESSING_BATCH_SIZE: int = Field(default=100, ge=1, le=1000)
     MIN_CONTENT_LENGTH: int = Field(default=150, ge=100, le=1000)
@@ -387,6 +393,12 @@ class _RAGSettings(_BaseSettings):
                 f"{self.EMBEDDING_MODEL} returns {expected} dimensions, but "
                 f"EMBEDDING_DIMENSIONS is {self.EMBEDDING_DIMENSIONS}."
             )
+        return self
+
+    @model_validator(mode="after")
+    def validate_chunk_overlap(self) -> Self:
+        if self.CHUNK_OVERLAP >= self.CHUNK_SIZE:
+            raise ValueError("CHUNK_OVERLAP must be smaller than CHUNK_SIZE.")
         return self
 
     @field_validator("RERANKER_ENABLED")
