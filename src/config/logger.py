@@ -68,4 +68,14 @@ def setup_logging() -> None:
         },
     }
 
+    # Hosts like Railway only collect stdout, and the log files are lost with
+    # the container. Development keeps the console clean.
+    if settings.server.ENV != "development":
+        config["handlers"]["console"] = {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+            "formatter": "file",
+        }
+        config["root"]["handlers"].append("console")
+
     logging.config.dictConfig(config)
