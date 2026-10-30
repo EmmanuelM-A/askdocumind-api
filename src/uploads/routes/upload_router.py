@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import (
     APIRouter,
     Depends,
-    Form,
+    File,
     Query,
     Request,
     status,
@@ -33,7 +33,7 @@ async def upload_file(
     chat_session_id: UUID,
     upload_service: Annotated[UploadService, Depends(get_upload_service)],
     runner: Annotated[IngestionRunner, Depends(get_ingestion_runner)],
-    request_body: Annotated[UploadFileRequest, Form()],
+    request_body: Annotated[UploadFileRequest, File()],
 ) -> JSONResponse:
     """
     Upload a file to a specific chat session and initiate the ingestion
