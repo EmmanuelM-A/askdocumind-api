@@ -21,7 +21,6 @@ class RecursiveCharChunkerConfig(ChunkerConfig):
 
 
 class RecursiveCharacterSplittingChunker(Chunker):
-
     def __init__(self, config: RecursiveCharChunkerConfig):
         self._config = config
 

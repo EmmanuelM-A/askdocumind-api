@@ -32,7 +32,6 @@ _logger = logging.getLogger(__name__)
 
 
 class ChatSessionService(BaseService):
-
     def __init__(
         self,
         user_repository: UserRepository,
@@ -90,7 +89,7 @@ class ChatSessionService(BaseService):
 
         if chat_session is None:
             _logger.debug(
-                "No chat session exists for the user '%s'. Creating a " "new one...",
+                "No chat session exists for the user '%s'. Creating a new one...",
                 user_id,
             )
             return await self.create_new_chat_session(user_id, data)

@@ -6,6 +6,8 @@ It also manages the database connection lifecycle using a lifespan
 context manager.
 """
 
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -46,6 +48,21 @@ from src.uploads.services.ingestion_service import IngestionRunner
 from src.uploads.services.sweeper import Sweeper, SweeperConfig
 from src.uploads.storage.dependencies import get_object_storage
 
+_logger = logging.getLogger(__name__)
+
+
+async def _check_object_storage() -> None:
+    try:
+        await asyncio.to_thread(get_object_storage().check_available)
+    except Exception:
+        _logger.critical(
+            "Object storage check failed: bucket '%s' at '%s' is missing or "
+            "unreachable. Check S3_BUCKET_NAME, S3_ENDPOINT_URL and the S3 keys.",
+            settings.uploads.S3_BUCKET_NAME,
+            settings.uploads.S3_ENDPOINT_URL or "AWS S3",
+        )
+        raise
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -59,6 +76,7 @@ async def lifespan(app: FastAPI):
     )
 
     # On startup
+    await _check_object_storage()
     await session_manager.connect()
 
     runner = IngestionRunner(

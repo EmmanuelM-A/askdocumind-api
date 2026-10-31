@@ -62,7 +62,6 @@ async def _read_from(file: UploadFile) -> tuple[bytes, int, str]:
 
 
 class UploadService:
-
     def __init__(
         self,
         document_repository: DocumentRepository,

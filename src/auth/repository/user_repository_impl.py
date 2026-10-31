@@ -22,7 +22,6 @@ _logger = logging.getLogger(__name__)
 
 
 class UserRepositoryImpl(UserRepository, BaseRepository):
-
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session)
 
