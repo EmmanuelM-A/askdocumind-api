@@ -367,7 +367,7 @@ class _RAGSettings(_BaseSettings):
     RERANKER_BATCH_SIZE: int = Field(default=32, ge=1, le=128)
 
     # Retrieval
-    MIN_CHUNKS_NEEDED_FOR_WEB_SEARCH: int = Field(default=3, ge=1, le=100)
+    MIN_CHUNKS_NEEDED_FOR_WEB_SEARCH: int = Field(default=6, ge=1, le=100)
     MIN_CHUNKS_NEEDED_FOR_RERANKING: int = Field(default=2, ge=2, le=100)
     MAX_RETRIEVAL_CANDIDATES: int = Field(default=50, ge=1, le=200)
 
