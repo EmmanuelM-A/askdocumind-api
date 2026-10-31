@@ -42,7 +42,6 @@ class CodeAwareChunkerConfig(BaseModel):
 
 
 class CodeAwareChunker(Chunker):
-
     def __init__(self, config: CodeAwareChunkerConfig):
         self._config = config
 

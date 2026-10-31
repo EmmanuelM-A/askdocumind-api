@@ -20,7 +20,6 @@ _logger = logging.getLogger(__name__)
 
 
 class RetrieveChunkEmbeddingService(BaseService):
-
     def __init__(
         self,
         query_expander: QueryExpander,

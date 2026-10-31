@@ -28,12 +28,10 @@ _WRAPPER_TAG = re.compile(r"</?(?:sources?|question)\b[^>]*>", re.IGNORECASE)
 
 
 class LLMConfig(BaseModel):
-
     prompt_template: ChatPromptTemplate
 
 
 class ChatbotService:
-
     def __init__(
         self,
         retrieval_service: RetrieveChunkEmbeddingService,

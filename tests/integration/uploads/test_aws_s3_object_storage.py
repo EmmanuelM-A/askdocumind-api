@@ -70,12 +70,26 @@ def fetch(url):
         return response.read()
 
 
-def client_error(code, operation="Operation"):
-    return ClientError({"Error": {"Code": code, "Message": code}}, operation)
+def client_error(code, operation="Operation", http_status=None):
+    response = {"Error": {"Code": code, "Message": code}}
+    if http_status is not None:
+        response["ResponseMetadata"] = {"HTTPStatusCode": http_status}
+    return ClientError(response, operation)
 
 
 def botocore_error():
     return EndpointConnectionError(endpoint_url="http://unreachable")
+
+
+# A client-side fault is a 500. An unreachable or failing S3 is a 503.
+ERROR_STATUSES = [
+    (client_error("AccessDenied", http_status=403), 500),
+    (client_error("NoSuchBucket", http_status=404), 500),
+    (client_error("InternalError"), 500),
+    (client_error("SlowDown", http_status=503), 503),
+    (client_error("InternalError", http_status=500), 503),
+    (botocore_error(), 503),
+]
 
 
 def assert_api_error(exc_info, status_code):
@@ -288,6 +302,26 @@ def test_missing_bucket_raises_storage_errors(s3_client):
     assert_api_error(exc_info, 500)
 
 
+def test_check_available_passes_for_an_existing_bucket(storage):
+    storage.check_available()
+
+
+def test_check_available_raises_500_for_a_missing_bucket(s3_client):
+    broken = AWSS3ObjectStorage(s3_client, f"missing-{uuid.uuid4().hex}")
+
+    with pytest.raises(HTTPException) as exc_info:
+        broken.check_available()
+    assert_api_error(exc_info, 500)
+
+
+def test_check_available_maps_errors_to_status_codes(mock_client, mock_storage):
+    for cause, status_code in ERROR_STATUSES:
+        mock_client.head_bucket.side_effect = cause
+        with pytest.raises(HTTPException) as exc_info:
+            mock_storage.check_available()
+        assert_api_error(exc_info, status_code)
+
+
 def test_save_delete_and_presign_wrap_client_errors(mock_client, mock_storage):
     operations = [
         ("put_object", lambda: mock_storage.save("k", b"x")),
@@ -295,19 +329,19 @@ def test_save_delete_and_presign_wrap_client_errors(mock_client, mock_storage):
         ("generate_presigned_url", lambda: mock_storage.presigned_url("k", 60)),
     ]
     for method, call in operations:
-        for cause in (client_error("AccessDenied"), botocore_error()):
+        for cause, status_code in ERROR_STATUSES:
             getattr(mock_client, method).side_effect = cause
             with pytest.raises(HTTPException) as exc_info:
                 call()
-            assert_api_error(exc_info, 500)
+            assert_api_error(exc_info, status_code)
 
 
 def test_load_wraps_unexpected_errors(mock_client, mock_storage):
-    for cause in (client_error("AccessDenied"), botocore_error()):
+    for cause, status_code in ERROR_STATUSES:
         mock_client.get_object.side_effect = cause
         with pytest.raises(HTTPException) as exc_info:
             mock_storage.load("k")
-        assert_api_error(exc_info, 500)
+        assert_api_error(exc_info, status_code)
 
 
 def test_load_returns_none_for_every_missing_code(mock_client, mock_storage):
@@ -321,21 +355,21 @@ def test_exists_maps_missing_codes_and_wraps_other_errors(mock_client, mock_stor
         mock_client.head_object.side_effect = client_error(code)
         assert mock_storage.exists("k") is False
 
-    for cause in (client_error("403"), botocore_error()):
+    for cause, status_code in [(client_error("403"), 500), *ERROR_STATUSES]:
         mock_client.head_object.side_effect = cause
         with pytest.raises(HTTPException) as exc_info:
             mock_storage.exists("k")
-        assert_api_error(exc_info, 500)
+        assert_api_error(exc_info, status_code)
 
 
 def test_delete_prefix_wraps_list_and_delete_errors(mock_client, mock_storage):
     paginate = mock_client.get_paginator.return_value.paginate
 
-    for cause in (client_error("AccessDenied"), botocore_error()):
+    for cause, status_code in ERROR_STATUSES:
         paginate.side_effect = cause
         with pytest.raises(HTTPException) as exc_info:
             mock_storage.delete_prefix("p")
-        assert_api_error(exc_info, 500)
+        assert_api_error(exc_info, status_code)
 
     paginate.side_effect = None
     paginate.return_value = [{"Contents": [{"Key": "p/a"}]}]

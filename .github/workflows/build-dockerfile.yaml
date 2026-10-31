@@ -55,12 +55,43 @@ jobs:
           DATABASE_URL=postgresql+asyncpg://ask_docu_mind:secret@localhost:5432/ask_docu_mind_postgres
           ANONYMOUS_TOKEN_SECRET=ci-anonymous-token-secret-32-chars-min
           CORS_ORIGINS=["http://localhost:3000"]
-          S3_ACCESS_KEY_ID=unused
-          S3_SECRET_ACCESS_KEY=unused
+          S3_ENDPOINT_URL=http://localhost:9000
+          S3_ACCESS_KEY_ID=minio-admin
+          S3_SECRET_ACCESS_KEY=minio-secret
+          S3_REGION=us-east-1
           S3_BUCKET_NAME=askdocumind-uploads
           OPENAI_API_KEY=unused
           BRAVE_API_KEY=unused
           EOF
+
+      # The app checks the upload bucket at startup, so it needs a real one.
+      # Same pinned MinIO image as the e2e workflow.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 --user 0 \
+            -e MINIO_ROOT_USER=minio-admin \
+            -e MINIO_ROOT_PASSWORD=minio-secret \
+            cgr.dev/chainguard/minio:latest@sha256:3b6e40c30ecd5cea627e382ff0b82ca841f58c52294578787043ee80c8ef7c82 server /data
+          for _ in $(seq 1 30); do
+            curl -sf http://localhost:9000/minio/health/live && exit 0
+            sleep 2
+          done
+          docker logs minio
+          exit 1
+
+      - name: Create upload bucket
+        run: |
+          docker run --rm --network host --env-file ci.env \
+            askdocumind-api:ci python -c '
+          import os, boto3
+          boto3.client(
+              "s3",
+              endpoint_url=os.environ["S3_ENDPOINT_URL"],
+              aws_access_key_id=os.environ["S3_ACCESS_KEY_ID"],
+              aws_secret_access_key=os.environ["S3_SECRET_ACCESS_KEY"],
+              region_name=os.environ["S3_REGION"],
+          ).create_bucket(Bucket=os.environ["S3_BUCKET_NAME"])
+          '
 
       - name: Run migrations
         run: |

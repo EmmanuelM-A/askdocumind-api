@@ -33,7 +33,6 @@ _EXTRACTORS: dict[str, type[Extractor]] = {
 
 
 class ExtractorFactory:
-
     @staticmethod
     def get_extractor(extension: str) -> Extractor:
         """

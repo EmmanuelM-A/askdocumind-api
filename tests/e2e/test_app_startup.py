@@ -2,7 +2,10 @@
 Smoke test that runs the real app lifespan, so a startup crash fails the suite.
 """
 
+import uuid
+
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from src.app import create_app
@@ -46,3 +49,19 @@ def test_app_starts_with_reranker_disabled_and_null_pool(monkeypatch):
     with TestClient(create_app(), base_url="https://test") as client:
         assert isinstance(client.app.state.reranker, PassthroughReranker)
         _assert_healthy(client)
+
+
+def test_app_refuses_to_start_when_the_bucket_is_missing(monkeypatch):
+    if not settings.database.DATABASE_URL.get_secret_value():
+        pytest.skip("DATABASE_URL is not set")
+    monkeypatch.setattr(
+        settings.uploads, "S3_BUCKET_NAME", f"missing-{uuid.uuid4().hex}"
+    )
+    app = create_app()
+
+    with pytest.raises(HTTPException) as exc_info:
+        with TestClient(app, base_url="https://test"):
+            pass
+
+    assert exc_info.value.status_code == 500
+    assert not hasattr(app.state, "session_manager")

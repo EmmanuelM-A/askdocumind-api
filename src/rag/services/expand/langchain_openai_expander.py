@@ -16,7 +16,6 @@ _logger = logging.getLogger(__name__)
 
 
 class QueryExpanderConfig(BaseModel):
-
     max_attempts: int = 3
     prompt_template: ChatPromptTemplate
 

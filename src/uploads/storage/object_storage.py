@@ -12,6 +12,13 @@ class ObjectStorage(ABC):
     """Abstract interface for all object storage services."""
 
     @abstractmethod
+    def check_available(self) -> None:
+        """Raise when the storage cannot be reached or used."""
+        raise NotImplementedError(
+            "The method 'check_available' must be implemented by its subclasses."
+        )
+
+    @abstractmethod
     def save(self, key: str, data: bytes) -> None:
         """
         Store data under the specified key. If the key already exists, it

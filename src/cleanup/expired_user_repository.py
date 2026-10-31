@@ -17,7 +17,6 @@ from src.exceptions.decorators import (
 
 
 class ExpiredUserRepository(BaseRepository):
-
     @handle_sqlalchemy_exceptions(
         message="An error occurred while selecting expired users.",
         error_code="EXPIRED_USER_RETRIEVAL_ERROR",
