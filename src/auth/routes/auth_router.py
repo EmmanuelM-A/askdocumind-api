@@ -7,7 +7,7 @@ from src.auth.dependencies import get_anonymous_user_service, get_cookie_config
 from src.auth.services.anonymous_user_service import AnonymousUserService
 from src.auth.services.cookie_service import CookieConfig, set_cookie
 from src.config.configs import settings
-from src.middleware.rate_limiter import default_limit
+from src.middleware.rate_limiter import anonymous_init_limit
 from src.response.delivery import send_success_response
 
 auth_router = APIRouter(
@@ -20,7 +20,7 @@ auth_router = APIRouter(
     path="/anonymous/init",
     summary="Initialize an anonymous user session",
 )
-@default_limit
+@anonymous_init_limit
 async def init_anonymous_session(
     request: Request,
     anonymous_user_service: Annotated[

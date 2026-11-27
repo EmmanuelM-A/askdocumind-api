@@ -86,6 +86,9 @@ class _ServerSettings(_BaseSettings):
     MAX_CONCURRENCY: int = Field(
         default=50, ge=1, le=500, validation_alias="SERVER_MAX_CONCURRENCY"
     )
+    # IPs whose X-Forwarded-For header uvicorn trusts for the client IP. Set
+    # it to "*" behind a proxy that the clients can't bypass, such as Railway.
+    FORWARDED_ALLOW_IPS: str = Field(default="127.0.0.1", min_length=1)
 
     MAX_REQUEST_BODY_SIZE_MB: float = Field(default=11.0, gt=0, le=60)
     MAX_CONCURRENT_REQUESTS: int = Field(default=10, ge=1, le=100)
@@ -94,12 +97,14 @@ class _ServerSettings(_BaseSettings):
     RATE_LIMIT_ENABLED: bool = Field(default=True)
     RATE_LIMIT_STORAGE_URI: str = Field(default="memory://")
 
-    # Per route group limits, in the limits notation (e.g. "10/minute")
+    # Per route group limits, in the limits notation (e.g. "10/minute").
+    # Separate several limits with ";" (e.g. "10/minute;100/day").
     RATE_LIMIT_HEALTH_SERVER: str = Field(default="60/minute")
     RATE_LIMIT_HEALTH_DB: str = Field(default="30/minute")
+    RATE_LIMIT_ANONYMOUS_INIT: str = Field(default="20/hour")
     RATE_LIMIT_CHAT_SESSION: str = Field(default="10/minute")
-    RATE_LIMIT_UPLOADS: str = Field(default="5/minute")
-    RATE_LIMIT_CHATBOT: str = Field(default="10/minute")
+    RATE_LIMIT_UPLOADS: str = Field(default="5/minute;30/day")
+    RATE_LIMIT_CHATBOT: str = Field(default="10/minute;100/day")
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
@@ -144,6 +149,7 @@ class _ServerSettings(_BaseSettings):
     @field_validator(
         "RATE_LIMIT_HEALTH_SERVER",
         "RATE_LIMIT_HEALTH_DB",
+        "RATE_LIMIT_ANONYMOUS_INIT",
         "RATE_LIMIT_CHAT_SESSION",
         "RATE_LIMIT_UPLOADS",
         "RATE_LIMIT_CHATBOT",
