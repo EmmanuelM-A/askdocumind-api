@@ -16,4 +16,8 @@ if __name__ == "__main__":
         port=settings.server.PORT,
         reload=(settings.server.ENV == "development"),
         limit_concurrency=settings.server.MAX_CONCURRENCY,
+        proxy_headers=True,
+        forwarded_allow_ips=settings.server.FORWARDED_ALLOW_IPS,
+        # RequestLoggerMiddleware logs each request in production
+        access_log=(settings.server.ENV != "production"),
     )

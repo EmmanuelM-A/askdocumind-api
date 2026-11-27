@@ -138,6 +138,11 @@ The API is deployed as a Docker image on Railway.
 - **Migrate:** run `alembic upgrade head` before each new version takes
   traffic. On Railway, this is the Pre-deploy Command.
 - **Health check:** use `/api/health/server`.
+- **Behind a proxy:** set `FORWARDED_ALLOW_IPS=*` so rate limits and logs use
+  the real client IP, not the proxy's. Only do this when clients can't reach
+  the API without going through the proxy, as on Railway.
+- **Rate limits:** the `RATE_LIMIT_*` settings accept several limits
+  separated by `;`, e.g. `RATE_LIMIT_CHATBOT=10/minute;100/day`.
 - **One instance only.** Background jobs and rate limits are kept in memory,
   so running more than one instance can process the same upload twice.
 - **Rolling back:** redeploy the previous deployment. If the bad release ran

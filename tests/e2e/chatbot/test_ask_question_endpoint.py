@@ -6,7 +6,7 @@ import uuid
 
 import pytest
 import pytest_asyncio
-from limits import parse
+from limits import parse_many
 
 from src.config.configs import settings
 from src.rag.schemas.retrieval import WebResult
@@ -16,7 +16,7 @@ from tests.e2e.chatbot.conftest import ANSWER
 pytestmark = pytest.mark.asyncio
 
 _QUESTION = "Where does the fleet gather?"
-_RATE_LIMIT = parse(settings.server.RATE_LIMIT_CHATBOT).amount
+_RATE_LIMIT = parse_many(settings.server.RATE_LIMIT_CHATBOT)[0].amount
 _WEB_RESULT = WebResult(
     url="https://example.com/moon", title="Moon facts", content="The moon is far."
 )

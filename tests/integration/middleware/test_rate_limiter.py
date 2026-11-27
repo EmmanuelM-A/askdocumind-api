@@ -9,7 +9,7 @@ import pytest_asyncio
 from fastapi import FastAPI, Request
 from fastapi.routing import APIRoute
 from httpx import ASGITransport, AsyncClient
-from limits import parse
+from limits import parse_many
 from pydantic import ValidationError
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIASGIMiddleware
@@ -30,9 +30,10 @@ pytestmark = pytest.mark.asyncio
 
 _ROOT = "/api"
 _USER_HEADER = "X-Test-User"
-_CHAT_SESSION_MAX = parse(settings.server.RATE_LIMIT_CHAT_SESSION).amount
-_HEALTH_SERVER_MAX = parse(settings.server.RATE_LIMIT_HEALTH_SERVER).amount
-_DEFAULT_MAX = parse(DEFAULT_LIMIT).amount
+_CHAT_SESSION_MAX = parse_many(settings.server.RATE_LIMIT_CHAT_SESSION)[0].amount
+_HEALTH_SERVER_MAX = parse_many(settings.server.RATE_LIMIT_HEALTH_SERVER)[0].amount
+_DEFAULT_MAX = parse_many(DEFAULT_LIMIT)[0].amount
+_DAILY_CAP = 3
 
 
 class _FakeAnonymousSession:
@@ -74,6 +75,12 @@ async def _default(request: Request):
     return {"ok": True}
 
 
+@limiter.shared_limit(f"{_DAILY_CAP + 2}/minute;{_DAILY_CAP}/day", scope="daily")
+async def _daily(request: Request):
+    _calls["count"] += 1
+    return {"ok": True}
+
+
 @pytest.fixture
 def calls():
     _calls["count"] = 0
@@ -92,6 +99,7 @@ def app():
     app.add_api_route("/sessions-b", _sessions_b)
     app.add_api_route("/chatbot", _chatbot)
     app.add_api_route("/default", _default)
+    app.add_api_route("/daily", _daily)
     return app
 
 
@@ -158,6 +166,15 @@ async def test_default_limit_applies_to_decorated_route(client):
     _assert_rate_limited(response, window_secs=settings.server.RATE_LIMIT_WINDOW_SECS)
 
 
+async def test_daily_cap_applies_below_minute_limit(client, calls):
+    await _exhaust(client, f"{_ROOT}/daily", _DAILY_CAP, user="u1")
+
+    response = await client.get(f"{_ROOT}/daily", headers={_USER_HEADER: "u1"})
+
+    assert response.status_code == 429
+    assert calls["count"] == _DAILY_CAP
+
+
 async def test_real_health_route_is_limited(client):
     await _exhaust(client, f"{_ROOT}/health/server", _HEALTH_SERVER_MAX)
 
@@ -202,9 +219,10 @@ async def test_disabled_limiter_does_not_limit(client, monkeypatch):
     await _exhaust(client, f"{_ROOT}/sessions-a", _CHAT_SESSION_MAX + 1, user="u1")
 
 
-async def test_invalid_limit_setting_is_rejected():
+@pytest.mark.parametrize("field", ["RATE_LIMIT_CHATBOT", "RATE_LIMIT_ANONYMOUS_INIT"])
+async def test_invalid_limit_setting_is_rejected(field):
     with pytest.raises(ValidationError):
-        _ServerSettings(RATE_LIMIT_CHATBOT="lots/minute")
+        _ServerSettings(**{field: "lots/minute"})
 
 
 @pytest.mark.parametrize(
@@ -225,7 +243,7 @@ async def test_every_api_route_has_a_rate_limit(module, router_name):
     expected = {
         "/health/server": settings.server.RATE_LIMIT_HEALTH_SERVER,
         "/health/db": settings.server.RATE_LIMIT_HEALTH_DB,
-        "/auth/anonymous/init": DEFAULT_LIMIT,
+        "/auth/anonymous/init": settings.server.RATE_LIMIT_ANONYMOUS_INIT,
         "/chat-session": settings.server.RATE_LIMIT_CHAT_SESSION,
         "/chatbot": settings.server.RATE_LIMIT_CHATBOT,
         "/uploads": settings.server.RATE_LIMIT_UPLOADS,
@@ -242,4 +260,4 @@ async def test_every_api_route_has_a_rate_limit(module, router_name):
         limit = overrides.get(route.path, expected[group])
 
         route_limits = limiter._route_limits.get(name, [])
-        assert [lim.limit for lim in route_limits] == [parse(limit)], route.path
+        assert [lim.limit for lim in route_limits] == parse_many(limit), route.path

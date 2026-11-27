@@ -40,6 +40,7 @@ limiter = Limiter(
 default_limit = limiter.limit(DEFAULT_LIMIT)
 health_server_limit = limiter.limit(settings.server.RATE_LIMIT_HEALTH_SERVER)
 health_db_limit = limiter.limit(settings.server.RATE_LIMIT_HEALTH_DB)
+anonymous_init_limit = limiter.limit(settings.server.RATE_LIMIT_ANONYMOUS_INIT)
 
 # Routes in a group share one budget per client
 chat_session_limit = limiter.shared_limit(
