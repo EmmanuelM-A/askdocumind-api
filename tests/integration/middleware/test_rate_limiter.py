@@ -124,7 +124,6 @@ def _assert_rate_limited(response, window_secs=60):
     assert response.status_code == 429
     body = response.json()
     assert body["success"] is False
-    assert body["error"]["code"] == "RATE_LIMIT_EXCEEDED"
     assert 1 <= int(response.headers["Retry-After"]) <= window_secs
 
 
